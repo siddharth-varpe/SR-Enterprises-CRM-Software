@@ -1,0 +1,10 @@
+{
+    "timestamp": "2026-08-27T09:48:50+02:00",
+    "status": "SENT",
+    "eventType": "SALE_CONFIRMATION",
+    "recipient": "kartikpawase07@gmail.com",
+    "recipientName": "Kartik Pawase",
+    "subject": "Order Confirmation: Sale #SALE-2026-0002",
+    "mailer": "smtp",
+    "error": null
+}

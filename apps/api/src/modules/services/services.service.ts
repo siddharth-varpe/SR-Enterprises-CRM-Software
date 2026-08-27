@@ -1,0 +1,98 @@
+import { servicesRepository } from './services.repository';
+import type {
+  ServiceQueryFilter,
+  CreateServiceInput,
+  UpdateServiceInput,
+  CompleteServiceInput,
+} from '@crm/validation';
+
+export class ServicesService {
+  async getServices(filters: ServiceQueryFilter) {
+    return servicesRepository.findPaginated(filters);
+  }
+
+  async getServiceById(id: string) {
+    const service = await servicesRepository.findById(id);
+    if (!service) {
+      throw new Error('Service record not found');
+    }
+    return service;
+  }
+
+  async getHeatmap(period: 'year' | 'month' | 'week' | 'day', dateFrom?: string, dateTo?: string) {
+    return servicesRepository.getHeatmapData(period, dateFrom, dateTo);
+  }
+
+  async getKPIs() {
+    return servicesRepository.getKPIs();
+  }
+
+  async getUpcomingServices(days = 7) {
+    return servicesRepository.getUpcomingServices(days);
+  }
+
+  async getOverdueServices() {
+    return servicesRepository.getOverdueServices();
+  }
+
+  async createService(input: CreateServiceInput, createdById?: string) {
+    const result = await servicesRepository.createService(input, createdById);
+    try {
+      const { domainEventBus } = await import('../notifications/events/event-bus');
+      domainEventBus.publish(
+        'SERVICE_SCHEDULED',
+        'SERVICE',
+        result.service.id,
+        {
+          serviceNumber: result.service.serviceNumber,
+          customerId: result.service.customerId,
+          scheduledDate: result.service.scheduledDate,
+        },
+        createdById
+      );
+    } catch (e) {
+      console.error('Failed to emit SERVICE_SCHEDULED event:', e);
+    }
+    return result;
+  }
+
+  async updateService(id: string, input: UpdateServiceInput, actorId?: string) {
+    return servicesRepository.updateService(id, input, actorId);
+  }
+
+  async cancelService(id: string, cancelReason: string, actorId?: string) {
+    return servicesRepository.cancelService(id, cancelReason, actorId);
+  }
+
+  async completeService(id: string, input: CompleteServiceInput, actorId?: string) {
+    const result = await servicesRepository.completeService(id, input, actorId);
+    try {
+      const { domainEventBus } = await import('../notifications/events/event-bus');
+      domainEventBus.publish(
+        'SERVICE_COMPLETED',
+        'SERVICE',
+        id,
+        {
+          serviceNumber: (result as any)?.service?.serviceNumber || 'Service',
+        },
+        actorId
+      );
+
+      // Trigger transactional service completion email
+      import('../notifications/email.service').then(({ emailService }) => {
+        emailService.sendServiceCompleted(id).catch((err) => {
+          console.error('[ServicesService] Error dispatching service completed email:', err);
+        });
+      }).catch(() => {});
+    } catch (e) {
+      console.error('Failed to emit SERVICE_COMPLETED event:', e);
+    }
+    return result;
+  }
+
+  async listTechnicians() {
+    return servicesRepository.listTechnicians();
+  }
+}
+
+export const servicesService = new ServicesService();

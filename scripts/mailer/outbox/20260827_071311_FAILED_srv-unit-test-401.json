@@ -1,0 +1,10 @@
+{
+    "timestamp": "2026-08-27T07:13:11+02:00",
+    "status": "FAILED",
+    "eventType": "SERVICE_COMPLETED",
+    "recipient": "vikram.singh@example.com",
+    "recipientName": "Vikram Singh",
+    "subject": "Service Completed: #SRV-2026-401",
+    "mailer": "mail",
+    "error": "PHPMailer error: Could not instantiate mail function."
+}

@@ -1,0 +1,10 @@
+{
+    "timestamp": "2026-08-27T07:27:28+02:00",
+    "status": "SENT",
+    "eventType": "GENERAL",
+    "recipient": "worker.test@example.com",
+    "recipientName": "Worker Test",
+    "subject": "Queue Test Notification",
+    "mailer": "mail",
+    "error": null
+}

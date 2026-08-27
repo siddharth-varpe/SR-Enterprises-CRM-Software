@@ -1,0 +1,11 @@
+{
+    "timestamp": "2026-08-26T20:32:30+02:00",
+    "to": "customer.test@example.com",
+    "name": "Ramesh Kulkarni",
+    "invoiceNumber": "INV-2026-0001",
+    "dueAmount": 12500,
+    "dueDate": "2026-09-03",
+    "subject": "Payment Due Reminder: Invoice #INV-2026-0001 - SR Enterprises",
+    "status": "SENT",
+    "mailer": "mail"
+}

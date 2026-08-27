@@ -1,0 +1,10 @@
+{
+    "timestamp": "2026-08-27T07:00:33+02:00",
+    "status": "SENT",
+    "eventType": "WARRANTY_EXPIRY_REMINDER",
+    "recipient": "anita.deshmukh@example.com",
+    "recipientName": "Anita Deshmukh",
+    "subject": "",
+    "mailer": "mail",
+    "error": null
+}

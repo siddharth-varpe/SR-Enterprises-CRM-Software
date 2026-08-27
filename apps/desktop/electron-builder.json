@@ -1,0 +1,37 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.srenterprises.crm",
+  "productName": "SR Enterprises CRM",
+  "copyright": "Copyright © 2026 SR Enterprises",
+  "directories": {
+    "output": "../../dist-release",
+    "buildResources": "build"
+  },
+  "files": [
+    "dist/**/*",
+    "package.json",
+    "../../apps/api/dist/**/*",
+    "../../apps/web/dist/**/*"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "publisherName": "SR Enterprises",
+    "requestedExecutionLevel": "asInvoker"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "allowElevation": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "SR Enterprises CRM",
+    "uninstallDisplayName": "SR Enterprises CRM",
+    "deleteAppDataOnUninstall": false,
+    "runAfterFinish": true
+  }
+}

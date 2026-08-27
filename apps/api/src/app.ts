@@ -1,0 +1,137 @@
+import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
+import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import cookie from '@fastify/cookie';
+import sensible from '@fastify/sensible';
+import rateLimit from '@fastify/rate-limit';
+import fastifyStatic from '@fastify/static';
+import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { API_PREFIX, RATE_LIMITS } from '@crm/shared';
+import { env } from './config/env.js';
+import { requestIdMiddleware } from './middleware/request-id.js';
+import { centralizedErrorHandler } from './middleware/error-handler.js';
+import { healthRoutes } from './routes/health.js';
+import { v1Routes } from './routes/v1/index.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+function getLoggerConfig() {
+  if (env.NODE_ENV === 'test') {
+    return false;
+  }
+  if (env.NODE_ENV === 'development') {
+    return {
+      level: env.LOG_LEVEL,
+      transport: {
+        target: 'pino-pretty',
+        options: { colorize: true },
+      },
+    };
+  }
+  return {
+    level: env.LOG_LEVEL,
+  };
+}
+
+export function buildApp(opts: FastifyServerOptions = {}): FastifyInstance {
+  const loggerConfig = getLoggerConfig();
+
+  const fastify = Fastify({
+    logger: loggerConfig,
+    trustProxy: true,
+    ...opts,
+  });
+
+  // 1. Security Headers (Helmet)
+  fastify.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
+        fontSrc: ["'self'", 'https:', 'data:'],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        objectSrc: ["'none'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", 'https:', "'unsafe-inline'"],
+      },
+    },
+    frameguard: { action: 'deny' },
+    noSniff: true,
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    crossOriginResourcePolicy: { policy: 'same-site' },
+  });
+
+  // 2. CORS
+  fastify.register(cors, {
+    origin: (origin, cb) => {
+      // Allow requests with no origin (like desktop shell, mobile apps, curl) or matching web url
+      if (!origin || origin === env.WEB_URL || env.NODE_ENV !== 'production') {
+        cb(null, true);
+        return;
+      }
+      cb(new Error('CORS Not Allowed'), false);
+    },
+    credentials: true,
+  });
+
+  // 3. Cookies
+  fastify.register(cookie, {
+    secret: env.COOKIE_SECRET,
+    hook: 'onRequest',
+  });
+
+  // 4. Rate Limiting
+  fastify.register(rateLimit, {
+    max: RATE_LIMITS.DEFAULT_MAX_REQUESTS,
+    timeWindow: RATE_LIMITS.DEFAULT_TIME_WINDOW_MS,
+    allowList: ['127.0.0.1', 'localhost'],
+  });
+
+  // 5. Fastify Sensible
+  fastify.register(sensible);
+
+  // 6. Request Correlation ID
+  fastify.addHook('preHandler', requestIdMiddleware);
+
+  // 7. Centralized Error Handler
+  fastify.setErrorHandler((error, request, reply) => {
+    return centralizedErrorHandler(error, request, reply);
+  });
+
+  // 8. Register Routes
+  // Infrastructure routes: /health and /ready
+  fastify.register(healthRoutes);
+
+  // Versioned API routes: /api/v1
+  fastify.register(v1Routes, { prefix: API_PREFIX });
+
+  // 9. Static SPA Serving for Desktop & Production
+  const webDistPath = path.resolve(__dirname, '../../web/dist');
+  if (fs.existsSync(webDistPath)) {
+    fastify.register(fastifyStatic, {
+      root: webDistPath,
+      prefix: '/',
+      decorateReply: true,
+    });
+
+    fastify.setNotFoundHandler((request, reply) => {
+      const url = request.raw.url || '';
+      if (!url.startsWith(API_PREFIX) && !url.startsWith('/health') && !url.startsWith('/ready')) {
+        return reply.sendFile('index.html');
+      }
+      return reply.status(404).send({
+        statusCode: 404,
+        error: 'Not Found',
+        message: `Route ${request.method}:${request.url} not found`,
+      });
+    });
+  }
+
+  return fastify;
+}
+

@@ -1,0 +1,10 @@
+{
+    "timestamp": "2026-08-27T09:03:50+02:00",
+    "status": "SENT",
+    "eventType": "SERVICE_COMPLETED",
+    "recipient": "vikram.singh@example.com",
+    "recipientName": "Vikram Singh",
+    "subject": "Service Completed: #SRV-2026-401",
+    "mailer": "smtp",
+    "error": null
+}

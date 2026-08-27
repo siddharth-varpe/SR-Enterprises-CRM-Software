@@ -1,0 +1,10 @@
+{
+    "timestamp": "2026-08-27T11:52:24+02:00",
+    "status": "SENT",
+    "eventType": "WARRANTY_EXPIRY",
+    "recipient": "customer.warranty@example.com",
+    "recipientName": "Anita Joshi",
+    "subject": "Warranty Expiry Reminder: 30 Days Remaining for SR Aqua Prime 15L Commercial RO \u2014 SR Enterprises",
+    "mailer": "smtp",
+    "error": null
+}

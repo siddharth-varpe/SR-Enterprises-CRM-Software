@@ -1,0 +1,1521 @@
+SR ENTERPRISES CRM — PRODUCT & ENGINEERING REQUIREMENTS
+==========================================================
+
+Document Type:
+    Master Product Requirements / Engineering Requirements
+
+Purpose:
+    This file is the single high-level requirements reference for building
+    the SR Enterprises CRM. It defines product scope, architecture,
+    functionality, UX, security, data relationships, integrations,
+    performance, deployment, and quality requirements.
+
+IMPORTANT:
+    This is NOT a Python dependency file. The project is TypeScript/Node.js
+    based. JavaScript/TypeScript dependencies must be maintained separately
+    in package.json / package-lock.json.
+
+==========================================================
+1. PRODUCT IDENTITY
+==========================================================
+
+Product Name:
+    SR Enterprises CRM
+
+Business:
+    RO water purifier sales, spare-parts sales, RO repair and home-service
+    business.
+
+Primary Product Type:
+    Deployed, web-first CRM with Progressive Web App (PWA) installation.
+
+Desktop Experience:
+    The CRM must be installable from supported browsers such as Chrome/Edge
+    through the browser's native PWA installation experience. After
+    installation it should open in an app-like window.
+
+Primary Deployment Model:
+    Cloud/deployed application.
+
+Connectivity:
+    Online-first. Internet is required for server-backed operations.
+    The application should gracefully detect and communicate connectivity
+    status.
+
+==========================================================
+2. CORE ARCHITECTURE
+==========================================================
+
+Frontend:
+    React
+    TypeScript
+    Vite
+
+PWA:
+    Vite PWA / Service Worker
+    Web App Manifest
+    HTTPS
+    Installable desktop experience
+
+UI:
+    Tailwind CSS
+    shadcn/ui
+    Lucide icons
+
+Charts:
+    Apache ECharts
+
+Client State:
+    Zustand
+
+Server State:
+    TanStack Query
+
+Forms:
+    React Hook Form
+
+Frontend Validation:
+    Zod
+
+Backend:
+    Node.js
+    TypeScript
+    Fastify
+
+Database:
+    PostgreSQL 18
+
+ORM:
+    Drizzle ORM
+
+Cache / transient state:
+    Redis
+
+Background Jobs:
+    BullMQ + Redis
+
+Realtime:
+    Socket.IO
+
+Object/File Storage:
+    S3-compatible object storage; initial recommended provider: Cloudflare R2
+
+Authentication:
+    Server-side authentication
+    Secure HTTP-only cookies
+    Argon2id password hashing
+
+Infrastructure:
+    Docker
+    Cloudflare
+    HTTPS
+    WAF/CDN/DNS
+
+Monitoring:
+    Sentry + infrastructure monitoring
+
+Testing:
+    Vitest
+    React Testing Library
+    Playwright
+
+CI/CD:
+    GitHub Actions
+
+==========================================================
+3. DESIGN PRINCIPLES
+==========================================================
+
+The product must:
+    - Feel like a professionally designed commercial SaaS.
+    - Never look like a generic AI-generated dashboard.
+    - Prioritize clarity over information density.
+    - Use consistent spacing, typography, icons, components and interaction
+      patterns.
+    - Be fast and responsive.
+    - Be usable on desktop, tablet and mobile.
+    - Avoid unnecessary modules and navigation items.
+    - Keep the sidebar consistent across all pages.
+    - Avoid visual clutter.
+    - Use meaningful empty states, loading states and error states.
+    - Use smooth, purposeful animations only.
+    - Never sacrifice usability for visual effects.
+
+Theme:
+    - Main application background: white / very light neutral.
+    - Primary dark brand/navy color family.
+    - Primary brand accent: blue.
+    - Secondary accents may be used for status communication.
+    - Accent colors must be restrained and consistent.
+    - Avoid excessive gradients and excessive colors.
+    - Sidebar design must remain visually consistent across every page.
+
+Sidebar:
+    Main options:
+        Dashboard
+        Customers
+        Sales
+        Invoices
+        Services
+        Inquiries
+        Analytics
+        Warranty
+        Technicians
+        Notifications
+        Settings
+
+    Sidebar requirements:
+        - Same design across all pages.
+        - Icons must be consistent.
+        - Active page must be clearly highlighted.
+        - Sidebar must support responsive behavior.
+        - Tooltips should identify icons where labels are hidden.
+        - Do not add unrelated ERP modules.
+
+Explicitly excluded from main navigation:
+    Reports
+    Quotations
+    Suppliers
+    Purchases
+    Inventory
+    Payroll
+    HR
+    Marketing Automation
+
+==========================================================
+4. SINGLE SOURCE OF TRUTH
+==========================================================
+
+PostgreSQL is the authoritative business-data source.
+
+The same business entity must never be duplicated unnecessarily.
+
+Core principle:
+    Enter data once -> derive and reuse it everywhere.
+
+Example:
+    Sale
+      -> Customer Asset
+      -> Invoice
+      -> Warranty
+      -> Service Schedule
+      -> Customer Activity
+      -> Analytics
+
+A customer profile must aggregate related business records rather than
+maintaining duplicate copies.
+
+==========================================================
+5. CUSTOMER MANAGEMENT
+==========================================================
+
+Customer entity must support:
+
+    Customer ID
+    Full name
+    Phone
+    Email
+    Address
+    Billing address
+    Service address
+    Customer type
+    Company/organization where applicable
+    GST information where applicable
+    Customer status
+    Customer creation date
+    Assigned staff/technician where applicable
+    Notes
+    Communication preferences
+
+Customer profile must include:
+
+    Overview
+    Services
+    Invoices
+    Payments
+    Notes
+    Documents
+    Activity
+
+Customer profile must show:
+
+    - Customer details
+    - Customer assets
+    - RO machines
+    - Spare parts
+    - Sales history
+    - Invoice history
+    - Payment history
+    - Service history
+    - Warranty history
+    - Job cards
+    - Customer activity timeline
+    - Notes
+    - Relevant communication information
+
+Customer activity history must automatically record important events.
+
+==========================================================
+6. CUSTOMER ASSETS
+==========================================================
+
+Assets include:
+
+    RO machines
+    Spare parts
+
+Every asset must be linked to a customer.
+
+RO machine asset data should support:
+
+    Asset ID
+    Brand
+    Model
+    Serial number
+    Product image
+    Sale date
+    Purchase price
+    Warranty start
+    Warranty end
+    Warranty status
+    Service interval
+    Next service date
+    Service history
+    Related invoice
+    Related sale
+    Notes
+
+Spare-part asset data should support:
+
+    Asset ID
+    Spare-part name
+    Part identifier/SKU where applicable
+    Quantity where applicable
+    Sale date
+    Warranty start
+    Warranty end
+    Warranty status
+    Related invoice
+    Related sale
+    Replacement history
+
+==========================================================
+7. SALES
+==========================================================
+
+Sale categories:
+    RO Machines
+    Spare Parts
+
+Sales page must provide:
+    - Clean sales listing
+    - Search
+    - Filtering
+    - Date filtering
+    - Customer filtering
+    - Product filtering
+    - Sale details
+    - Product image
+    - Customer details
+    - Price breakdown
+    - Discounts where applicable
+    - Tax where applicable
+    - Warranty information
+    - Next service due date
+    - Invoice relationship
+
+On sale completion:
+
+    1. Create sale
+    2. Create/update customer asset
+    3. Create warranty if applicable
+    4. Create invoice
+    5. Create service schedule if applicable
+    6. Create customer activity event
+    7. Update analytics
+    8. Update service heatmap data
+
+All related operations must be transactional.
+
+==========================================================
+8. INVOICES
+==========================================================
+
+Invoice requirements:
+
+    - Generate invoice from sale/service data.
+    - Professional printable invoice.
+    - Save invoice locally/cached where appropriate.
+    - Store invoice document in object storage.
+    - Associate invoice with customer.
+    - Associate invoice with sale.
+    - Track invoice status.
+    - Track payment status.
+    - Support invoice search and filtering.
+    - Support invoice detail view.
+    - Support print.
+    - Support download.
+    - Support WhatsApp sending.
+    - Maintain invoice history.
+
+Invoice statuses may include:
+
+    Draft
+    Pending
+    Partially Paid
+    Paid
+    Overdue
+    Cancelled
+
+Invoice numbering must be unique and generated server-side.
+
+==========================================================
+9. PAYMENTS
+==========================================================
+
+Payment functionality is part of the CRM but does NOT require a top-level
+Payments item in the main sidebar.
+
+Payments are accessible through:
+    Customer profile
+    Invoice
+    Dashboard
+    Notifications
+    Analytics
+
+Payment data:
+    Payment ID
+    Invoice ID
+    Customer ID
+    Amount
+    Payment date
+    Due date
+    Payment method
+    Reference number where applicable
+    Status
+    Notes
+
+Payment statuses:
+    Unpaid
+    Partially Paid
+    Scheduled
+    Due Today
+    Overdue
+    Paid
+
+Late payment detection must be automatic.
+
+Rule:
+    outstanding_amount > 0 AND current_date > due_date
+    => Overdue
+
+Never require the user to manually mark an invoice overdue.
+
+==========================================================
+10. PAYMENT REMINDERS
+==========================================================
+
+The system must support:
+
+    Upcoming payment reminders
+    Due-today reminders
+    Overdue reminders
+
+Reminder configuration should support configurable intervals such as:
+    1 day
+    3 days
+    7 days
+    14 days
+
+Avoid excessive duplicate notifications.
+
+Payment reminders may be sent/displayed through:
+    CRM notifications
+    WhatsApp integration
+    Other configured communication channels
+
+==========================================================
+11. SERVICES
+==========================================================
+
+Services are a core module.
+
+Service category filter:
+    All
+    Doorstep
+    In-Shop
+
+Service classification:
+    General Services
+    Warranty Services
+
+Both filters must work together.
+
+Examples:
+    All + Warranty
+    Doorstep + Warranty
+    In-Shop + General
+    All + General
+
+Main Service page must contain:
+    Upcoming/Due Services
+    Service Heatmap
+    Service listing
+    Completed Services
+    Service details
+    Service timeline
+    Job cards
+    Technician assignment
+    Service scheduling
+
+==========================================================
+12. SERVICE HEATMAP
+==========================================================
+
+The service heatmap is mandatory.
+
+Visual reference:
+    GitHub-style contribution/activity heatmap.
+
+Requirements:
+    - Square cells.
+    - Activity intensity represented by cell intensity.
+    - Clear legend from low to high activity.
+    - Current day highlighted distinctly.
+    - Selected date/range clearly indicated.
+    - Clicking a cell displays services for that date.
+    - Services appear below/alongside the heatmap.
+    - Heatmap data must be generated from actual service schedules.
+    - No mock/static heatmap data in production.
+
+Time filters:
+    Year
+    Month
+    Week
+    Day
+
+Current period highlighting:
+    - Day mode: current day highlighted.
+    - Week mode: current week highlighted.
+    - Month mode: current month highlighted.
+    - Year mode: current year highlighted.
+
+Clicking a heatmap period must filter the service list.
+
+Service list details should include:
+    Service ID
+    Customer
+    Phone
+    Address
+    Machine/asset
+    Service type
+    Warranty/general classification
+    Technician
+    Scheduled date
+    Scheduled time
+    Status
+    Job card
+    Relevant notes
+
+==========================================================
+13. WARRANTY SERVICES
+==========================================================
+
+Warranty services are automatically generated from product warranty data.
+
+Example:
+    Machine warranty = 2 years
+    Service interval = 6 months
+
+System generates:
+    Service 1
+    Service 2
+    Service 3
+    Service 4
+
+The service schedule must immediately appear in the heatmap.
+
+Warranty service status must automatically change when warranty expires.
+
+Rule:
+    If service is within active warranty coverage:
+        Warranty Service
+
+    If warranty has expired:
+        General Service
+
+The system must not require manual reclassification.
+
+==========================================================
+14. GENERAL SERVICES
+==========================================================
+
+General service is created when a technician recommends a future service.
+
+Example:
+    Technician completes service.
+    Technician recommends next service after 2 months.
+    User schedules next service.
+    Service appears in upcoming services and heatmap.
+
+Do not create future general-service records unless the user/technician
+actually schedules the next service.
+
+==========================================================
+15. SERVICE COMPLETION
+==========================================================
+
+When technician completes a service:
+
+    - Mark service complete.
+    - Create/update job card.
+    - Record technician.
+    - Record completion time.
+    - Record work performed.
+    - Record parts used.
+    - Record charges.
+    - Record notes.
+    - Record customer confirmation where applicable.
+    - Update service timeline.
+    - Update customer activity.
+    - Update analytics.
+    - Optionally create next service schedule.
+
+Completed services must be available under the completed-services view.
+
+==========================================================
+16. SERVICE TIMELINE
+==========================================================
+
+For warranty products with scheduled services:
+
+Example:
+    2-year warranty
+    Service every 6 months
+
+Timeline:
+    1 of 4 Pending
+    2 of 4 Pending
+    3 of 4 Pending
+    4 of 4 Pending
+
+After completion:
+    1 of 4 Completed
+    2 of 4 Pending
+    3 of 4 Pending
+    4 of 4 Pending
+
+Completed service must be visually distinguished.
+
+==========================================================
+17. JOB CARDS
+==========================================================
+
+Job Card belongs to the Services workflow.
+
+Service != Job Card.
+
+Service:
+    Scheduled business activity.
+
+Job Card:
+    Actual work performed.
+
+Job card lifecycle:
+    Scheduled
+    Assigned
+    Technician Started
+    Diagnosis
+    Work In Progress
+    Completed
+    Customer Confirmation
+    Closed
+
+Job card data:
+    Job Card ID
+    Service ID
+    Customer
+    Asset
+    Technician
+    Problem reported
+    Diagnosis
+    Work performed
+    Parts used
+    Technician notes
+    Customer remarks
+    Start time
+    Completion time
+    Charges
+    Next service recommendation
+    Attachments
+    Completion status
+
+==========================================================
+18. SPARE PART WARRANTY
+==========================================================
+
+Spare parts must have their own warranty lifecycle.
+
+Example:
+    Spare warranty = 6 months
+
+If defective within warranty:
+    Customer receives free replacement.
+
+If warranty expired:
+    Customer must purchase replacement.
+
+Warranty validation must be automatic.
+
+At shop/service interaction:
+    Search customer
+    Select spare-part asset
+    Check warranty status
+    If active -> replacement eligible
+    If expired -> paid replacement
+
+Replacement must be recorded in customer history.
+
+==========================================================
+19. INQUIRIES
+==========================================================
+
+Website inquiries must be received by the CRM through a secure HTTPS API.
+
+Preferred architecture:
+    Website
+      -> Fastify API
+      -> PostgreSQL
+      -> CRM
+
+Inquiry data:
+    Inquiry ID
+    Name
+    Phone
+    Email
+    Message
+    Product/service interest
+    Source
+    Created date
+    Status
+    Assigned user
+    Follow-up date
+    Notes
+    Conversion status
+
+Inquiry statuses:
+    New
+    Contacted
+    In Progress
+    Converted
+    Closed
+
+The website must never directly access PostgreSQL.
+
+==========================================================
+20. ANALYTICS
+==========================================================
+
+Analytics page is the main analytical dashboard.
+
+It must include actual calculated data, not mock values.
+
+Possible analytics:
+    Sales
+    Revenue
+    Gross profit
+    Product performance
+    Spare-part performance
+    Service performance
+    Warranty activity
+    Technician performance
+    Customer growth
+    Inquiry conversion
+    Payment/receivables
+    Outstanding amounts
+    Overdue amounts
+    Service completion
+    Service category distribution
+
+Analytics calculations must be derived from transactional data.
+
+Dashboard itself should NOT become a full analytics page.
+
+==========================================================
+21. DASHBOARD
+==========================================================
+
+Dashboard must remain clean.
+
+Do NOT overload the dashboard with large analytical charts.
+
+Primary dashboard information:
+    Services due today
+    New inquiries
+    Warranties expiring
+    Payments due
+    Technicians on duty
+    Today's overview
+    Today's schedule
+    Payment reminders
+    Important notifications
+
+Dashboard is for:
+    "What requires attention today?"
+
+Analytics is for:
+    "How is the business performing?"
+
+==========================================================
+22. CUSTOMER ACTIVITY HISTORY
+==========================================================
+
+Every important customer event should create an activity event.
+
+Examples:
+    Customer created
+    Customer updated
+    Sale completed
+    Invoice generated
+    Invoice sent
+    Payment received
+    Payment overdue
+    Service scheduled
+    Service completed
+    Job card created
+    Job card completed
+    Warranty activated
+    Warranty expiring
+    Warranty expired
+    Warranty replacement
+    Website inquiry converted
+    Customer archived
+
+Activity record:
+    Activity ID
+    Customer ID
+    Actor
+    Event type
+    Entity type
+    Entity ID
+    Description
+    Timestamp
+    Metadata
+
+==========================================================
+23. AUDIT LOG
+==========================================================
+
+Audit log is separate from customer activity.
+
+Audit log records security/administrative changes.
+
+Record:
+    Who
+    What
+    When
+    Entity
+    Entity ID
+    Before state where appropriate
+    After state where appropriate
+    Reason where required
+
+Examples:
+    Customer edited
+    Sale modified
+    Invoice cancelled
+    Payment modified
+    User permission changed
+    Customer archived
+    Record restored
+
+Critical audit records must not be editable through the normal UI.
+
+==========================================================
+24. DELETE / ARCHIVE
+==========================================================
+
+Default behavior:
+    Soft delete / archive.
+
+Important records should not normally be permanently deleted.
+
+Applicable records:
+    Customers
+    Sales
+    Invoices
+    Services
+    Job Cards
+    Payments
+    Warranty records
+
+Permanent deletion, where permitted, requires:
+    Administrator permission
+    Confirmation
+    Authentication/re-authentication
+    Reason
+    Audit log
+
+Records with financial/legal significance should generally be archived
+rather than permanently deleted.
+
+==========================================================
+25. NOTIFICATIONS
+==========================================================
+
+Notifications include:
+    Service reminders
+    Warranty reminders
+    Payment reminders
+    Late payments
+    New inquiries
+    Job card updates
+    Invoice events
+    System alerts
+
+Notifications should:
+    - Be actionable.
+    - Link to the relevant record.
+    - Avoid duplicate spam.
+    - Support read/unread state.
+    - Support appropriate priority.
+
+==========================================================
+26. TECHNICIANS
+==========================================================
+
+Technician records:
+    Technician ID
+    Name
+    Phone
+    Email where applicable
+    Status
+    Availability
+    Skills
+    Assigned services
+    Job cards
+    Completion statistics
+    Performance metrics
+
+Technician page should show:
+    Current workload
+    Upcoming services
+    Completed services
+    Job cards
+    Performance
+
+==========================================================
+27. AUTHENTICATION & SECURITY
+==========================================================
+
+Login:
+    Username
+    Pre-set password
+    CRM-generated CAPTCHA
+
+CAPTCHA:
+    - Generated by backend.
+    - Short-lived.
+    - Server validated.
+    - Invalidated after use.
+    - Regenerated after failed authentication where appropriate.
+
+Login protection:
+    Maximum 3 failed attempts.
+    Server-side rate limiting.
+    Temporary lockout after limit.
+    Refreshing browser must not reset attempts.
+
+Passwords:
+    Argon2id hashing.
+    Never store plaintext passwords.
+
+Sessions:
+    Secure HTTP-only cookies.
+    Secure flag in production.
+    SameSite configured appropriately.
+    Session expiry.
+    Logout invalidation.
+    Optional inactivity lock.
+
+Secrets:
+    Never store API secrets in frontend code.
+    Never expose service credentials to browser JavaScript.
+    Never store secrets in localStorage.
+
+==========================================================
+28. AUTHORIZATION
+==========================================================
+
+Use role-based access control.
+
+Initial roles:
+    Super Admin
+    Admin
+    Staff
+    Technician
+
+Permissions should be granular.
+
+Examples:
+    customers.view
+    customers.create
+    customers.update
+    customers.archive
+
+    sales.view
+    sales.create
+    sales.update
+
+    invoices.view
+    invoices.create
+    invoices.cancel
+
+    services.view
+    services.create
+    services.complete
+
+    payments.view
+    payments.create
+    payments.modify
+
+    settings.manage
+    users.manage
+    audit.view
+
+Do not rely on hiding buttons in React as authorization.
+
+Backend must enforce every permission.
+
+==========================================================
+29. DATA INTEGRITY
+==========================================================
+
+Use database transactions for multi-step business operations.
+
+Example sale transaction:
+    Create sale
+    Create invoice
+    Create/update customer asset
+    Create warranty
+    Create service schedules
+    Create activity event
+
+If any critical operation fails:
+    Roll back the transaction.
+
+Use:
+    Foreign keys
+    Unique constraints
+    Check constraints where useful
+    Proper indexes
+    Server-side validation
+
+==========================================================
+30. REAL-TIME FEATURES
+==========================================================
+
+Use Socket.IO for appropriate real-time events.
+
+Examples:
+    New website inquiry
+    Payment received
+    Service status changed
+    Job card completed
+    Notification received
+
+Do not use WebSockets where simple request/response is sufficient.
+
+==========================================================
+31. SEARCH
+==========================================================
+
+Global search should support:
+    Customers
+    Sales
+    Invoices
+    Services
+    Job Cards
+    Warranty
+    Inquiries
+
+Search must be:
+    Fast
+    Debounced
+    Permission-aware
+    Case-insensitive where appropriate
+
+Customer search should support:
+    Name
+    Phone
+    Email
+    Customer ID
+
+Asset search should support:
+    Brand
+    Model
+    Serial number
+    Asset ID
+
+==========================================================
+32. RESPONSIVE DESIGN
+==========================================================
+
+Required:
+    Desktop
+    Tablet
+    Mobile
+
+Desktop:
+    Full sidebar
+    Multi-column layouts
+
+Tablet:
+    Responsive sidebar
+    Adaptive cards/tables
+
+Mobile:
+    Compact navigation
+    Responsive tables/cards
+    Touch-friendly controls
+    No horizontal overflow where avoidable
+
+The CRM must remain usable at standard desktop resolutions and common
+mobile widths.
+
+==========================================================
+33. PERFORMANCE
+==========================================================
+
+Target:
+    Fast startup.
+    Fast navigation.
+    Minimal unnecessary network requests.
+    Smooth scrolling.
+    No visible UI blocking during background work.
+
+Frontend:
+    Code splitting
+    Lazy routes
+    Image optimization
+    Query caching
+    Debounced search
+    Virtualized large tables where necessary
+    Avoid unnecessary re-renders
+
+Backend:
+    Proper indexes
+    Pagination
+    Efficient SQL
+    Caching where useful
+    Background jobs for heavy operations
+
+Database:
+    Indexed foreign keys
+    Indexed search fields where appropriate
+    Query analysis for slow queries
+
+==========================================================
+34. PWA REQUIREMENTS
+==========================================================
+
+Must include:
+    Web App Manifest
+    Service Worker
+    Application icons
+    App name
+    Short name
+    Start URL
+    Standalone display mode
+    Theme color
+    Background color
+    Appropriate application scope
+
+Install behavior:
+    Browser should recognize the application as installable.
+    Installed app should open in app-like window.
+
+Update behavior:
+    Detect new application versions.
+    Provide a clear update experience.
+    Do not silently break active sessions.
+
+==========================================================
+35. CONNECTIVITY
+==========================================================
+
+Display connection state.
+
+States:
+    Connected
+    Connecting
+    Offline
+    Syncing
+    Sync complete
+    Sync failed
+
+Online-only operations should communicate clearly when unavailable.
+
+Do not pretend that a write succeeded while the server has not confirmed it.
+
+==========================================================
+36. FILES & DOCUMENTS
+==========================================================
+
+Object storage:
+    Cloudflare R2 or equivalent S3-compatible storage.
+
+Store:
+    Invoice PDFs
+    Customer documents
+    Product images
+    Warranty documents
+    Job card attachments
+
+Database stores:
+    File ID
+    Object key
+    Original filename
+    MIME type
+    Size
+    Owner/entity
+    Upload timestamp
+    Metadata
+
+Validate:
+    File type
+    File size
+    Authorization
+
+Never trust client-provided MIME type alone.
+
+==========================================================
+37. WHATSAPP INTEGRATION
+==========================================================
+
+Support:
+    Invoice sending
+    Payment reminders
+    Service reminders where appropriate
+
+Architecture:
+    Browser
+      -> Fastify backend
+      -> WhatsApp Business API/provider
+      -> Customer
+
+Credentials remain server-side.
+
+Messaging should support:
+    Template messages where required
+    Dynamic customer data
+    Invoice data
+    Payment data
+    Service data
+
+Track message status where provider supports it.
+
+==========================================================
+38. BACKUPS
+==========================================================
+
+Database backups:
+    Automated
+    Encrypted
+    Retention policy
+    Backup verification
+
+Recommended:
+    Daily backup
+    Weekly retention
+    Monthly retention
+
+Files must also be included in backup/disaster-recovery strategy.
+
+Backup restore must be tested periodically.
+
+==========================================================
+39. DATABASE MIGRATIONS
+==========================================================
+
+All schema changes must use migrations.
+
+Never manually modify production schema.
+
+Migration requirements:
+    Versioned
+    Reproducible
+    Reversible where practical
+    Tested before production
+
+==========================================================
+40. API REQUIREMENTS
+==========================================================
+
+API:
+    REST/JSON
+    Versioned under /api/v1
+    HTTPS only in production
+
+API must implement:
+    Authentication
+    Authorization
+    Validation
+    Rate limiting
+    Pagination
+    Filtering
+    Sorting
+    Error handling
+    Consistent response structure
+
+Never expose internal database errors directly to users.
+
+==========================================================
+41. ERROR HANDLING
+==========================================================
+
+Every application operation must have:
+    Loading state
+    Success state
+    Error state
+    Empty state where applicable
+
+User-facing errors must be:
+    Clear
+    Actionable
+    Non-technical
+
+Internal logs must contain:
+    Error ID
+    Context
+    Request correlation ID
+    Stack trace where safe
+
+Never expose secrets or sensitive internal information in errors.
+
+==========================================================
+42. OBSERVABILITY
+==========================================================
+
+Use Sentry for:
+    Frontend exceptions
+    Backend exceptions
+    Performance monitoring
+
+Backend logs should include:
+    Timestamp
+    Request ID
+    User/session context where appropriate
+    Endpoint
+    Status
+    Duration
+
+Do not log:
+    Passwords
+    Tokens
+    API secrets
+    Sensitive customer information unnecessarily
+
+==========================================================
+43. TESTING REQUIREMENTS
+==========================================================
+
+Unit tests:
+    Business rules
+    Calculations
+    Validation
+    Warranty logic
+    Payment status logic
+    Service schedule logic
+
+Integration tests:
+    API
+    Database
+    Authentication
+    Permissions
+
+End-to-end tests:
+    Login
+    Customer creation
+    Sale
+    Invoice
+    Warranty
+    Service scheduling
+    Job card completion
+    Payment
+    Website inquiry conversion
+
+Critical workflow:
+    Sale
+      -> Asset
+      -> Invoice
+      -> Warranty
+      -> Service schedule
+      -> Heatmap
+      -> Customer activity
+
+==========================================================
+44. CODE ARCHITECTURE
+==========================================================
+
+Frontend structure should separate:
+    Pages
+    Components
+    Features
+    Hooks
+    API clients
+    Schemas
+    Stores
+    Utilities
+    Types
+
+Backend structure should separate:
+    Routes
+    Controllers/handlers
+    Services
+    Repositories
+    Schemas
+    Policies
+    Database
+    Jobs
+    Events
+    Workers
+    Integrations
+    Utilities
+
+Business logic must NOT be duplicated between unrelated modules.
+
+==========================================================
+45. DEVELOPMENT RULES FOR ANTIGRAVITY
+==========================================================
+
+Antigravity must:
+
+    - Treat this file as the master requirements reference.
+    - Never invent new modules without explicit approval.
+    - Never remove an approved requirement.
+    - Never replace the chosen technology stack without approval.
+    - Never introduce Laravel.
+    - Never introduce PHP.
+    - Never introduce Firebase as the primary backend.
+    - Never introduce Supabase as the primary backend.
+    - Never use SQLite as the production source of truth.
+    - Never use mock data in production workflows.
+    - Never hardcode business analytics.
+    - Never put secrets in frontend code.
+    - Never bypass backend authorization.
+    - Never directly access PostgreSQL from React.
+    - Never duplicate source-of-truth customer/sale/service data.
+    - Preserve existing UI/UX decisions when implementing new functionality.
+    - Use reusable components.
+    - Use typed interfaces/schemas.
+    - Add tests for important business logic.
+    - Keep accessibility in mind.
+    - Keep responsive behavior intact.
+    - Avoid unnecessary dependencies.
+    - Prefer maintainable, boring architecture over clever hacks.
+
+==========================================================
+46. PRODUCTION QUALITY BAR
+==========================================================
+
+The application must feel:
+
+    Professional
+    Fast
+    Secure
+    Reliable
+    Consistent
+    Premium
+    Maintainable
+    Scalable
+
+It must NOT feel:
+    Locally hacked together
+    AI-generated
+    Template-based
+    Over-animated
+    Cluttered
+    Fragile
+
+Every feature must be evaluated against:
+    UX
+    Security
+    Performance
+    Data integrity
+    Maintainability
+    Accessibility
+    Scalability
+
+==========================================================
+47. INITIAL SCOPE
+==========================================================
+
+Approved primary modules:
+
+    Dashboard
+    Customers
+    Sales
+    Invoices
+    Services
+    Inquiries
+    Analytics
+    Warranty
+    Technicians
+    Notifications
+    Settings
+
+Approved supporting functionality:
+
+    Customer Assets
+    Payments
+    Payment Reminders
+    Job Cards
+    Customer Activity History
+    Audit Logs
+    Website Inquiry API
+    WhatsApp Integration
+    Invoice PDF/Printing
+    Backup/Recovery
+    PWA Installation
+    Authentication/CAPTCHA
+    Role-Based Access Control
+
+Explicitly out of current scope:
+
+    Inventory Management
+    Supplier Management
+    Purchase Management
+    Quotations
+    HR
+    Payroll
+    Full Accounting ERP
+    Marketing Automation
+
+==========================================================
+48. PRODUCT NORTH STAR
+==========================================================
+
+The CRM must follow this principle:
+
+    ENTER DATA ONCE.
+    CONNECT IT TO THE CORRECT ENTITY.
+    DERIVE EVERYTHING ELSE AUTOMATICALLY.
+
+Example:
+
+    A machine sale should automatically establish:
+        Customer relationship
+        Asset record
+        Invoice
+        Warranty
+        Service schedule
+        Heatmap entries
+        Customer activity
+        Analytics data
+
+The user should not have to enter the same information repeatedly.
+
+==========================================================
+END OF MASTER REQUIREMENTS
+==========================================================

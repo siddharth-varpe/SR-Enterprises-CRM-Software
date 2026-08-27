@@ -1,0 +1,10 @@
+{
+    "timestamp": "2026-08-27T06:52:43+02:00",
+    "status": "SENT",
+    "eventType": "PAYMENT_RECEIPT",
+    "recipient": "test_customer@example.com",
+    "recipientName": "Test Customer",
+    "subject": "",
+    "mailer": "mail",
+    "error": null
+}

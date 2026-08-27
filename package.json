@@ -1,0 +1,35 @@
+{
+  "name": "sr-enterprises-crm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SR Enterprises CRM - Commercial-grade SaaS for RO sales, service, warranty & job card management",
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "dev": "turbo dev || pnpm --parallel --filter @crm/* dev",
+    "dev:api": "pnpm --filter @crm/api dev",
+    "dev:web": "pnpm --filter @crm/web dev",
+    "dev:desktop": "pnpm --filter @crm/desktop dev",
+    "build": "pnpm --recursive --filter @crm/* run build",
+    "build:desktop": "pnpm --recursive --filter @crm/* run build",
+    "package:win": "pnpm --filter @crm/desktop dist:win",
+    "test": "pnpm --recursive --filter @crm/* run test",
+    "test:e2e": "playwright test",
+    "lint": "pnpm --recursive --filter @crm/* run lint",
+    "typecheck": "pnpm --recursive --filter @crm/* run typecheck",
+    "format": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
+    "format:write": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "db:generate": "pnpm --filter @crm/api db:generate",
+    "db:migrate": "pnpm --filter @crm/api db:migrate",
+    "db:studio": "pnpm --filter @crm/api db:studio",
+    "mail:due": "php scripts/mailer/send_automated_due_reminders.php",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.1",
+    "@types/node": "^22.13.4",
+    "prettier": "^3.5.1",
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,0 +1,10 @@
+{
+    "timestamp": "2026-08-27T12:58:36+02:00",
+    "status": "SENT",
+    "eventType": "PAYMENT_RECEIPT",
+    "recipient": "varpes380@gmail.com",
+    "recipientName": "siddharth varpe",
+    "subject": "Payment Receipt & Invoice \u2014 INV-2026-0003 \u2014 SR Enterprises",
+    "mailer": "smtp",
+    "error": null
+}

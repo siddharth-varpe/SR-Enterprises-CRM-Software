@@ -1,0 +1,10 @@
+{
+    "timestamp": "2026-08-27T13:22:24+02:00",
+    "status": "SENT",
+    "eventType": "PAYMENT_REMINDER",
+    "recipient": "varpes380@gmail.com",
+    "recipientName": "siddharth varpe",
+    "subject": "Payment Reminder: Invoice #INV-2026-0007",
+    "mailer": "smtp",
+    "error": null
+}

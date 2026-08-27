@@ -1,0 +1,59 @@
+import { pgTable, uuid, text, boolean, timestamp, index } from 'drizzle-orm/pg-core';
+import { customerTypeEnum, customerStatusEnum, addressTypeEnum } from './enums';
+import { users } from './users';
+
+/**
+ * Customers Table (Core Entity)
+ */
+export const customers = pgTable(
+  'customers',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    customerNumber: text('customer_number').notNull().unique(), // e.g. CUST-2026-0001
+    fullName: text('full_name').notNull(),
+    phone: text('phone').notNull(),
+    email: text('email'),
+    customerType: customerTypeEnum('customer_type').default('INDIVIDUAL').notNull(),
+    companyName: text('company_name'),
+    gstNumber: text('gst_number'),
+    status: customerStatusEnum('status').default('ACTIVE').notNull(),
+    notes: text('notes'),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+    archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
+  },
+  (table) => [
+    index('customers_customer_number_idx').on(table.customerNumber),
+    index('customers_phone_idx').on(table.phone),
+    index('customers_email_idx').on(table.email),
+    index('customers_status_idx').on(table.status),
+    index('customers_created_at_idx').on(table.createdAt),
+  ]
+);
+
+/**
+ * Customer Addresses Table (Normalized Billing and Service Addresses)
+ */
+export const customerAddresses = pgTable(
+  'customer_addresses',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    customerId: uuid('customer_id')
+      .notNull()
+      .references(() => customers.id, { onDelete: 'cascade' }),
+    addressType: addressTypeEnum('address_type').default('SERVICE').notNull(),
+    addressLine1: text('address_line1').notNull(),
+    addressLine2: text('address_line2'),
+    landmark: text('landmark'),
+    city: text('city').notNull(),
+    state: text('state').notNull(),
+    postalCode: text('postal_code').notNull(),
+    isDefault: boolean('is_default').default(false).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('customer_addresses_customer_id_idx').on(table.customerId),
+  ]
+);

@@ -1,0 +1,10 @@
+{
+    "timestamp": "2026-08-27T09:45:16+02:00",
+    "status": "SENT",
+    "eventType": "PAYMENT_RECEIPT",
+    "recipient": "varpes380@gmail.com",
+    "recipientName": "PRABHATI FOODS PRIVATE LIMITED",
+    "subject": "Payment Receipt & Invoice \u2014 82026209 \u2014 SR Enterprises",
+    "mailer": "smtp",
+    "error": null
+}

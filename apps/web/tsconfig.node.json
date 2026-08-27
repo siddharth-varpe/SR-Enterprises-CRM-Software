@@ -1,0 +1,9 @@
+{
+  "extends": "@crm/config/tsconfig.node.json",
+  "compilerOptions": {
+    "composite": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler"
+  },
+  "include": ["vite.config.ts", "vitest.config.ts", "tailwind.config.js", "postcss.config.js"]
+}

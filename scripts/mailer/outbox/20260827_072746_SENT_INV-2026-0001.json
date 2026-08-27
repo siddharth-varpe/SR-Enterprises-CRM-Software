@@ -1,0 +1,10 @@
+{
+    "timestamp": "2026-08-27T07:27:46+02:00",
+    "status": "SENT",
+    "eventType": "PAYMENT_RECEIPT",
+    "recipient": "varpes380@gmail.com",
+    "recipientName": "Siddharth Varpe",
+    "subject": "Payment Receipt: PAY-2026-0001 for Invoice #INV-2026-0001",
+    "mailer": "mail",
+    "error": null
+}

@@ -1,0 +1,206 @@
+import React from 'react';
+import { Eye, MoreVertical, CheckCircle2, XCircle } from 'lucide-react';
+
+export interface CustomerRecord {
+  id: string;
+  customerNumber: string;
+  fullName: string;
+  initials: string;
+  phone: string;
+  email: string;
+  city: string;
+  address: string;
+  customerType: 'INDIVIDUAL' | 'COMMERCIAL';
+  lastServiceDate: string;
+  nextServiceDate: string;
+  nextServiceDays: number | 'Expired' | null;
+  status: 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+  summary: {
+    totalInvoices: string;
+    outstanding: string;
+    activeWarranty: string;
+    customerSince: string;
+  };
+  assets?: any[];
+  services?: any[];
+  invoices?: any[];
+  payments?: any[];
+  assetsCount: number;
+  servicesCount: number;
+  invoicesCount: number;
+  paymentsCount: number;
+}
+
+export interface CustomerTableProps {
+  customers: CustomerRecord[];
+  selectedCustomerId?: string;
+  onSelectCustomer: (customer: CustomerRecord) => void;
+  onViewProfile?: (customer: CustomerRecord) => void;
+  onActionClick?: (customer: CustomerRecord, e: React.MouseEvent) => void;
+  isLoading?: boolean;
+}
+
+export const CustomerTable: React.FC<CustomerTableProps> = ({
+  customers,
+  selectedCustomerId,
+  onSelectCustomer,
+  onViewProfile,
+  onActionClick,
+  isLoading,
+}) => {
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse select-none">
+          <thead>
+            <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              <th scope="col" className="py-3 px-4 pl-5">CUSTOMER</th>
+              <th scope="col" className="py-3 px-4">CONTACT</th>
+              <th scope="col" className="py-3 px-4">CITY</th>
+              <th scope="col" className="py-3 px-4">LAST SERVICE</th>
+              <th scope="col" className="py-3 px-4">NEXT SERVICE</th>
+              <th scope="col" className="py-3 px-4">STATUS</th>
+              <th scope="col" className="py-3 px-4 pr-5 text-right">ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 text-xs">
+            {customers.map((customer) => {
+              const isSelected = customer.id === selectedCustomerId;
+              const isExpired = customer.nextServiceDays === 'Expired';
+
+              return (
+                <tr
+                  key={customer.id}
+                  onClick={() => onSelectCustomer(customer)}
+                  className={`transition-colors cursor-pointer group relative ${
+                    isSelected
+                      ? 'bg-blue-50/50'
+                      : 'hover:bg-slate-50/80'
+                  }`}
+                >
+                  {/* Active selection bar on left edge */}
+                  {isSelected && (
+                    <td className="p-0">
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#1E88E5]" />
+                    </td>
+                  )}
+
+                  {/* 1. CUSTOMER (Avatar with initials + Name + Customer ID) */}
+                  <td className="py-3.5 px-4 pl-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold text-xs flex items-center justify-center shadow-2xs shrink-0">
+                        {customer.initials}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="font-bold text-slate-900 text-xs sm:text-sm block group-hover:text-[#1E88E5] transition-colors truncate">
+                          {customer.fullName}
+                        </span>
+                        <span className="text-[11px] text-slate-400 font-mono block">
+                          {customer.customerNumber}
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* 2. CONTACT (Phone primary + Email secondary) */}
+                  <td className="py-3.5 px-4">
+                    <div className="space-y-0.5">
+                      <span className="font-semibold text-slate-800 text-xs block font-mono">
+                        {customer.phone}
+                      </span>
+                      <span className="text-[11px] text-slate-400 block truncate max-w-[150px]">
+                        {customer.email}
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* 3. CITY */}
+                  <td className="py-3.5 px-4">
+                    <span className="font-medium text-slate-700 text-xs sm:text-sm">
+                      {customer.city}
+                    </span>
+                  </td>
+
+                  {/* 4. LAST SERVICE */}
+                  <td className="py-3.5 px-4">
+                    <span className="font-medium text-slate-700 text-xs sm:text-sm">
+                      {customer.lastServiceDate || '—'}
+                    </span>
+                  </td>
+
+                  {/* 5. NEXT SERVICE (Date + Remaining Days Badge) */}
+                  <td className="py-3.5 px-4">
+                    <div>
+                      <span className="font-semibold text-slate-800 text-xs block">
+                        {customer.nextServiceDate || '—'}
+                      </span>
+                      {customer.nextServiceDays !== null && customer.nextServiceDays !== undefined && (
+                        isExpired ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#E53935] bg-red-50 border border-red-200/60 px-1.5 py-0.5 rounded-full mt-0.5">
+                            <XCircle className="w-2.5 h-2.5" />
+                            <span>Expired</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#10B981] bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-full mt-0.5">
+                            <CheckCircle2 className="w-2.5 h-2.5" />
+                            <span>{customer.nextServiceDays} days left</span>
+                          </span>
+                        )
+                      )}
+                    </div>
+                  </td>
+
+                  {/* 6. STATUS (Active / Inactive compact pill) */}
+                  <td className="py-3.5 px-4">
+                    {customer.status === 'ACTIVE' ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-[11px] font-bold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+                        <span>Active</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-[11px] font-bold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                        <span>Inactive</span>
+                      </span>
+                    )}
+                  </td>
+
+                  {/* 7. ACTIONS (View eye icon + 3-dot vertical menu) */}
+                  <td className="py-3.5 px-4 pr-5 text-right">
+                    <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={() => onViewProfile ? onViewProfile(customer) : onSelectCustomer(customer)}
+                        title="View Customer Profile"
+                        aria-label={`View profile for ${customer.fullName}`}
+                        className="w-7 h-7 rounded-lg text-slate-400 hover:text-[#1E88E5] hover:bg-blue-50 flex items-center justify-center transition-colors cursor-pointer"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => onActionClick && onActionClick(customer, e)}
+                        title="More options"
+                        aria-label={`More options for ${customer.fullName}`}
+                        className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors cursor-pointer"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {customers.length === 0 && (
+        <div className="p-12 text-center text-slate-500">
+          <p className="text-sm font-semibold">No customers found</p>
+          <p className="text-xs text-slate-400 mt-1">Try adjusting your search or filters.</p>
+        </div>
+      )}
+    </div>
+  );
+};

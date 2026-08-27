@@ -1,0 +1,300 @@
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { DataTable, type ColumnDef } from '../../../components/ui/DataTable';
+import { StatusBadge } from '../../../components/ui/StatusBadge';
+import { Button } from '../../../components/ui/Button';
+import {
+  Wrench,
+  User,
+  Cpu,
+  Calendar,
+  Eye,
+  CheckCircle,
+  UserCheck,
+  ShieldCheck,
+  Clock,
+} from 'lucide-react';
+import type { ServiceItem } from '../services.api';
+
+export interface ServiceTableProps {
+  services: ServiceItem[];
+  isLoading: boolean;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  onPageChange: (page: number) => void;
+  onOpenCompleteModal: (service: ServiceItem) => void;
+  onOpenQuickAssign: (service: ServiceItem) => void;
+}
+
+function formatSystemDate(dateVal: string | Date | null | undefined): string {
+  if (!dateVal) return '—';
+  if (typeof dateVal === 'string') {
+    const match = dateVal.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      const year = parseInt(match[1], 10);
+      const month = parseInt(match[2], 10) - 1;
+      const day = parseInt(match[3], 10);
+      const d = new Date(year, month, day);
+      return d.toLocaleDateString(undefined, {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+    }
+  }
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString(undefined, {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function formatSystemTime(dateVal: string | Date | null | undefined, timeSlot?: string | null): string {
+  if (timeSlot) return timeSlot;
+  if (!dateVal) return '10:00 AM - 12:00 PM';
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return '10:00 AM - 12:00 PM';
+  // If time is exact midnight (00:00:00 UTC or Local), default to morning slot
+  if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0) {
+    return '10:00 AM - 12:00 PM';
+  }
+  return d.toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
+export const ServiceTable: React.FC<ServiceTableProps> = ({
+  services,
+  isLoading,
+  pagination,
+  onPageChange,
+  onOpenCompleteModal,
+  onOpenQuickAssign,
+}) => {
+  const navigate = useNavigate();
+
+  const priorityColors: Record<string, string> = {
+    URGENT: 'bg-rose-100 text-rose-800 border-rose-200',
+    HIGH: 'bg-amber-100 text-amber-800 border-amber-200',
+    NORMAL: 'bg-slate-100 text-slate-700 border-slate-200',
+    LOW: 'bg-slate-50 text-slate-500 border-slate-200',
+  };
+
+  const statusVariantMap: Record<string, any> = {
+    SCHEDULED: 'warning',
+    ASSIGNED: 'active',
+    IN_PROGRESS: 'active',
+    COMPLETED: 'active',
+    OVERDUE: 'inactive',
+    CANCELLED: 'archived',
+  };
+
+  const columns: ColumnDef<ServiceItem>[] = [
+    {
+      key: 'serviceNumber',
+      header: 'Service #',
+      render: (row: ServiceItem) => (
+        <div className="flex items-start gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
+            <Wrench className="w-4 h-4" />
+          </div>
+          <div>
+            <div
+              className="font-bold text-slate-900 font-mono text-xs hover:text-primary-600 cursor-pointer flex items-center gap-1.5"
+              onClick={() => navigate(`/services/${row.id}`)}
+            >
+              {row.serviceNumber}
+            </div>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span
+                className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded border uppercase tracking-wider ${
+                  priorityColors[row.priority] || priorityColors.NORMAL
+                }`}
+              >
+                {row.priority}
+              </span>
+              <span className="text-[10px] text-slate-400 font-mono">
+                {row.serviceLocation === 'DOORSTEP' ? 'Doorstep' : 'In-Shop'}
+              </span>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'customer',
+      header: 'Customer Details',
+      render: (row: ServiceItem) => (
+        <div>
+          <div
+            className="font-bold text-slate-900 hover:text-primary-600 cursor-pointer flex items-center gap-1 text-xs"
+            onClick={() => navigate(`/customers/${row.customerId}`)}
+          >
+            <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            {row.customerName}
+          </div>
+          <div className="text-[11px] text-slate-500 font-mono mt-0.5">{row.customerPhone}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'asset',
+      header: 'Machine / Asset',
+      render: (row: ServiceItem) => (
+        <div>
+          <div className="font-semibold text-slate-900 text-xs flex items-center gap-1">
+            <Cpu className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            {row.productName}
+          </div>
+          <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+            {row.serialNumber ? (
+              <span className="font-semibold text-slate-700">SN: {row.serialNumber}</span>
+            ) : (
+              <span className="italic text-slate-400">Non-serialized</span>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'classification',
+      header: 'Classification',
+      render: (row: ServiceItem) => (
+        <div>
+          {row.serviceClassification === 'WARRANTY' ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+              <ShieldCheck className="w-3 h-3" />
+              Warranty Free
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              General Service
+            </span>
+          )}
+          <div className="text-[10px] text-slate-500 mt-0.5 font-medium">
+            {row.serviceType.replace(/_/g, ' ')}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'scheduledDate',
+      header: 'Scheduled Date & Time',
+      render: (row: ServiceItem) => {
+        const formattedDate = formatSystemDate(row.scheduledDate);
+        const timeDisplay = row.scheduledTimeSlot || (row.scheduledDate ? formatSystemTime(row.scheduledDate) : null);
+
+        return (
+          <div className="min-w-[140px]">
+            <div className="text-xs font-semibold text-slate-800 flex items-center gap-1.5 whitespace-nowrap">
+              <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span>{formattedDate}</span>
+            </div>
+            {timeDisplay && (
+              <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5 font-medium whitespace-nowrap">
+                <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                <span>{timeDisplay}</span>
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'technician',
+      header: 'Assigned Tech',
+      render: (row: ServiceItem) => (
+        <div>
+          {row.technicianName ? (
+            <div className="flex items-center gap-1.5">
+              <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-[10px] border border-slate-200 shrink-0">
+                {row.technicianName.charAt(0)}
+              </div>
+              <div>
+                <div className="text-xs font-medium text-slate-900">{row.technicianName}</div>
+                <div className="text-[10px] text-slate-400 font-mono">{row.technicianPhone}</div>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => onOpenQuickAssign(row)}
+              className="inline-flex items-center gap-1 text-xs text-amber-600 hover:text-amber-800 font-semibold bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded border border-amber-200 transition-colors"
+            >
+              <UserCheck className="w-3 h-3" />
+              Assign Tech
+            </button>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (row: ServiceItem) => (
+        <StatusBadge
+          status={statusVariantMap[row.status] || 'active'}
+          label={row.status.replace(/_/g, ' ')}
+        />
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (row: ServiceItem) => (
+        <div className="flex items-center justify-end gap-1.5">
+          {/* View Details */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => navigate(`/services/${row.id}`)}
+            className="h-8 px-2 text-xs border-slate-200 text-slate-700 hover:bg-slate-50"
+            title="View full service and job card"
+          >
+            <Eye className="w-3.5 h-3.5 mr-1" />
+            Details
+          </Button>
+
+          {/* Mark Complete Action if not already finished */}
+          {row.status !== 'COMPLETED' && row.status !== 'CANCELLED' && (
+            <Button
+              size="sm"
+              onClick={() => onOpenCompleteModal(row)}
+              className="h-8 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-2xs"
+              title="Complete service and fill job card"
+            >
+              <CheckCircle className="w-3.5 h-3.5 mr-1" />
+              Complete
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+      <DataTable<ServiceItem>
+        columns={columns}
+        data={services}
+        isLoading={isLoading}
+        keyExtractor={(item) => item.id}
+        pagination={{
+          page: pagination.page,
+          pageSize: pagination.limit || 10,
+          total: pagination.total,
+        }}
+        onPageChange={onPageChange}
+        emptyTitle="No services found"
+        emptyDescription="Schedule a periodic filter check, repair visit, or maintenance service to get started."
+      />
+    </div>
+  );
+};

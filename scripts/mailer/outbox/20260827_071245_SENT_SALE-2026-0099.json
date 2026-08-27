@@ -1,0 +1,10 @@
+{
+    "timestamp": "2026-08-27T07:12:45+02:00",
+    "status": "SENT",
+    "eventType": "SALE_CONFIRMATION",
+    "recipient": "customer.test@example.com",
+    "recipientName": "Priya Patel",
+    "subject": "",
+    "mailer": "mail",
+    "error": null
+}

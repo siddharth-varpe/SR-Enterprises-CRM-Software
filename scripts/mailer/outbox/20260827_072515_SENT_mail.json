@@ -1,0 +1,10 @@
+{
+    "timestamp": "2026-08-27T07:25:15+02:00",
+    "status": "SENT",
+    "eventType": "ADMIN_TEST",
+    "recipient": "varpes380@gmail.com",
+    "recipientName": "Siddharth Varpe",
+    "subject": "Diagnostic Test",
+    "mailer": "mail",
+    "error": null
+}

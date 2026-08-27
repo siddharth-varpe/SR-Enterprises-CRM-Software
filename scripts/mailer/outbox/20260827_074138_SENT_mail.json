@@ -1,0 +1,10 @@
+{
+    "timestamp": "2026-08-27T07:41:38+02:00",
+    "status": "SENT",
+    "eventType": "ADMIN_TEST",
+    "recipient": "varpes380@gmail.com",
+    "recipientName": "Siddharth Varpe",
+    "subject": "\ud83e\uddea SR Enterprises CRM - PHPMailer Live SMTP Test",
+    "mailer": "smtp",
+    "error": null
+}

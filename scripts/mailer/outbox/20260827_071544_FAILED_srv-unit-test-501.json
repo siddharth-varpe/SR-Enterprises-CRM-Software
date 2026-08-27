@@ -1,0 +1,10 @@
+{
+    "timestamp": "2026-08-27T07:15:44+02:00",
+    "status": "FAILED",
+    "eventType": "SERVICE_REMINDER",
+    "recipient": "manoj.kumar@example.com",
+    "recipientName": "Manoj Kumar",
+    "subject": "Service Reminder: Scheduled for 2026-08-30",
+    "mailer": "mail",
+    "error": "PHPMailer error: Could not instantiate mail function."
+}

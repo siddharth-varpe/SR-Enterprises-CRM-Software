@@ -1,0 +1,10 @@
+{
+    "timestamp": "2026-08-27T06:59:20+02:00",
+    "status": "SENT",
+    "eventType": "ADMIN_TEST",
+    "recipient": "admin@srenterprises.com",
+    "recipientName": "CRM Administrator",
+    "subject": "",
+    "mailer": "mail",
+    "error": null
+}

@@ -1,0 +1,10 @@
+{
+    "timestamp": "2026-08-27T07:26:34+02:00",
+    "status": "SENT",
+    "eventType": "ADMIN_TEST",
+    "recipient": "admin@srenterprises.com",
+    "recipientName": "CRM Administrator",
+    "subject": "\ud83e\uddea PHPMailer Diagnostic Test - SR Enterprises CRM",
+    "mailer": "mail",
+    "error": null
+}

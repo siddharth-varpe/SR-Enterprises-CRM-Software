@@ -1,0 +1,10 @@
+{
+    "timestamp": "2026-08-27T09:03:56+02:00",
+    "status": "SENT",
+    "eventType": "SERVICE_REMINDER",
+    "recipient": "manoj.kumar@example.com",
+    "recipientName": "Manoj Kumar",
+    "subject": "Service Reminder: Scheduled for 2026-08-30",
+    "mailer": "smtp",
+    "error": null
+}
