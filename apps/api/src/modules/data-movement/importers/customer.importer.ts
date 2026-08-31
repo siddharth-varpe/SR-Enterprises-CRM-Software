@@ -193,9 +193,9 @@ export class CustomerImporter extends BaseImporter {
           const year2 = String(now.getFullYear()).slice(-2);
           const month = String(now.getMonth() + 1).padStart(2, '0');
           const day = String(now.getDate()).padStart(2, '0');
-          const dateStr = `${day}-${month}-${year2}`;
+          const dateStr = `${day}${month}${year2}`;
 
-          customerNumber = `CX-${dateStr}-${String(chunkIdx + i + 1).padStart(2, '0')}`;
+          customerNumber = `CX-${dateStr}${String(chunkIdx + i + 1).padStart(2, '0')}`;
 
           // Insert customer record (duplicates allowed)
           const [newCustomer] = await tx

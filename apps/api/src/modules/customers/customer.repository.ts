@@ -461,7 +461,7 @@ export class CustomerRepository {
       const year2 = String(now.getFullYear()).slice(-2);
       const month = String(now.getMonth() + 1).padStart(2, '0');
       const day = String(now.getDate()).padStart(2, '0');
-      const dateStr = `${day}-${month}-${year2}`;
+      const dateStr = `${day}${month}${year2}`;
 
       try {
         const existingWithDate = await database
@@ -470,11 +470,11 @@ export class CustomerRepository {
           .where(ilike(customers.customerNumber, `CX-${dateStr}%`));
 
         const nextSerial = (existingWithDate?.length || 0) + 1;
-        customerNumber = `CX-${dateStr}-${String(nextSerial).padStart(2, '0')}`;
+        customerNumber = `CX-${dateStr}${String(nextSerial).padStart(2, '0')}`;
       } catch (err1) {
         console.error('[DEBUG CustomerRepository.create] err1:', err1);
         const rand = Math.floor(1 + Math.random() * 99);
-        customerNumber = `CX-${dateStr}-${String(rand).padStart(2, '0')}`;
+        customerNumber = `CX-${dateStr}${String(rand).padStart(2, '0')}`;
       }
       console.log('[DEBUG CustomerRepository.create] 1. number:', customerNumber);
 
@@ -585,9 +585,9 @@ export class CustomerRepository {
       const year2 = String(now.getFullYear()).slice(-2);
       const month = String(now.getMonth() + 1).padStart(2, '0');
       const day = String(now.getDate()).padStart(2, '0');
-      const dateStr = `${day}-${month}-${year2}`;
+      const dateStr = `${day}${month}${year2}`;
       const existingMemCount = memoryCustomers.filter((c) => c.customerNumber?.startsWith(`CX-${dateStr}`)).length;
-      const customerNumber = `CX-${dateStr}-${String(existingMemCount + 1).padStart(2, '0')}`;
+      const customerNumber = `CX-${dateStr}${String(existingMemCount + 1).padStart(2, '0')}`;
       const customerId = crypto.randomUUID();
 
       const addressValues = (data.addresses || []).map((addr, idx) => ({
