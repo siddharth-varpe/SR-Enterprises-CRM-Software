@@ -76,15 +76,12 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
                     isSelected ? 'bg-sky-50/60' : 'hover:bg-slate-50/80'
                   }`}
                 >
-                  {/* Active selection bar on left edge */}
-                  {isSelected && (
-                    <td className="p-0">
-                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary-600" />
-                    </td>
-                  )}
-
                   {/* 1. CUSTOMER (Avatar with initials + Name + Customer ID) */}
-                  <td className="py-3.5 px-4 pl-5">
+                  <td className="py-3.5 px-4 pl-5 relative">
+                    {/* Active selection bar on left edge */}
+                    {isSelected && (
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary-600 rounded-r" />
+                    )}
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-700 font-mono font-bold text-xs flex items-center justify-center border border-sky-200/80 shadow-2xs shrink-0">
                         {customer.initials}

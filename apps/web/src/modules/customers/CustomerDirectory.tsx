@@ -5,6 +5,7 @@ import { CustomerTopHeader } from './components/CustomerTopHeader';
 import { CustomerSummaryCards } from './components/CustomerSummaryCards';
 import { CustomerToolbar } from './components/CustomerToolbar';
 import { CustomerTable, type CustomerRecord } from './components/CustomerTable';
+import { CustomerDetailsPanel } from './components/CustomerDetailsPanel';
 import { CustomerPagination } from './components/CustomerPagination';
 import { CustomerFormModal } from './components/CustomerFormModal';
 import { CustomerArchiveDialog } from './components/CustomerArchiveDialog';
@@ -26,6 +27,7 @@ export const CustomerDirectory: React.FC = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [selectedCustomerForEdit, setSelectedCustomerForEdit] = useState<CustomerSummary | null>(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -136,8 +138,17 @@ export const CustomerDirectory: React.FC = () => {
     });
   }, [response]);
 
+  // Ensure an active customer is selected for the customer overview card
+  const selectedCustomer = useMemo(() => {
+    if (selectedCustomerId) {
+      const found = customerList.find((c) => c.id === selectedCustomerId);
+      if (found) return found;
+    }
+    return customerList[0] || null;
+  }, [customerList, selectedCustomerId]);
+
   const handleSelectCustomer = (customer: CustomerRecord) => {
-    navigate(`/customers/${customer.id}`);
+    setSelectedCustomerId(customer.id);
   };
 
   const handleViewProfile = (customer: CustomerRecord) => {
@@ -296,22 +307,36 @@ export const CustomerDirectory: React.FC = () => {
         onRefresh={handleRefresh}
       />
 
-      {/* 5. MAIN WORKSPACE (Full-Width Customer Table + Pagination) */}
-      <div className="flex flex-col gap-4">
-        <CustomerTable
-          customers={customerList}
-          onSelectCustomer={handleSelectCustomer}
-          onViewProfile={handleViewProfile}
-          isLoading={isLoading}
-        />
+      {/* 5. MAIN TWO-COLUMN WORKSPACE (Left Table / Right Customer Overview Card) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* Left Column (Table + Pagination) */}
+        <div className="lg:col-span-8 flex flex-col gap-4">
+          <CustomerTable
+            customers={customerList}
+            selectedCustomerId={selectedCustomer?.id || ''}
+            onSelectCustomer={handleSelectCustomer}
+            onViewProfile={handleViewProfile}
+            isLoading={isLoading}
+          />
 
-        <CustomerPagination
-          currentPage={page}
-          totalCustomers={totalCustomers}
-          pageSize={pageSize}
-          onPageChange={handlePageChange}
-          onPageSizeChange={handlePageSizeChange}
-        />
+          <CustomerPagination
+            currentPage={page}
+            totalCustomers={totalCustomers}
+            pageSize={pageSize}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+          />
+        </div>
+
+        {/* Right Column (Customer Overview Card) */}
+        <div className="lg:col-span-4 flex flex-col">
+          {selectedCustomer && (
+            <CustomerDetailsPanel
+              customer={selectedCustomer}
+              onViewFullProfile={handleViewProfile}
+            />
+          )}
+        </div>
       </div>
 
       {/* Add / Edit Customer Modal */}
