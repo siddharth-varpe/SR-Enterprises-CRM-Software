@@ -37,7 +37,7 @@ const recentSalesSubmissions = new Map<string, { timestamp: number; result: any 
 const inFlightSales = new Map<string, Promise<any>>();
 
 // Resilient memory store for offline desktop and local development
-const memorySales: any[] = [
+export const memorySales: any[] = [
   {
     id: 's1111111-1111-1111-1111-111111111111',
     saleNumber: 'SALE-2026-0001',

@@ -14,7 +14,7 @@ import { memoryServices } from '../services/services.repository';
 import type { AssetQueryFilter, CreateAssetInput, UpdateAssetInput } from '@crm/validation';
 
 // Resilient memory state for offline desktop and local development
-const memoryAssets: any[] = [
+export const memoryAssets: any[] = [
   {
     id: 'a1111111-1111-1111-1111-111111111111',
     assetNumber: 'ASSET-2026-0001',

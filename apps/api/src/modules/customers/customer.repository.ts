@@ -26,12 +26,12 @@ import {
 } from '../../database/schema/index';
 import { eq, and, or, ilike, desc, asc, count, sum, sql, inArray, gte, lte, ne } from 'drizzle-orm';
 import { generateBusinessNumber } from '../../database/sequences';
-import { assetsRepository } from '../assets/assets.repository';
-import { invoicesRepository } from '../invoices/invoices.repository';
-import { salesRepository } from '../sales/sales.repository';
-import { paymentsRepository } from '../payments/payments.repository';
-import { servicesRepository } from '../services/services.repository';
-import { warrantiesRepository } from '../warranties/warranties.repository';
+import { assetsRepository, memoryAssets } from '../assets/assets.repository';
+import { invoicesRepository, memoryInvoices } from '../invoices/invoices.repository';
+import { salesRepository, memorySales } from '../sales/sales.repository';
+import { paymentsRepository, memoryPayments } from '../payments/payments.repository';
+import { servicesRepository, memoryServices } from '../services/services.repository';
+import { warrantiesRepository, memoryWarranties } from '../warranties/warranties.repository';
 import { jobCardsRepository } from '../job-cards/job-cards.repository';
 import type {
   CreateCustomerInput,
@@ -218,11 +218,25 @@ export class CustomerRepository {
     }
 
     const enhancedRecords = records.map((cust) => {
-      const custServices = servicesByCustomer[cust.id] || [];
-      const custInvoices = invoicesByCustomer[cust.id] || [];
-      const custPayments = paymentsByCustomer[cust.id] || [];
-      const custWarranties = warrantiesByCustomer[cust.id] || [];
-      const custAssets = cust.assets || [];
+      const dbServices = servicesByCustomer[cust.id] || [];
+      const memServices = memoryServices.filter((s) => s.customerId === cust.id);
+      const custServices = [...dbServices, ...memServices.filter((ms) => !dbServices.some((ds) => ds.id === ms.id))];
+
+      const dbInvoices = invoicesByCustomer[cust.id] || [];
+      const memInvoices = memoryInvoices.filter((i) => i.customerId === cust.id);
+      const custInvoices = [...dbInvoices, ...memInvoices.filter((mi) => !dbInvoices.some((di) => di.id === mi.id))];
+
+      const dbPayments = paymentsByCustomer[cust.id] || [];
+      const memPayments = memoryPayments.filter((p) => p.customerId === cust.id);
+      const custPayments = [...dbPayments, ...memPayments.filter((mp) => !dbPayments.some((dp) => dp.id === mp.id))];
+
+      const dbWarranties = warrantiesByCustomer[cust.id] || [];
+      const memWarranties = memoryWarranties.filter((w) => w.customerId === cust.id);
+      const custWarranties = [...dbWarranties, ...memWarranties.filter((mw) => !dbWarranties.some((dw) => dw.id === mw.id))];
+
+      const dbAssets = cust.assets || [];
+      const memAssets = memoryAssets.filter((a) => a.customerId === cust.id);
+      const custAssets = [...dbAssets, ...memAssets.filter((ma) => !dbAssets.some((da) => da.id === ma.id))];
 
       // Last service: latest completed service
       const completedServices = custServices.filter((s) => s.status === 'COMPLETED');
@@ -247,6 +261,21 @@ export class CustomerRepository {
         (w) => w.status === 'ACTIVE' || w.status === 'EXPIRING_SOON'
       ).length;
 
+      const lastServiceFormatted = lastService?.scheduledDate
+        ? new Date(lastService.scheduledDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+        : null;
+
+      const nextServiceFormatted = nextService?.scheduledDate
+        ? new Date(nextService.scheduledDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+        : null;
+
+      let nextServiceDaysCalc: number | 'Expired' | null = null;
+      if (nextService?.scheduledDate) {
+        const diffMs = new Date(nextService.scheduledDate).getTime() - Date.now();
+        const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        nextServiceDaysCalc = days < 0 ? 'Expired' : days;
+      }
+
       return {
         ...cust,
         assets: custAssets,
@@ -257,8 +286,9 @@ export class CustomerRepository {
         invoicesCount: custInvoices.length,
         payments: custPayments,
         paymentsCount: custPayments.length,
-        lastServiceDate: lastService?.scheduledDate ? lastService.scheduledDate.toISOString() : null,
-        nextServiceDate: nextService?.scheduledDate ? nextService.scheduledDate.toISOString() : null,
+        lastServiceDate: lastServiceFormatted,
+        nextServiceDate: nextServiceFormatted,
+        nextServiceDays: nextServiceDaysCalc,
         totalInvoicesAmount: totalBilled.toFixed(2),
         outstandingAmount: outstanding.toFixed(2),
         activeWarranty: activeWarrantyCount > 0 ? `Yes (${activeWarrantyCount})` : 'No',
@@ -320,8 +350,11 @@ export class CustomerRepository {
         with: { product: true, warranties: true },
       });
     } catch {}
-    if (assetsList.length === 0 && customer.assets) {
-      assetsList = customer.assets;
+    const memAssets = memoryAssets.filter((a) => a.customerId === id);
+    if (assetsList.length === 0) {
+      assetsList = customer.assets && customer.assets.length > 0 ? customer.assets : memAssets;
+    } else if (memAssets.length > 0) {
+      assetsList = [...assetsList, ...memAssets.filter((ma) => !assetsList.some((da) => da.id === ma.id))];
     }
 
     let servicesList: any[] = [];
@@ -331,8 +364,11 @@ export class CustomerRepository {
         orderBy: desc(services.scheduledDate),
       });
     } catch {}
-    if (servicesList.length === 0 && customer.services) {
-      servicesList = customer.services;
+    const memServices = memoryServices.filter((s) => s.customerId === id);
+    if (servicesList.length === 0) {
+      servicesList = customer.services && customer.services.length > 0 ? customer.services : memServices;
+    } else if (memServices.length > 0) {
+      servicesList = [...servicesList, ...memServices.filter((ms) => !servicesList.some((ds) => ds.id === ms.id))];
     }
 
     let invoicesList: any[] = [];
@@ -342,8 +378,11 @@ export class CustomerRepository {
         orderBy: desc(invoices.invoiceDate),
       });
     } catch {}
-    if (invoicesList.length === 0 && customer.invoices) {
-      invoicesList = customer.invoices;
+    const memInvoices = memoryInvoices.filter((i) => i.customerId === id);
+    if (invoicesList.length === 0) {
+      invoicesList = customer.invoices && customer.invoices.length > 0 ? customer.invoices : memInvoices;
+    } else if (memInvoices.length > 0) {
+      invoicesList = [...invoicesList, ...memInvoices.filter((mi) => !invoicesList.some((di) => di.id === mi.id))];
     }
 
     let paymentsList: any[] = [];
@@ -353,8 +392,11 @@ export class CustomerRepository {
         orderBy: desc(payments.paymentDate),
       });
     } catch {}
-    if (paymentsList.length === 0 && customer.payments) {
-      paymentsList = customer.payments;
+    const memPayments = memoryPayments.filter((p) => p.customerId === id);
+    if (paymentsList.length === 0) {
+      paymentsList = customer.payments && customer.payments.length > 0 ? customer.payments : memPayments;
+    } else if (memPayments.length > 0) {
+      paymentsList = [...paymentsList, ...memPayments.filter((mp) => !paymentsList.some((dp) => dp.id === mp.id))];
     }
 
     let warrantiesList: any[] = [];
@@ -364,8 +406,11 @@ export class CustomerRepository {
         orderBy: desc(warranties.endDate),
       });
     } catch {}
-    if (warrantiesList.length === 0 && customer.warranties) {
-      warrantiesList = customer.warranties;
+    const memWarranties = memoryWarranties.filter((w) => w.customerId === id);
+    if (warrantiesList.length === 0) {
+      warrantiesList = customer.warranties && customer.warranties.length > 0 ? customer.warranties : memWarranties;
+    } else if (memWarranties.length > 0) {
+      warrantiesList = [...warrantiesList, ...memWarranties.filter((mw) => !warrantiesList.some((dw) => dw.id === mw.id))];
     }
 
     let salesList: any[] = [];
@@ -379,8 +424,11 @@ export class CustomerRepository {
         },
       });
     } catch {}
-    if (salesList.length === 0 && customer.sales) {
-      salesList = customer.sales;
+    const memSales = memorySales.filter((s) => s.customerId === id);
+    if (salesList.length === 0) {
+      salesList = customer.sales && customer.sales.length > 0 ? customer.sales : memSales;
+    } else if (memSales.length > 0) {
+      salesList = [...salesList, ...memSales.filter((ms) => !salesList.some((ds) => ds.id === ms.id))];
     }
 
     const totalSpent = (invoicesList || []).reduce((acc, inv) => acc + Number(inv.totalAmount || 0), 0);
