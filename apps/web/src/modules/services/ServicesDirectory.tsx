@@ -28,7 +28,7 @@ export const ServicesDirectory: React.FC = () => {
     location: 'ALL',
     priority: 'ALL',
     targetDate: undefined,
-    sortBy: 'scheduledDate',
+    sortBy: 'serviceNumber',
     sortOrder: 'desc',
   });
 
@@ -65,7 +65,7 @@ export const ServicesDirectory: React.FC = () => {
       location: 'ALL',
       priority: 'ALL',
       targetDate: undefined,
-      sortBy: 'scheduledDate',
+      sortBy: 'serviceNumber',
       sortOrder: 'desc',
     });
   };

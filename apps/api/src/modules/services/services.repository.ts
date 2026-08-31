@@ -97,8 +97,12 @@ export class ServicesRepository {
       const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
       const isAsc = filters.sortOrder === 'asc';
-      let orderExpr = isAsc ? asc(services.scheduledDate) : desc(services.scheduledDate);
-      if (filters.sortBy === 'createdAt') {
+      let orderExpr = isAsc ? asc(services.serviceNumber) : desc(services.serviceNumber);
+      if (filters.sortBy === 'serviceNumber' || filters.sortBy === 'serviceId' || filters.sortBy === 'id') {
+        orderExpr = isAsc ? asc(services.serviceNumber) : desc(services.serviceNumber);
+      } else if (filters.sortBy === 'scheduledDate') {
+        orderExpr = isAsc ? asc(services.scheduledDate) : desc(services.scheduledDate);
+      } else if (filters.sortBy === 'createdAt') {
         orderExpr = isAsc ? asc(services.createdAt) : desc(services.createdAt);
       } else if (filters.sortBy === 'priority') {
         orderExpr = isAsc ? asc(services.priority as any) : desc(services.priority as any);
