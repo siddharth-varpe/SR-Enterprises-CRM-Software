@@ -291,17 +291,23 @@ export function useArchiveCustomerMutation(customerId: string) {
 /**
  * Hard delete customer mutation (permanently removes customer and all records from CRM)
  */
-export function useDeleteCustomerMutation(customerId: string) {
+export function useDeleteCustomerMutation(customerId?: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async () => {
-      const res = await apiClient.delete<{ success: boolean; data: any }>(`/customers/${customerId}`);
+    mutationFn: async (overrideId?: string) => {
+      const targetId = overrideId || customerId;
+      if (!targetId) throw new Error('Customer ID is required for deletion');
+      const res = await apiClient.delete<{ success: boolean; data: any }>(`/customers/${targetId}`);
       return res.data;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      const targetId = variables || customerId;
       queryClient.invalidateQueries({ queryKey: CUSTOMER_QUERY_KEYS.all });
-      queryClient.removeQueries({ queryKey: CUSTOMER_QUERY_KEYS.detail(customerId) });
+      if (targetId) {
+        queryClient.removeQueries({ queryKey: CUSTOMER_QUERY_KEYS.detail(targetId) });
+      }
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['services'] });
@@ -309,6 +315,7 @@ export function useDeleteCustomerMutation(customerId: string) {
       queryClient.invalidateQueries({ queryKey: ['warranties'] });
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['job-cards'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       queryClient.invalidateQueries({ queryKey: ['search'] });
       queryClient.invalidateQueries({ queryKey: ['global-search'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });

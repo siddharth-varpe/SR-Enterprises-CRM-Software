@@ -1,54 +1,97 @@
 import React from 'react';
 import { Sparkles, TrendingUp, CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react';
+import { formatCurrency, formatNumber } from '../../../lib/formatters';
 import type { BusinessInsightItem } from '../reports.types';
+import type { AnalyticsOverview } from '@crm/types';
 
 interface BusinessInsightsSectionProps {
+  overview?: AnalyticsOverview;
   insights?: BusinessInsightItem[];
   onActionClick?: (category: string) => void;
 }
 
-const DEFAULT_INSIGHTS: BusinessInsightItem[] = [
-  {
-    id: 'ins-1',
-    title: 'Strong Revenue Acceleration',
-    message: 'Revenue increased 12.4% compared with previous period, driven primarily by Kent Grand Plus sales (28 units).',
-    metric: '₹ 8,75,450',
-    delta: '+12.4%',
-    type: 'positive',
-    category: 'revenue',
-  },
-  {
-    id: 'ins-2',
-    title: 'High Field Service SLA',
-    message: 'Service completion improved by 20.4% with an average turnaround of 3.8 hours across active technicians.',
-    metric: '92.3% SLA',
-    delta: '+20.4%',
-    type: 'positive',
-    category: 'service',
-  },
-  {
-    id: 'ins-3',
-    title: 'Proactive Filter Maintenance',
-    message: '14 customers have periodic filter replacements due within the next 7 days; automated WhatsApp reminders ready.',
-    metric: '14 Accounts',
-    type: 'warning',
-    category: 'maintenance',
-  },
-  {
-    id: 'ins-4',
-    title: 'Cashflow Collection Health',
-    message: 'Outstanding payments decreased by 8.5% with 91.4% realized cash collection rate.',
-    metric: '₹ 4,250 Outstanding',
-    delta: '-8.5%',
-    type: 'positive',
-    category: 'collection',
-  },
-];
-
 export const BusinessInsightsSection: React.FC<BusinessInsightsSectionProps> = ({
-  insights = DEFAULT_INSIGHTS,
+  overview,
+  insights,
   onActionClick,
 }) => {
+  // Dynamically derive smart business insights from real database metrics
+  const generatedInsights: BusinessInsightItem[] = React.useMemo(() => {
+    if (insights && insights.length > 0) return insights;
+
+    const items: BusinessInsightItem[] = [];
+
+    // 1. Revenue Insight
+    const grossBilled = overview?.revenue?.grossBilled ?? 0;
+    const billedDelta = overview?.kpis?.grossBilled?.deltaPercentage ?? 0;
+    const topProduct = overview?.sales?.salesByProduct?.[0];
+
+    items.push({
+      id: 'ins-revenue',
+      title: grossBilled > 0 ? (billedDelta >= 0 ? 'Revenue Trajectory' : 'Revenue Performance') : 'Revenue Baseline',
+      message: grossBilled > 0
+        ? `Total billed revenue reached ${formatCurrency(grossBilled)}${topProduct ? `, led by ${topProduct.productName} (${topProduct.count} units)` : ''}.`
+        : 'No billing invoices recorded in this period. Realized sales will reflect here automatically.',
+      metric: formatCurrency(grossBilled),
+      delta: billedDelta !== 0 ? `${billedDelta >= 0 ? '+' : ''}${billedDelta}%` : undefined,
+      type: billedDelta >= 0 ? 'positive' : 'warning',
+      category: 'revenue',
+    });
+
+    // 2. Field Service SLA Insight
+    const totalServices = overview?.services?.totalServices ?? 0;
+    const completedServices = overview?.services?.completedServices ?? 0;
+    const completionRate = overview?.services?.completionRate ?? (totalServices > 0 ? Math.round((completedServices / totalServices) * 100) : 100);
+
+    items.push({
+      id: 'ins-service',
+      title: totalServices > 0 ? 'Field Service SLA' : 'Service Operations',
+      message: totalServices > 0
+        ? `${completedServices} of ${totalServices} service requests completed (${completionRate}% SLA efficiency).`
+        : 'All service tickets are up to date with zero pending customer complaints.',
+      metric: `${completionRate}% SLA`,
+      delta: overview?.kpis?.servicesCompleted?.deltaPercentage !== undefined ? `${overview.kpis.servicesCompleted.deltaPercentage >= 0 ? '+' : ''}${overview.kpis.servicesCompleted.deltaPercentage}%` : undefined,
+      type: completionRate >= 80 ? 'positive' : 'warning',
+      category: 'service',
+    });
+
+    // 3. Customer & Maintenance Insight
+    const totalCust = overview?.customers?.totalCustomers ?? 0;
+    const newCust = overview?.customers?.newCustomers ?? 0;
+    const activeWarranties = overview?.warranties?.activeWarranties ?? 0;
+
+    items.push({
+      id: 'ins-customers',
+      title: 'Customer Expansion',
+      message: totalCust > 0
+        ? `${totalCust} registered customer accounts (${newCust} added this period) with ${activeWarranties} units under active warranty.`
+        : 'Customer directory is ready. Import or register customers to track lifetime asset history.',
+      metric: `${formatNumber(totalCust)} Accounts`,
+      delta: newCust > 0 ? `+${newCust} New` : undefined,
+      type: 'positive',
+      category: 'maintenance',
+    });
+
+    // 4. Cashflow & Collections Insight
+    const outstanding = overview?.revenue?.outstandingAmount ?? 0;
+    const collected = overview?.revenue?.amountCollected ?? 0;
+    const overdueCount = overview?.revenue?.overdueInvoicesCount ?? 0;
+
+    items.push({
+      id: 'ins-collection',
+      title: outstanding > 0 ? 'Payment Collection Status' : 'Cashflow Realization',
+      message: outstanding > 0
+        ? `${formatCurrency(outstanding)} pending collection across outstanding invoices (${overdueCount} overdue).`
+        : `All generated customer invoices are fully settled. Realized collected cash: ${formatCurrency(collected)}.`,
+      metric: `${formatCurrency(outstanding)} Pending`,
+      delta: overview?.kpis?.outstandingAmount?.deltaPercentage ? `${overview.kpis.outstandingAmount.deltaPercentage}%` : undefined,
+      type: outstanding === 0 ? 'positive' : overdueCount > 0 ? 'warning' : 'info',
+      category: 'collection',
+    });
+
+    return items;
+  }, [overview, insights]);
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -57,34 +100,34 @@ export const BusinessInsightsSection: React.FC<BusinessInsightsSectionProps> = (
             <Sparkles className="w-4 h-4" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-slate-900">Business Insights</h2>
-            <p className="text-xs text-slate-500">Automated intelligence and strategic performance signals</p>
+            <h2 className="text-base font-bold text-slate-900 font-display">Business Insights</h2>
+            <p className="text-xs text-slate-500">Real-time operational signals and system intelligence</p>
           </div>
         </div>
-        <span className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-          AI SUMMARY
+        <span className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-mono">
+          LIVE SIGNALS
         </span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
-        {insights.map((insight) => {
+        {generatedInsights.map((insight) => {
           const isPositive = insight.type === 'positive';
           const isWarning = insight.type === 'warning';
 
           return (
             <div
               key={insight.id}
-              className="bg-white rounded-xl p-4 border border-slate-200/80 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between"
+              className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <div
                     className={`w-7 h-7 rounded-lg flex items-center justify-center ${
                       isPositive
-                        ? 'bg-emerald-50 text-emerald-600'
+                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
                         : isWarning
-                        ? 'bg-amber-50 text-amber-600'
-                        : 'bg-blue-50 text-blue-600'
+                        ? 'bg-amber-50 text-amber-600 border border-amber-100'
+                        : 'bg-blue-50 text-blue-600 border border-blue-100'
                     }`}
                   >
                     {isPositive ? (
@@ -97,10 +140,10 @@ export const BusinessInsightsSection: React.FC<BusinessInsightsSectionProps> = (
                   </div>
                   {insight.delta && (
                     <span
-                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                      className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded ${
                         isPositive
-                          ? 'bg-emerald-50 text-emerald-700'
-                          : 'bg-rose-50 text-rose-700'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                          : 'bg-rose-50 text-rose-700 border border-rose-200/60'
                       }`}
                     >
                       {insight.delta}
@@ -108,8 +151,8 @@ export const BusinessInsightsSection: React.FC<BusinessInsightsSectionProps> = (
                   )}
                 </div>
 
-                <h3 className="text-xs font-bold text-slate-900 mb-1">{insight.title}</h3>
-                <p className="text-[11px] text-slate-500 leading-relaxed">{insight.message}</p>
+                <h3 className="text-xs font-bold text-slate-900 mb-1 font-display">{insight.title}</h3>
+                <p className="text-[11px] text-slate-500 leading-relaxed font-sans">{insight.message}</p>
               </div>
 
               <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between">
@@ -117,7 +160,7 @@ export const BusinessInsightsSection: React.FC<BusinessInsightsSectionProps> = (
                 <button
                   type="button"
                   onClick={() => onActionClick?.(insight.category)}
-                  className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-0.5 cursor-pointer"
+                  className="text-[11px] font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-0.5 cursor-pointer font-sans"
                 >
                   <span>View Details</span>
                   <ArrowRight className="w-3 h-3" />

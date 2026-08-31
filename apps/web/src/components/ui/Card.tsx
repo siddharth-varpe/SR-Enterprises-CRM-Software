@@ -9,7 +9,7 @@ export const Card = ({ className, hoverable = false, children, ...props }: CardP
   return (
     <div
       className={cn(
-        'bg-surface border border-slate-200 rounded-card shadow-card overflow-hidden transition-all duration-fast',
+        'bg-surface border border-slate-200/90 rounded-card shadow-2xs overflow-hidden transition-all duration-fast',
         hoverable && 'hover:shadow-elevated hover:border-slate-300',
         className
       )}
@@ -27,7 +27,7 @@ export const CardHeader = ({ className, children, ...props }: React.HTMLAttribut
 );
 
 export const CardTitle = ({ className, children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
-  <h3 className={cn('text-base font-semibold text-slate-900 leading-tight', className)} {...props}>
+  <h3 className={cn('text-base font-display font-bold text-slate-900 leading-tight tracking-tight', className)} {...props}>
     {children}
   </h3>
 );

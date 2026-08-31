@@ -27,20 +27,20 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   valueClassName,
 }) => {
   return (
-    <Card className={cn('relative overflow-hidden', className)}>
+    <Card className={cn('relative overflow-hidden border-slate-200/90 shadow-2xs', className)}>
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block font-mono">
               {title}
             </span>
-            <div className={cn('text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight', valueClassName)}>
+            <div className={cn('text-2xl lg:text-3xl font-display font-extrabold text-slate-900 tracking-tight', valueClassName)}>
               {value}
             </div>
           </div>
 
           {icon && (
-            <div className="w-10 h-10 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center text-primary-600 shrink-0">
+            <div className="w-10 h-10 rounded-lg bg-sky-50 border border-sky-100 flex items-center justify-center text-primary-600 shrink-0">
               {icon}
             </div>
           )}
@@ -51,10 +51,10 @@ export const MetricCard: React.FC<MetricCardProps> = ({
             {trend && (
               <span
                 className={cn(
-                  'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded font-medium',
-                  trend.direction === 'up' && 'bg-emerald-50 text-emerald-700',
-                  trend.direction === 'down' && 'bg-rose-50 text-rose-700',
-                  trend.direction === 'neutral' && 'bg-slate-100 text-slate-700'
+                  'inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded font-semibold font-mono text-[11px]',
+                  trend.direction === 'up' && 'bg-emerald-50 text-emerald-800 border border-emerald-200',
+                  trend.direction === 'down' && 'bg-red-50 text-red-800 border border-red-200',
+                  trend.direction === 'neutral' && 'bg-slate-100 text-slate-700 border border-slate-200'
                 )}
               >
                 {trend.direction === 'up' && <ArrowUpRight className="w-3.5 h-3.5" />}
@@ -64,8 +64,8 @@ export const MetricCard: React.FC<MetricCardProps> = ({
               </span>
             )}
 
-            {subtitle && <span className="text-slate-500">{subtitle}</span>}
-            {trend?.label && !subtitle && <span className="text-slate-500">{trend.label}</span>}
+            {subtitle && <span className="text-slate-500 font-medium text-xs">{subtitle}</span>}
+            {trend?.label && !subtitle && <span className="text-slate-500 font-medium text-xs">{trend.label}</span>}
           </div>
         )}
       </CardContent>

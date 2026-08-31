@@ -9,6 +9,7 @@
 namespace SREnterprises\Mailer;
 
 require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/assets/lower_section_b64.php';
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -123,12 +124,12 @@ class PdfInvoiceGenerator {
                 $formattedAmt = number_format($amt);
 
                 $itemRowsHtml .= "
-                    <tr style='border-bottom: 1px solid #000;'>
-                        <td style='border-right: 1px solid #000; padding: 4px 2px; font-size: 8.5px; text-align: center;'>{$idx}</td>
-                        <td style='border-right: 1px solid #000; padding: 4px 6px; font-size: 8.5px; text-align: left;'>{$name}</td>
-                        <td style='border-right: 1px solid #000; padding: 4px 2px; font-size: 8.5px; text-align: center;'>{$qty} {$unit}</td>
-                        <td style='border-right: 1px solid #000; padding: 4px 4px; font-size: 8.5px; text-align: right;'>{$formattedRate}</td>
-                        <td style='padding: 4px 6px; font-size: 8.5px; text-align: right;'>{$formattedAmt}</td>
+                    <tr>
+                        <td style='border-right: 1px solid #000; padding: 3px 2px; font-size: 8.5px; text-align: center; vertical-align: top;'>{$idx}</td>
+                        <td style='border-right: 1px solid #000; padding: 3px 6px; font-size: 8.5px; text-align: left; vertical-align: top;'>{$name}</td>
+                        <td style='border-right: 1px solid #000; padding: 3px 2px; font-size: 8.5px; text-align: center; vertical-align: top;'>{$qty} {$unit}</td>
+                        <td style='border-right: 1px solid #000; padding: 3px 4px; font-size: 8.5px; text-align: right; vertical-align: top;'>{$formattedRate}</td>
+                        <td style='padding: 3px 6px; font-size: 8.5px; text-align: right; vertical-align: top;'>{$formattedAmt}</td>
                     </tr>
                 ";
                 $idx++;
@@ -140,12 +141,12 @@ class PdfInvoiceGenerator {
             $totalQty = 1;
             $formattedAmt = number_format($totalAmount > 0 ? $totalAmount : 15050);
             $itemRowsHtml = "
-                <tr style='border-bottom: 1px solid #000;'>
-                    <td style='border-right: 1px solid #000; padding: 4px 2px; font-size: 8.5px; text-align: center;'>1</td>
-                    <td style='border-right: 1px solid #000; padding: 4px 6px; font-size: 8.5px; text-align: left;'>25LPH Ro Plant With 18L Tank</td>
-                    <td style='border-right: 1px solid #000; padding: 4px 2px; font-size: 8.5px; text-align: center;'>1 PCS</td>
-                    <td style='border-right: 1px solid #000; padding: 4px 4px; font-size: 8.5px; text-align: right;'>{$formattedAmt}</td>
-                    <td style='padding: 4px 6px; font-size: 8.5px; text-align: right;'>{$formattedAmt}</td>
+                <tr>
+                    <td style='border-right: 1px solid #000; padding: 3px 2px; font-size: 8.5px; text-align: center; vertical-align: top;'>1</td>
+                    <td style='border-right: 1px solid #000; padding: 3px 6px; font-size: 8.5px; text-align: left; vertical-align: top;'>25LPH Ro Plant With 18L Tank</td>
+                    <td style='border-right: 1px solid #000; padding: 3px 2px; font-size: 8.5px; text-align: center; vertical-align: top;'>1 PCS</td>
+                    <td style='border-right: 1px solid #000; padding: 4px 4px; font-size: 8.5px; text-align: right; vertical-align: top;'>{$formattedAmt}</td>
+                    <td style='padding: 3px 6px; font-size: 8.5px; text-align: right; vertical-align: top;'>{$formattedAmt}</td>
                 </tr>
             ";
         }
@@ -155,7 +156,7 @@ class PdfInvoiceGenerator {
         if ($discountAmount > 0) {
             $formattedDiscount = number_format($discountAmount);
             $discountRowHtml = "
-                <tr style='border-bottom: 1px solid #000;'>
+                <tr>
                     <td style='border-right: 1px solid #000;'></td>
                     <td style='border-right: 1px solid #000; padding: 3px 6px; font-size: 8.5px; text-align: right;'><em>Discount</em></td>
                     <td style='border-right: 1px solid #000; padding: 3px 2px; font-size: 8.5px; text-align: center;'>-</td>
@@ -172,10 +173,9 @@ class PdfInvoiceGenerator {
         // Warranty Notes
         $warrantyNotes = !empty($data['notes']) ? htmlspecialchars($data['notes']) : '1 Years Warranty On Ele Spears 1 Service Free';
 
-        // High quality inline vector assets
-        $logoSvg = self::getLogoSvgBase64();
-        $qrCodeSvg = self::getQrCodeSvgBase64();
-        $signatureSvg = self::getSignatureSvgBase64();
+        // Authoritative static lower section and logo
+        $logoSvg = InvoiceAssets::$SR_ENTERPRISES_LOGO_B64;
+        $lowerSectionImg = InvoiceAssets::$OFFICIAL_LOWER_SECTION_B64;
 
         return <<<HTML
 <!DOCTYPE html>
@@ -278,22 +278,22 @@ class PdfInvoiceGenerator {
     <!-- SECTION 1: BILL TO & INVOICE DETAILS GRID -->
     <table class="flat-grid">
         <tr>
-            <td style="width: 58%; border-right: 1.5px solid #000; padding: 4px 6px; vertical-align: top;">
+            <td style="width: 50%; border-right: 1.5px solid #000; padding: 4px 6px; vertical-align: top;">
                 <div style="font-size: 8px; font-weight: bold; color: #000; margin-bottom: 2px;">BILL TO</div>
                 <div style="font-size: 10px; font-weight: bold; color: #000; text-transform: uppercase;">{$customerName}</div>
-                <div style="font-size: 9px; font-weight: bold; color: #000; margin-top: 2px;">Mobile: {$customerPhone}</div>
+                <div style="font-size: 9px; font-weight: 500; color: #000; margin-top: 2px;">Mobile: {$customerPhone}</div>
             </td>
-            <td style="width: 14%; border-right: 1px solid #000; text-align: center; vertical-align: top; padding: 3px 2px;">
-                <div style="font-size: 8px; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 2px;">Invoice No.</div>
-                <div style="font-size: 9px; font-weight: bold; padding-top: 4px;">{$invoiceNo}</div>
+            <td style="width: 16.66%; border-right: 1px solid #000; text-align: center; vertical-align: middle; padding: 4px 2px;">
+                <div style="font-size: 8.5px; font-weight: bold; color: #000;">Invoice No.</div>
+                <div style="font-size: 9px; font-weight: bold; color: #000; margin-top: 2px;">{$invoiceNo}</div>
             </td>
-            <td style="width: 14%; border-right: 1px solid #000; text-align: center; vertical-align: top; padding: 3px 2px;">
-                <div style="font-size: 8px; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 2px;">Invoice Date</div>
-                <div style="font-size: 9px; font-weight: bold; padding-top: 4px;">{$invoiceDate}</div>
+            <td style="width: 16.66%; border-right: 1px solid #000; text-align: center; vertical-align: middle; padding: 4px 2px;">
+                <div style="font-size: 8.5px; font-weight: bold; color: #000;">Invoice Date</div>
+                <div style="font-size: 9px; font-weight: bold; color: #000; margin-top: 2px;">{$invoiceDate}</div>
             </td>
-            <td style="width: 14%; text-align: center; vertical-align: top; padding: 3px 2px;">
-                <div style="font-size: 8px; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 2px;">Due Date</div>
-                <div style="font-size: 9px; font-weight: bold; padding-top: 4px;">{$dueDate}</div>
+            <td style="width: 16.68%; text-align: center; vertical-align: middle; padding: 4px 2px;">
+                <div style="font-size: 8.5px; font-weight: bold; color: #000;">Due Date</div>
+                <div style="font-size: 9px; font-weight: bold; color: #000; margin-top: 2px;">{$dueDate}</div>
             </td>
         </tr>
     </table>
@@ -301,20 +301,21 @@ class PdfInvoiceGenerator {
     <!-- SECTION 2: ITEMS TABLE -->
     <table class="flat-grid">
         <thead>
-            <tr style="background-color: #f2f2f2; border-bottom: 1.5px solid #000;">
-                <th style="width: 8%; border-right: 1px solid #000; padding: 3px 2px; font-size: 8px; font-weight: bold; text-align: center;">S.NO.</th>
-                <th style="width: 50%; border-right: 1px solid #000; padding: 3px 6px; font-size: 8px; font-weight: bold; text-align: center;">ITEMS</th>
-                <th style="width: 12%; border-right: 1px solid #000; padding: 3px 2px; font-size: 8px; font-weight: bold; text-align: center;">QTY.</th>
-                <th style="width: 15%; border-right: 1px solid #000; padding: 3px 4px; font-size: 8px; font-weight: bold; text-align: center;">RATE</th>
-                <th style="width: 15%; padding: 3px 6px; font-size: 8px; font-weight: bold; text-align: center;">AMOUNT</th>
+            <tr style="background-color: #e5e7eb; border-bottom: 1.5px solid #000;">
+                <th style="width: 10.2%; border-right: 1px solid #000; padding: 3px 2px; font-size: 8px; font-weight: bold; text-align: center;">S.NO.</th>
+                <th style="width: 46.5%; border-right: 1px solid #000; padding: 3px 6px; font-size: 8px; font-weight: bold; text-align: center;">ITEMS</th>
+                <th style="width: 13.0%; border-right: 1px solid #000; padding: 3px 2px; font-size: 8px; font-weight: bold; text-align: center;">QTY.</th>
+                <th style="width: 14.0%; border-right: 1px solid #000; padding: 3px 4px; font-size: 8px; font-weight: bold; text-align: center;">RATE</th>
+                <th style="width: 16.3%; padding: 3px 6px; font-size: 8px; font-weight: bold; text-align: center;">AMOUNT</th>
             </tr>
         </thead>
         <tbody>
             {$itemRowsHtml}
             {$discountRowHtml}
             <!-- TOTAL ROW -->
-            <tr style="background-color: #f2f2f2; border-top: 1.5px solid #000; font-weight: bold;">
-                <td colspan="2" style="border-right: 1px solid #000; padding: 3px 6px; font-size: 9px; text-align: right;">TOTAL</td>
+            <tr style="background-color: #e5e7eb; border-top: 1.5px solid #000; font-weight: bold;">
+                <td style="border-right: 1px solid #000; padding: 3px 2px;"></td>
+                <td style="border-right: 1px solid #000; padding: 3px 6px; font-size: 9px; text-align: right;">TOTAL</td>
                 <td style="border-right: 1px solid #000; padding: 3px 2px; font-size: 9px; text-align: center;">{$totalQty}</td>
                 <td style="border-right: 1px solid #000; padding: 3px 4px; font-size: 9px; text-align: center;"></td>
                 <td style="padding: 3px 6px; font-size: 9px; text-align: right;">₹ {$formattedTotalAmount}</td>
@@ -325,10 +326,10 @@ class PdfInvoiceGenerator {
     <!-- SECTION 3: RECEIVED AMOUNT & BALANCE AMOUNT -->
     <table class="flat-grid">
         <tr style="border-bottom: 1.5px solid #000;">
-            <td style="width: 58%; border-right: 1.5px solid #000; padding: 4px 6px; font-size: 9px; font-weight: bold;">
+            <td style="width: 50%; border-right: 1.5px solid #000; padding: 4px 6px; font-size: 9px; font-weight: bold;">
                 Received Amount: ₹ {$formattedReceivedAmount}
             </td>
-            <td style="width: 42%; padding: 4px 6px; font-size: 9px; font-weight: bold;">
+            <td style="width: 50%; padding: 4px 6px; font-size: 9px; font-weight: bold;">
                 Balance Amount: ₹ {$formattedBalanceAmount}
             </td>
         </tr>
@@ -340,61 +341,10 @@ class PdfInvoiceGenerator {
         </tr>
     </table>
 
-    <!-- SECTION 5: FOUR-BLOCK FOOTER -->
-    <table class="flat-grid">
-        <tr>
-            <!-- Bank Details (Box 1) -->
-            <td style="width: 27%; border-right: 1px solid #000; padding: 4px 5px; font-size: 7.2px; vertical-align: top; line-height: 1.25;">
-                <div style="font-size: 7.8px; font-weight: bold; margin-bottom: 2px;">Bank Details</div>
-                <div>Name: <strong>Ramesh Ambadas Bomble</strong></div>
-                <div>IFSC Code: <strong>HDFC0000463</strong></div>
-                <div>Account No: <strong>50100399721798</strong></div>
-                <div>Bank: <strong>HDFC Bank, SANGAMNER,AHMEDNAGAR,</strong></div>
-            </td>
-
-            <!-- Payment QR Code (Box 2) -->
-            <td style="width: 24%; border-right: 1px solid #000; padding: 4px 4px; font-size: 6.8px; vertical-align: top; line-height: 1.2;">
-                <div style="font-size: 7.8px; font-weight: bold; margin-bottom: 2px;">Payment QR Code</div>
-                <table style="width: 100%; border: none; border-collapse: collapse;">
-                    <tr>
-                        <td style="border: none; vertical-align: top; padding: 0;">
-                            <div>PhonePe / Google Pay / PayTM</div>
-                            <div style="margin-top: 2px; font-size: 6.5px; line-height: 1.15;">
-                                UPI ID:<br>
-                                <strong style="font-size: 7px;">9766039197@hdfcbank</strong>
-                            </div>
-                        </td>
-                        <td style="border: none; width: 40px; vertical-align: middle; text-align: right; padding: 0;">
-                            <img src="{$qrCodeSvg}" style="width: 38px; height: 38px;" alt="UPI QR Code" />
-                        </td>
-                    </tr>
-                </table>
-            </td>
-
-            <!-- Terms and Conditions (Box 3) -->
-            <td style="width: 27%; border-right: 1px solid #000; padding: 4px 4px; font-size: 6.5px; vertical-align: top; line-height: 1.25;">
-                <div style="font-size: 7.8px; font-weight: bold; margin-bottom: 2px;">Terms and Conditions</div>
-                1) Except Breakage &amp; Pump In AMC<br>
-                2) T&amp;C Apply For AMC &amp; Warranty<br>
-                3) Dust &amp; Soil Damage Not Cover<br>
-                4) Any Other Issue Service Charge Applicable<br>
-                5) GST Bill Extra Charges Applicable<br>
-                6) New Machine Install Advance Payment 80%<br>
-                7) Commercial Use Unit No Warranty
-            </td>
-
-            <!-- Authorised Signatory (Box 4) -->
-            <td style="width: 22%; padding: 4px 4px; text-align: center; vertical-align: bottom;">
-                <div style="margin-bottom: 2px; text-align: center;">
-                    <img src="{$signatureSvg}" style="height: 30px; width: 70px;" alt="Signature" />
-                </div>
-                <div style="font-size: 7px; font-weight: bold; color: #000; line-height: 1.2;">
-                    Authorised Signatory For<br>
-                    SR ENTERPRISES
-                </div>
-            </td>
-        </tr>
-    </table>
+    <!-- SECTION 5: EXACT STATIC OFFICIAL SR ENTERPRISES LOWER IMAGE -->
+    <div style="width: 100%; border: 1.5px solid #000; border-top: none; margin-top: 0; line-height: 0;">
+        <img src="{$lowerSectionImg}" style="width: 100%; display: block;" alt="Official SR Enterprises Bank, QR, Terms & Signatory" />
+    </div>
 
 </div>
 

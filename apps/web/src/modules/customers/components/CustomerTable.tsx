@@ -73,29 +73,27 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
                   key={customer.id}
                   onClick={() => onSelectCustomer(customer)}
                   className={`transition-colors cursor-pointer group relative ${
-                    isSelected
-                      ? 'bg-blue-50/50'
-                      : 'hover:bg-slate-50/80'
+                    isSelected ? 'bg-sky-50/60' : 'hover:bg-slate-50/80'
                   }`}
                 >
                   {/* Active selection bar on left edge */}
                   {isSelected && (
                     <td className="p-0">
-                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#1E88E5]" />
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary-600" />
                     </td>
                   )}
 
                   {/* 1. CUSTOMER (Avatar with initials + Name + Customer ID) */}
                   <td className="py-3.5 px-4 pl-5">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold text-xs flex items-center justify-center shadow-2xs shrink-0">
+                      <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-700 font-mono font-bold text-xs flex items-center justify-center border border-sky-200/80 shadow-2xs shrink-0">
                         {customer.initials}
                       </div>
                       <div className="min-w-0">
-                        <span className="font-bold text-slate-900 text-xs sm:text-sm block group-hover:text-[#1E88E5] transition-colors truncate">
+                        <span className="font-bold text-slate-900 text-xs sm:text-sm block group-hover:text-primary-600 transition-colors truncate">
                           {customer.fullName}
                         </span>
-                        <span className="text-[11px] text-slate-400 font-mono block">
+                        <span className="text-[11px] text-slate-500 font-mono block font-semibold">
                           {customer.customerNumber}
                         </span>
                       </div>
@@ -105,10 +103,10 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
                   {/* 2. CONTACT (Phone primary + Email secondary) */}
                   <td className="py-3.5 px-4">
                     <div className="space-y-0.5">
-                      <span className="font-semibold text-slate-800 text-xs block font-mono">
+                      <span className="font-semibold text-slate-900 text-xs block font-mono">
                         {customer.phone}
                       </span>
-                      <span className="text-[11px] text-slate-400 block truncate max-w-[150px]">
+                      <span className="text-[11px] text-slate-500 block truncate max-w-[150px] font-medium">
                         {customer.email}
                       </span>
                     </div>
@@ -123,7 +121,7 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
 
                   {/* 4. LAST SERVICE */}
                   <td className="py-3.5 px-4">
-                    <span className="font-medium text-slate-700 text-xs sm:text-sm">
+                    <span className="font-medium text-slate-700 text-xs sm:text-sm font-mono">
                       {customer.lastServiceDate || '—'}
                     </span>
                   </td>
@@ -131,17 +129,17 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
                   {/* 5. NEXT SERVICE (Date + Remaining Days Badge) */}
                   <td className="py-3.5 px-4">
                     <div>
-                      <span className="font-semibold text-slate-800 text-xs block">
+                      <span className="font-semibold text-slate-800 text-xs block font-mono">
                         {customer.nextServiceDate || '—'}
                       </span>
                       {customer.nextServiceDays !== null && customer.nextServiceDays !== undefined && (
                         isExpired ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#E53935] bg-red-50 border border-red-200/60 px-1.5 py-0.5 rounded-full mt-0.5">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold font-mono text-red-700 bg-red-50 border border-red-200/80 px-1.5 py-0.5 rounded-full mt-0.5">
                             <XCircle className="w-2.5 h-2.5" />
                             <span>Expired</span>
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#10B981] bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-full mt-0.5">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold font-mono text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 rounded-full mt-0.5">
                             <CheckCircle2 className="w-2.5 h-2.5" />
                             <span>{customer.nextServiceDays} days left</span>
                           </span>
@@ -153,12 +151,12 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
                   {/* 6. STATUS (Active / Inactive compact pill) */}
                   <td className="py-3.5 px-4">
                     {customer.status === 'ACTIVE' ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-[11px] font-bold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-bold font-mono">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
                         <span>Active</span>
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-[11px] font-bold">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-[11px] font-bold font-mono">
                         <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
                         <span>Inactive</span>
                       </span>
@@ -173,7 +171,7 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
                         onClick={() => onViewProfile ? onViewProfile(customer) : onSelectCustomer(customer)}
                         title="View Customer Profile"
                         aria-label={`View profile for ${customer.fullName}`}
-                        className="w-7 h-7 rounded-lg text-slate-400 hover:text-[#1E88E5] hover:bg-blue-50 flex items-center justify-center transition-colors cursor-pointer"
+                        className="w-7 h-7 rounded-lg text-slate-400 hover:text-primary-600 hover:bg-sky-50 flex items-center justify-center transition-colors cursor-pointer"
                       >
                         <Eye className="w-4 h-4" />
                       </button>

@@ -12,7 +12,9 @@ import { PaymentReceiptModal } from '../payments/components/PaymentReceiptModal'
 import { useToast } from '../../providers/ToastProvider';
 import { useAuth } from '../../providers/AuthBoundary';
 import { formatINR, formatDate } from '../../lib/formatters';
+import { cn } from '../../lib/utils';
 import { sendInvoiceViaWhatsApp } from '../../lib/whatsapp';
+import { OFFICIAL_LOWER_SECTION_B64, SR_ENTERPRISES_LOGO_B64 } from '../../assets/invoiceAssets';
 import {
   Printer,
   ArrowLeft,
@@ -231,292 +233,193 @@ export const InvoiceDetailPage: React.FC = () => {
           )}
         </div>
       )}
-      <div
-        id="printable-tax-invoice"
-        className="bg-white p-8 md:p-12 rounded-xl border border-slate-200 shadow-sm text-slate-800 space-y-8 printable-tax-invoice print:border-none print:shadow-none print:p-0 print:m-0 print:space-y-6"
-      >
-        {/* Header Branding */}
-        <div className="flex flex-col sm:flex-row justify-between items-start pb-6 border-b border-slate-200 gap-4 print:pb-4">
-          <div>
-            <div className="flex items-center gap-2.5 text-primary-900 font-extrabold text-2xl tracking-tight">
-              <div className="w-8 h-8 bg-primary-600 text-white rounded-lg flex items-center justify-center font-bold text-sm">
-                SR
-              </div>
-              <span>SR ENTERPRISES</span>
-            </div>
-            <div className="text-xs text-slate-500 mt-1.5 space-y-0.5">
-              <div>Water Purifier Sales, Genuine Spares & Doorstep Service</div>
-              <div>Plot 42, Industrial Area, GE Road, Raipur, CG - 492001</div>
-              <div>GSTIN: <span className="font-mono font-semibold text-slate-800">22ABCDE1234F1Z5</span> • Phone: +91 98261 00000</div>
-              <div>Email: support@srenterprises.com</div>
-            </div>
-          </div>
+      {/* Printable SR ENTERPRISES Invoice / Bill of Supply */}
+      {(() => {
+        const customerName = (invoice.customerName || 'Valued Customer').toUpperCase();
+        const customerPhone = invoice.customerPhone || '9766039197';
+        const invoiceNo = invoice.invoiceNumber || '82026209';
+        const invoiceDate = new Date(invoice.invoiceDate).toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        });
+        const dueDate = new Date(invoice.dueDate).toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        });
 
-          <div className="sm:text-right space-y-1">
-            <span className="inline-block px-3 py-1 bg-slate-900 text-white font-mono font-bold text-sm rounded uppercase tracking-wider">
-              TAX INVOICE
-            </span>
-            <div className="text-sm font-mono font-bold text-slate-900 mt-2">{invoice.invoiceNumber}</div>
-            <div className="text-xs text-slate-500">
-              Date: <span className="font-medium text-slate-800">{new Date(invoice.invoiceDate).toLocaleDateString('en-IN')}</span>
-            </div>
-            <div className="text-xs text-slate-500">
-              Due Date: <span className="font-medium text-slate-800">{new Date(invoice.dueDate).toLocaleDateString('en-IN')}</span>
-            </div>
-            <div className="pt-1">
-              <StatusBadge status={statusVariantMap[invoice.status] || 'warning'} label={invoice.status} />
-            </div>
-          </div>
-        </div>
+        const totalAmountNum = parseFloat(invoice.totalAmount || '0');
+        const discountAmountNum = parseFloat(invoice.discountAmount || '0');
+        const paidAmountNum = parseFloat(invoice.paidAmount || '0');
+        const outstandingNum = parseFloat(invoice.outstandingAmount || '0');
 
-        {/* Billed To Section */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs pb-4 border-b border-slate-200 print:pb-3">
-          <div>
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-              Billed To Customer:
-            </span>
-            <div className="font-bold text-slate-900 text-sm">{invoice.customerName}</div>
-            <div className="text-slate-600 mt-0.5">
-              Customer ID: <span className="font-mono">{invoice.customerNumber}</span>
-            </div>
-            <div className="text-slate-600">Phone: {invoice.customerPhone}</div>
-            {invoice.customerEmail && <div className="text-slate-600">Email: {invoice.customerEmail}</div>}
-            {invoice.customerGst && (
-              <div className="text-slate-700 font-semibold mt-1">
-                GSTIN: <span className="font-mono">{invoice.customerGst}</span>
-              </div>
+        const formattedTotalAmount = totalAmountNum.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+        const formattedReceivedAmount = paidAmountNum.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+        const formattedBalanceAmount = outstandingNum.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+        const formattedDiscountAmount = discountAmountNum.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+
+        const totalQty = invoice.items?.reduce((sum: number, item: any) => sum + (Number(item.quantity) || 1), 0) || 1;
+        const warrantyNotes = invoice.notes || '1 Years Warranty On Ele Spears 1 Service Free';
+
+        return (
+          <div
+            id="printable-tax-invoice"
+            className={cn(
+              "bg-white p-4 md:p-8 rounded-xl border border-slate-200 shadow-sm text-black font-sans space-y-4 printable-tax-invoice print:border-none print:shadow-none print:p-0 print:m-0 print:space-y-0",
+              receiptTarget && "print:hidden"
             )}
-          </div>
+          >
+            <div className="border-[1.5px] border-black p-4 text-black font-sans leading-tight text-[11px] bg-white">
+              {/* Top Badges */}
+              <div className="mb-2 flex items-center gap-1.5">
+                <span className="inline-block border border-black px-1.5 py-0.5 text-[9px] font-bold tracking-wider uppercase">
+                  BILL OF SUPPLY
+                </span>
+                <span className="inline-block border border-slate-500 px-1.5 py-0.5 text-[9px] text-slate-600 tracking-wider uppercase">
+                  ORIGINAL FOR RECIPIENT
+                </span>
+              </div>
 
-          <div>
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-              Service / Delivery Address:
-            </span>
-            {defaultAddress ? (
-              <div className="text-slate-600 leading-relaxed">
-                <div>{defaultAddress.addressLine1}</div>
-                {defaultAddress.addressLine2 && <div>{defaultAddress.addressLine2}</div>}
-                {defaultAddress.landmark && <div>Near {defaultAddress.landmark}</div>}
-                <div>
-                  {defaultAddress.city}, {defaultAddress.state} - {defaultAddress.postalCode}
+              {/* Header: Logo & Company Name */}
+              <div className="flex items-center justify-between mb-3 pb-2">
+                <div className="w-16 shrink-0 flex items-center justify-center">
+                  <img
+                    src={SR_ENTERPRISES_LOGO_B64}
+                    alt="SR Enterprises Logo"
+                    className="w-14 h-14 object-contain select-none"
+                  />
+                </div>
+
+                <div className="text-center flex-1 px-2">
+                  <h1 className="text-xl font-extrabold tracking-wide uppercase text-black font-sans">
+                    SR ENTERPRISES
+                  </h1>
+                  <p className="text-[10px] text-slate-800 font-medium mt-0.5">
+                    Shop A6 SaiPritam Nagari, Chatrapati Chowk Rahatani. Mo.7385059197, Pimpri-Chinchwad, Pune., Maharashtra, 411017
+                  </p>
+                  <p className="text-[11px] font-bold text-black mt-1">
+                    Mobile: 9766039197 &nbsp;&nbsp;&nbsp;&nbsp; Email: srenterprises02015@gmail.com
+                  </p>
+                </div>
+
+                <div className="w-16 shrink-0" />
+              </div>
+
+              {/* Main Flat Grid Border Wrapper */}
+              <div className="border-[1.5px] border-black">
+                {/* Row 1: Bill To & Invoice Meta Details */}
+                <div className="grid grid-cols-12 border-b-[1.5px] border-black">
+                  <div className="col-span-6 border-r-[1.5px] border-black p-2.5 bg-white">
+                    <p className="text-[10px] font-bold uppercase text-black">BILL TO</p>
+                    <p className="text-xs font-extrabold uppercase text-black mt-0.5">{customerName}</p>
+                    <p className="text-[11px] font-medium text-black mt-1">Mobile: {customerPhone}</p>
+                  </div>
+
+                  <div className="col-span-6 grid grid-cols-3 text-center bg-white">
+                    <div className="border-r border-black p-2 flex flex-col justify-center items-center">
+                      <span className="text-[10px] font-bold text-black">Invoice No.</span>
+                      <span className="text-[11px] font-bold font-mono text-black mt-0.5">{invoiceNo}</span>
+                    </div>
+                    <div className="border-r border-black p-2 flex flex-col justify-center items-center">
+                      <span className="text-[10px] font-bold text-black">Invoice Date</span>
+                      <span className="text-[11px] font-bold text-black mt-0.5">{invoiceDate}</span>
+                    </div>
+                    <div className="p-2 flex flex-col justify-center items-center">
+                      <span className="text-[10px] font-bold text-black">Due Date</span>
+                      <span className="text-[11px] font-bold text-black mt-0.5">{dueDate}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 2: Items Table */}
+                <table className="w-full text-[11px] border-collapse">
+                  <thead>
+                    <tr className="bg-slate-200/70 border-b-[1.5px] border-black font-bold">
+                      <th className="w-[10.2%] border-r border-black py-1.5 px-1 text-center font-bold text-black">S.NO.</th>
+                      <th className="w-[46.5%] border-r border-black py-1.5 px-2 text-center font-bold text-black">ITEMS</th>
+                      <th className="w-[13.0%] border-r border-black py-1.5 px-1 text-center font-bold text-black">QTY.</th>
+                      <th className="w-[14.0%] border-r border-black py-1.5 px-2 text-center font-bold text-black">RATE</th>
+                      <th className="w-[16.3%] py-1.5 px-2 text-center font-bold text-black">AMOUNT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoice.items && invoice.items.length > 0 ? (
+                      invoice.items.map((item: any, idx: number) => {
+                        const unitRate = parseFloat(item.unitPriceSnapshot || '0').toLocaleString('en-IN', { maximumFractionDigits: 2 });
+                        const lineAmt = parseFloat(item.lineTotal || '0').toLocaleString('en-IN', { maximumFractionDigits: 2 });
+                        return (
+                          <tr key={item.id || idx}>
+                            <td className="border-r border-black py-1 px-1 text-center align-top">{idx + 1}</td>
+                            <td className="border-r border-black py-1 px-2 text-left font-medium align-top">{item.nameSnapshot}</td>
+                            <td className="border-r border-black py-1 px-1 text-center align-top">{item.quantity} PCS</td>
+                            <td className="border-r border-black py-1 px-2 text-right font-mono align-top">{unitRate}</td>
+                            <td className="py-1 px-2 text-right font-mono font-medium align-top">{lineAmt}</td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td className="border-r border-black py-1 px-1 text-center align-top">1</td>
+                        <td className="border-r border-black py-1 px-2 text-left font-medium align-top">25LPH Ro Plant With 18L Tank</td>
+                        <td className="border-r border-black py-1 px-1 text-center align-top">1 PCS</td>
+                        <td className="border-r border-black py-1 px-2 text-right font-mono align-top">{formattedTotalAmount}</td>
+                        <td className="py-1 px-2 text-right font-mono font-medium align-top">{formattedTotalAmount}</td>
+                      </tr>
+                    )}
+
+                    {/* Discount Row */}
+                    {discountAmountNum > 0 && (
+                      <tr>
+                        <td className="border-r border-black py-1 px-1"></td>
+                        <td className="border-r border-black py-1 px-2 text-right italic font-medium">Discount</td>
+                        <td className="border-r border-black py-1 px-1 text-center">-</td>
+                        <td className="border-r border-black py-1 px-2 text-center">-</td>
+                        <td className="py-1 px-2 text-right font-mono text-black font-semibold">- ₹ {formattedDiscountAmount}</td>
+                      </tr>
+                    )}
+
+                    {/* TOTAL Row */}
+                    <tr className="bg-slate-200/70 border-t-[1.5px] border-b-[1.5px] border-black font-extrabold">
+                      <td className="border-r border-black py-1.5 px-1"></td>
+                      <td className="border-r border-black py-1.5 px-2 text-right uppercase text-black">TOTAL</td>
+                      <td className="border-r border-black py-1.5 px-1 text-center text-black">{totalQty}</td>
+                      <td className="border-r border-black py-1.5 px-2 text-center"></td>
+                      <td className="py-1.5 px-2 text-right font-mono font-extrabold text-black">₹ {formattedTotalAmount}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* Row 3: Received Amount & Balance Amount */}
+                <div className="grid grid-cols-12 border-b-[1.5px] border-black">
+                  <div className="col-span-6 border-r-[1.5px] border-black p-2 font-bold text-xs flex items-center">
+                    <span>Received Amount:&nbsp;</span>
+                    <span className="font-mono text-black font-extrabold">₹ {formattedReceivedAmount}</span>
+                  </div>
+                  <div className="col-span-6 p-2 font-bold text-xs flex items-center">
+                    <span>Balance Amount:&nbsp;</span>
+                    <span className="font-mono text-black font-extrabold">₹ {formattedBalanceAmount}</span>
+                  </div>
+                </div>
+
+                {/* Row 4: Notes */}
+                <div className="p-2 border-b-[1.5px] border-black bg-white text-[10.5px]">
+                  <strong>Notes:</strong>&nbsp;{warrantyNotes}
+                </div>
+
+                {/* PART B: Static Official SR Enterprises Lower Section Image */}
+                <div className="w-full bg-white leading-none">
+                  <img
+                    src={OFFICIAL_LOWER_SECTION_B64}
+                    alt="Official SR Enterprises Bank, QR, Terms & Signatory"
+                    className="w-full h-auto block select-none"
+                  />
                 </div>
               </div>
-            ) : (
-              <div className="text-slate-400 italic">No installation address specified</div>
-            )}
-          </div>
-        </div>
-
-        {/* Itemized Table */}
-        <div className="overflow-x-auto print:overflow-visible">
-          <table className="w-full text-xs text-left border-collapse">
-            <thead className="bg-slate-50 text-slate-700 uppercase font-bold border-y border-slate-200 print:bg-slate-100">
-              <tr>
-                <th className="py-2.5 px-3">#</th>
-                <th className="py-2.5 px-3">Item Description</th>
-                <th className="py-2.5 px-3 text-center">Qty</th>
-                <th className="py-2.5 px-3 text-right">Unit Rate (₹)</th>
-                <th className="py-2.5 px-3 text-right">Discount</th>
-                <th className="py-2.5 px-3 text-right">Tax (18%)</th>
-                <th className="py-2.5 px-3 text-right">Total (₹)</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {invoice.items.map((item, idx) => (
-                <tr key={idx} className="print:break-inside-avoid">
-                  <td className="py-3 px-3 text-slate-400">{idx + 1}</td>
-                  <td className="py-3 px-3">
-                    <div className="font-bold text-slate-900">{item.nameSnapshot}</div>
-                    {item.descriptionSnapshot && (
-                      <div className="text-[11px] text-slate-500">{item.descriptionSnapshot}</div>
-                    )}
-                  </td>
-                  <td className="py-3 px-3 text-center font-semibold">{item.quantity}</td>
-                  <td className="py-3 px-3 text-right font-mono">
-                    ₹{parseFloat(item.unitPriceSnapshot).toFixed(2)}
-                  </td>
-                  <td className="py-3 px-3 text-right font-mono text-emerald-600 print:text-slate-800">
-                    {parseFloat(item.discountAmount) > 0 ? `-₹${parseFloat(item.discountAmount).toFixed(2)}` : '—'}
-                  </td>
-                  <td className="py-3 px-3 text-right font-mono text-slate-600 print:text-slate-800">
-                    ₹{parseFloat(item.taxAmount).toFixed(2)}
-                  </td>
-                  <td className="py-3 px-3 text-right font-bold font-mono text-slate-900">
-                    ₹{parseFloat(item.lineTotal).toFixed(2)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Payment Installments & Transaction Schedule (Printable Tax Invoice) */}
-        {((invoicePayments && invoicePayments.length > 0) || parseFloat(invoice.paidAmount) > 0) && (
-          <div className="pt-2 border-t border-slate-200 space-y-2 print-avoid-break">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-slate-900 text-xs uppercase tracking-wider">
-                Payment Installments &amp; Transaction Schedule
-              </span>
-              {invoice.status === 'PARTIALLY_PAID' && (
-                <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-200 print:border-slate-400 print:bg-slate-100 print:text-slate-900">
-                  PARTIAL PAYMENT SCHEDULE ACTIVE
-                </span>
-              )}
-            </div>
-
-            <div className="border border-slate-200 rounded-lg overflow-hidden">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-slate-100 text-slate-700 font-bold uppercase text-[10px] border-b border-slate-200 print:bg-slate-100">
-                  <tr>
-                    <th className="py-2 px-3">Installment</th>
-                    <th className="py-2 px-3">Transaction Ref / Details</th>
-                    <th className="py-2 px-3 text-center">Payment Date</th>
-                    <th className="py-2 px-3 text-center">Mode</th>
-                    <th className="py-2 px-3 text-right">Amount (₹)</th>
-                    <th className="py-2 px-3 text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {invoicePayments && invoicePayments.length > 0 ? (
-                    invoicePayments.map((p: any, idx: number) => (
-                      <tr key={p.id} className="bg-white">
-                        <td className="py-2 px-3 font-bold text-slate-900">
-                          Installment #{idx + 1}
-                        </td>
-                        <td className="py-2 px-3">
-                          <div className="font-mono font-semibold text-slate-800">{p.paymentNumber}</div>
-                          {p.referenceNumber && (
-                            <div className="text-[10px] text-slate-500 font-mono">Ref: {p.referenceNumber}</div>
-                          )}
-                        </td>
-                        <td className="py-2 px-3 text-center text-slate-700">
-                          {new Date(p.paymentDate).toLocaleDateString('en-IN')}
-                        </td>
-                        <td className="py-2 px-3 text-center">
-                          <span className="font-semibold text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-800">
-                            {p.paymentMethod}
-                          </span>
-                        </td>
-                        <td className="py-2 px-3 text-right font-mono font-bold text-emerald-700 print:text-slate-900">
-                          ₹{parseFloat(p.amount).toFixed(2)}
-                        </td>
-                        <td className="py-2 px-3 text-center font-bold text-emerald-700 text-[10px] uppercase print:text-slate-900">
-                          PAID ✓
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr className="bg-white">
-                      <td className="py-2 px-3 font-bold text-slate-900">Installment #1</td>
-                      <td className="py-2 px-3 text-slate-600">Advance / Initial Collection</td>
-                      <td className="py-2 px-3 text-center text-slate-700">{new Date(invoice.invoiceDate).toLocaleDateString('en-IN')}</td>
-                      <td className="py-2 px-3 text-center">CASH</td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-emerald-700 print:text-slate-900">₹{parseFloat(invoice.paidAmount).toFixed(2)}</td>
-                      <td className="py-2 px-3 text-center font-bold text-emerald-700 text-[10px] uppercase print:text-slate-900">PAID ✓</td>
-                    </tr>
-                  )}
-
-                  {/* Remaining Due Installment Row if Partially Paid */}
-                  {parseFloat(invoice.outstandingAmount) > 0.01 && (
-                    <tr className="bg-amber-50/50 print:bg-slate-50 font-medium">
-                      <td className="py-2 px-3 font-bold text-amber-950 print:text-slate-900">
-                        Installment #{(invoicePayments?.length || 1) + 1} (Remaining)
-                      </td>
-                      <td className="py-2 px-3 text-amber-900 print:text-slate-800">
-                        Scheduled Next Due Balance
-                      </td>
-                      <td className="py-2 px-3 text-center font-bold text-slate-900">
-                        {new Date(invoice.dueDate).toLocaleDateString('en-IN')}
-                      </td>
-                      <td className="py-2 px-3 text-center text-slate-500">—</td>
-                      <td className="py-2 px-3 text-right font-mono font-bold text-amber-900 print:text-slate-900">
-                        ₹{parseFloat(invoice.outstandingAmount).toFixed(2)}
-                      </td>
-                      <td className="py-2 px-3 text-center font-bold text-amber-800 print:text-slate-900 text-[10px] uppercase">
-                        DUE ON {new Date(invoice.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
             </div>
           </div>
-        )}
-
-        {/* Financial Summary & Bank Details */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 pt-4 print-avoid-break print:gap-6 print:pt-2">
-          <div className="space-y-3 text-xs">
-            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-1 print:bg-slate-50/50 print:p-3">
-              <span className="font-bold text-slate-800 block text-xs uppercase tracking-wider">
-                Bank & Payment Details
-              </span>
-              <div className="text-slate-600">Account Name: SR ENTERPRISES</div>
-              <div className="text-slate-600">Bank: HDFC Bank • Branch: Raipur Main</div>
-              <div className="text-slate-600">A/C No: 50200012345678 • IFSC: HDFC0001234</div>
-              <div className="text-slate-600 font-semibold pt-1">UPI ID: srenterprises@hdfcbank</div>
-            </div>
-
-            <div className="text-slate-500 text-[11px] leading-relaxed print:text-[10px]">
-              <strong>Terms:</strong> {invoice.termsAndConditions || 'Payment due within 15 days of invoice date. 1 year standard warranty on RO machines.'}
-            </div>
-          </div>
-
-          <div className="space-y-2.5 text-xs text-slate-600 font-medium print:space-y-1.5">
-            <div className="flex justify-between">
-              <span>Taxable Subtotal:</span>
-              <span className="font-mono text-slate-900 font-bold">
-                ₹{parseFloat(invoice.subtotal).toFixed(2)}
-              </span>
-            </div>
-
-            <div className="flex justify-between text-emerald-600 print:text-slate-800">
-              <span>Total Discounts:</span>
-              <span className="font-mono font-bold">-₹{parseFloat(invoice.discountAmount).toFixed(2)}</span>
-            </div>
-
-            <div className="flex justify-between">
-              <span>CGST (9%):</span>
-              <span className="font-mono text-slate-900">
-                ₹{(parseFloat(invoice.taxAmount) / 2).toFixed(2)}
-              </span>
-            </div>
-
-            <div className="flex justify-between">
-              <span>SGST (9%):</span>
-              <span className="font-mono text-slate-900">
-                ₹{(parseFloat(invoice.taxAmount) / 2).toFixed(2)}
-              </span>
-            </div>
-
-            <div className="pt-2 border-t-2 border-slate-900 flex justify-between items-baseline">
-              <span className="font-extrabold text-slate-900 text-sm uppercase">Total Invoice Value:</span>
-              <span className="font-bold text-slate-900 text-lg font-mono">
-                ₹{parseFloat(invoice.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-              </span>
-            </div>
-
-            <div className="flex justify-between pt-1 text-slate-500 text-[11px]">
-              <span>Amount Paid:</span>
-              <span className="font-mono">₹{parseFloat(invoice.paidAmount).toFixed(2)}</span>
-            </div>
-
-            <div className="flex justify-between pt-1 font-bold text-amber-800 bg-amber-50 p-2 rounded print:border print:border-slate-300 print:bg-slate-50 print:text-slate-900">
-              <span>Balance Due / Outstanding:</span>
-              <span className="font-mono">₹{parseFloat(invoice.outstandingAmount).toFixed(2)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer Signature */}
-        <div className="pt-8 flex justify-between items-end border-t border-slate-200 text-xs text-slate-500 print-avoid-break print:pt-4">
-          <div>Thank you for choosing SR Enterprises!</div>
-          <div className="text-right">
-            <div className="font-bold text-slate-800">For SR ENTERPRISES</div>
-            <div className="h-10"></div>
-            <div className="text-[11px] text-slate-400">Authorized Signatory</div>
-          </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* Payment History & Realized Collections Ledger (Screen Only) */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4 print:hidden">

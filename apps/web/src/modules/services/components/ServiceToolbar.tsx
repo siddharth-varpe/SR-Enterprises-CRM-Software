@@ -41,7 +41,7 @@ export const ServiceToolbar: React.FC<ServiceToolbarProps> = ({
   return (
     <div className="space-y-4">
       {/* Top Status Tabs */}
-      <div className="flex items-center justify-between gap-4 flex-wrap pb-1 border-b border-slate-200">
+      <div className="flex items-center justify-between gap-4 flex-wrap pb-1 border-b border-slate-200/90">
         <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
           {statusTabs.map((tab) => {
             const isActive = currentStatus === tab.id;
@@ -51,7 +51,7 @@ export const ServiceToolbar: React.FC<ServiceToolbarProps> = ({
                 onClick={() => onFilterChange({ status: tab.id as any, page: 1 })}
                 className={`px-3.5 py-2 text-xs font-bold rounded-lg whitespace-nowrap transition-all duration-150 cursor-pointer ${
                   isActive
-                    ? 'bg-slate-900 text-white shadow-xs'
+                    ? 'bg-primary-600 text-white shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`}
               >
@@ -65,7 +65,7 @@ export const ServiceToolbar: React.FC<ServiceToolbarProps> = ({
         <Button
           onClick={onOpenScheduleModal}
           size="sm"
-          className="bg-primary-600 hover:bg-primary-700 text-white font-bold shrink-0 shadow-xs"
+          className="bg-primary-600 hover:bg-primary-700 text-white font-bold shrink-0 shadow-2xs rounded-xl"
           leftIcon={<Plus className="w-4 h-4" />}
         >
           Schedule Service
@@ -73,7 +73,7 @@ export const ServiceToolbar: React.FC<ServiceToolbarProps> = ({
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
+      <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs flex flex-col lg:flex-row gap-3 items-stretch lg:items-center justify-between">
         {/* Search Input */}
         <div className="w-full lg:w-96">
           <SearchInput

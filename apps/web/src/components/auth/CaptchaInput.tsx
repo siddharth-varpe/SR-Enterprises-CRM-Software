@@ -25,7 +25,7 @@ export const CaptchaInput: React.FC<CaptchaInputProps> = ({
 
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
-      <label htmlFor="captcha-input" className="text-sm font-semibold text-slate-700">
+      <label htmlFor="captcha-input" className="text-xs font-semibold text-slate-700">
         Enter Captcha
       </label>
 
@@ -49,8 +49,8 @@ export const CaptchaInput: React.FC<CaptchaInputProps> = ({
           aria-invalid={!!error}
           aria-describedby={error ? 'captcha-error' : undefined}
           className={cn(
-            'w-full h-14 pl-12 pr-4 bg-white rounded-2xl border text-sm font-medium text-slate-900 tracking-wider placeholder:text-slate-400 placeholder:tracking-normal transition-all duration-150',
-            'border-slate-200 hover:border-slate-300 focus:border-[#5B3EBB] focus:ring-2 focus:ring-[#5B3EBB]/20 focus:outline-none',
+            'w-full h-12 pl-12 pr-4 bg-white rounded-xl border text-sm font-bold font-mono text-slate-900 tracking-widest placeholder:text-slate-400 placeholder:tracking-normal placeholder:font-sans placeholder:font-normal transition-all duration-150',
+            'border-slate-200/90 hover:border-slate-300 focus:border-primary-600 focus:ring-2 focus:ring-primary-500/20 focus:outline-none shadow-2xs',
             error && 'border-red-500 focus:border-red-500 focus:ring-red-500/20',
             disabled && 'bg-slate-100 cursor-not-allowed opacity-75'
           )}
@@ -58,7 +58,7 @@ export const CaptchaInput: React.FC<CaptchaInputProps> = ({
       </div>
 
       {error && (
-        <span id="captcha-error" role="alert" className="text-xs font-medium text-red-600">
+        <span id="captcha-error" role="alert" className="text-xs font-semibold text-red-600">
           {error}
         </span>
       )}

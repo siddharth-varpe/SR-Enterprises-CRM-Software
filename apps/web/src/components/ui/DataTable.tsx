@@ -79,11 +79,11 @@ export function DataTable<T>({
   const endItem = pagination ? Math.min(pagination.page * pagination.pageSize, pagination.total) : data.length;
 
   return (
-    <div className={cn('w-full bg-white rounded-card border border-slate-200 shadow-card overflow-hidden', className)}>
+    <div className={cn('w-full bg-white rounded-card border border-slate-200/90 shadow-2xs overflow-hidden', className)}>
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse text-sm">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50/75 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+            <tr className="border-b border-slate-200/90 bg-slate-50/90 text-[11px] font-bold text-slate-700 uppercase tracking-wider">
               {columns.map((col) => {
                 const isSorted = sort?.column === col.key;
                 return (
@@ -93,10 +93,10 @@ export function DataTable<T>({
                     style={col.width ? { width: col.width } : undefined}
                     onClick={() => handleHeaderClick(col)}
                     className={cn(
-                      'px-4 py-3 select-none',
+                      'px-4 py-3.5 select-none',
                       col.align === 'center' && 'text-center',
                       col.align === 'right' && 'text-right',
-                      col.sortable && 'cursor-pointer hover:bg-slate-100 transition-colors'
+                      col.sortable && 'cursor-pointer hover:bg-slate-100/80 transition-colors'
                     )}
                   >
                     <div
@@ -111,12 +111,12 @@ export function DataTable<T>({
                         <span className="text-slate-400">
                           {isSorted ? (
                             sort?.direction === 'asc' ? (
-                              <ArrowUp className="w-3 h-3 text-primary-600" />
+                              <ArrowUp className="w-3.5 h-3.5 text-primary-600" />
                             ) : (
-                              <ArrowDown className="w-3 h-3 text-primary-600" />
+                              <ArrowDown className="w-3.5 h-3.5 text-primary-600" />
                             )
                           ) : (
-                            <ArrowUpDown className="w-3 h-3" />
+                            <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
                           )}
                         </span>
                       )}
@@ -158,8 +158,8 @@ export function DataTable<T>({
                   key={keyExtractor(row, rIdx)}
                   onClick={() => onRowClick?.(row)}
                   className={cn(
-                    'transition-colors duration-fast text-slate-800 text-xs lg:text-sm',
-                    onRowClick ? 'cursor-pointer hover:bg-slate-50/80 active:bg-slate-100/60' : 'hover:bg-slate-50/50'
+                    'transition-colors duration-fast text-slate-800 text-xs lg:text-sm font-medium',
+                    onRowClick ? 'cursor-pointer hover:bg-slate-50/90 active:bg-slate-100/70' : 'hover:bg-slate-50/50'
                   )}
                 >
                   {columns.map((col) => {
@@ -186,11 +186,11 @@ export function DataTable<T>({
 
       {/* Table Pagination Bar */}
       {pagination && pagination.total > 0 && (
-        <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+        <div className="px-4 py-3 border-t border-slate-200/80 bg-slate-50/70 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
           <div>
-            Showing <span className="font-semibold text-slate-900">{startItem}</span> to{' '}
-            <span className="font-semibold text-slate-900">{endItem}</span> of{' '}
-            <span className="font-semibold text-slate-900">{pagination.total}</span> entries
+            Showing <span className="font-bold text-slate-900">{startItem}</span> to{' '}
+            <span className="font-bold text-slate-900">{endItem}</span> of{' '}
+            <span className="font-bold text-slate-900">{pagination.total}</span> entries
           </div>
 
           <div className="flex items-center gap-1.5">
@@ -200,12 +200,12 @@ export function DataTable<T>({
               disabled={pagination.page <= 1 || isLoading}
               onClick={() => onPageChange?.(pagination.page - 1)}
               aria-label="Previous page"
-              className="px-2 py-1"
+              className="px-2 py-1 h-8"
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
 
-            <span className="px-2 font-medium">
+            <span className="px-2 font-semibold text-slate-700 font-mono text-[11px]">
               Page {pagination.page} of {totalPages || 1}
             </span>
 
@@ -215,7 +215,7 @@ export function DataTable<T>({
               disabled={pagination.page >= totalPages || isLoading}
               onClick={() => onPageChange?.(pagination.page + 1)}
               aria-label="Next page"
-              className="px-2 py-1"
+              className="px-2 py-1 h-8"
             >
               <ChevronRight className="w-4 h-4" />
             </Button>

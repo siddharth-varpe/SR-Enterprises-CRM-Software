@@ -76,7 +76,7 @@ export const ServiceSummaryCards: React.FC<ServiceSummaryCardsProps> = ({ kpis, 
       supporting: `${kpis?.upcomingServices ?? 0} upcoming / scheduled`,
       supportingClass: 'text-slate-500 font-medium',
       icon: <Wrench className="w-5 h-5 text-white" />,
-      iconBg: 'bg-[#1E88E5]',
+      iconBg: 'bg-sky-600',
       curveColor: 'blue' as const,
       dataPoints: getSparklineData(total, services),
     },
@@ -85,9 +85,9 @@ export const ServiceSummaryCards: React.FC<ServiceSummaryCardsProps> = ({ kpis, 
       title: 'WARRANTY SERVICES',
       metric: isLoading ? '...' : warranty.toLocaleString('en-IN'),
       supporting: total > 0 ? `${Math.round((warranty / total) * 100)}% of scheduled` : 'Free under warranty',
-      supportingClass: 'text-[#7E57C2] font-semibold',
+      supportingClass: 'text-teal-700 font-semibold',
       icon: <ShieldCheck className="w-5 h-5 text-white" />,
-      iconBg: 'bg-[#7E57C2]',
+      iconBg: 'bg-teal-600',
       curveColor: 'purple' as const,
       dataPoints: getSparklineData(warranty, services, (s) => s.serviceClassification === 'WARRANTY'),
     },
@@ -96,9 +96,9 @@ export const ServiceSummaryCards: React.FC<ServiceSummaryCardsProps> = ({ kpis, 
       title: 'GENERAL SERVICES',
       metric: isLoading ? '...' : general.toLocaleString('en-IN'),
       supporting: 'Billable / Out of warranty',
-      supportingClass: 'text-[#10B981] font-semibold',
+      supportingClass: 'text-emerald-700 font-semibold',
       icon: <RefreshCw className="w-5 h-5 text-white" />,
-      iconBg: 'bg-[#10B981]',
+      iconBg: 'bg-emerald-600',
       curveColor: 'green' as const,
       dataPoints: getSparklineData(general, services, (s) => s.serviceClassification === 'GENERAL'),
     },
@@ -107,9 +107,9 @@ export const ServiceSummaryCards: React.FC<ServiceSummaryCardsProps> = ({ kpis, 
       title: 'ACTIONABLE / DUE',
       metric: isLoading ? '...' : urgentTotal.toLocaleString('en-IN'),
       supporting: overdue > 0 ? `${overdue} overdue • ${dueToday} due today` : `${dueToday} due today`,
-      supportingClass: overdue > 0 ? 'text-[#E53935] font-bold' : 'text-[#FB8C00] font-semibold',
+      supportingClass: overdue > 0 ? 'text-red-700 font-bold' : 'text-amber-800 font-semibold',
       icon: <AlertTriangle className="w-5 h-5 text-white" />,
-      iconBg: overdue > 0 ? 'bg-[#E53935]' : 'bg-[#FB8C00]',
+      iconBg: overdue > 0 ? 'bg-red-600' : 'bg-amber-600',
       curveColor: overdue > 0 ? ('red' as const) : ('orange' as const),
       dataPoints: getSparklineData(
         urgentTotal,
@@ -122,9 +122,9 @@ export const ServiceSummaryCards: React.FC<ServiceSummaryCardsProps> = ({ kpis, 
       title: 'COMPLETED VISITS',
       metric: isLoading ? '...' : completed.toLocaleString('en-IN'),
       supporting: 'Resolved & closed job cards',
-      supportingClass: 'text-[#00897B] font-semibold',
+      supportingClass: 'text-teal-700 font-semibold',
       icon: <CheckCircle2 className="w-5 h-5 text-white" />,
-      iconBg: 'bg-[#00897B]',
+      iconBg: 'bg-teal-700',
       curveColor: 'green' as const,
       dataPoints: getSparklineData(completed, services, (s) => s.status === 'COMPLETED'),
     },
@@ -135,23 +135,23 @@ export const ServiceSummaryCards: React.FC<ServiceSummaryCardsProps> = ({ kpis, 
       {cards.map((card) => (
         <div
           key={card.id}
-          className="bg-white rounded-2xl border border-slate-200/80 p-4 pb-0 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-150 flex flex-col justify-between group overflow-hidden"
+          className="bg-white rounded-xl border border-slate-200/90 p-4 pb-0 shadow-2xs hover:shadow-elevated hover:border-slate-300 transition-all duration-150 flex flex-col justify-between group overflow-hidden cursor-pointer"
         >
           {/* Card Top */}
           <div className="flex items-start gap-3.5 mb-1">
             <div
-              className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center ${card.iconBg} shadow-2xs group-hover:scale-105 transition-transform duration-150 shrink-0 mt-0.5`}
+              className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center ${card.iconBg} shadow-2xs transition-colors shrink-0 mt-0.5`}
             >
               {card.icon}
             </div>
             <div className="min-w-0 flex-1">
-              <h3 className="text-[10px] font-bold text-slate-700 tracking-wider uppercase leading-tight truncate">
+              <h3 className="text-[10px] font-bold text-slate-500 tracking-wider uppercase leading-tight truncate font-mono">
                 {card.title}
               </h3>
-              <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight block leading-tight mt-0.5">
+              <span className="text-2xl sm:text-3xl font-display font-extrabold text-slate-900 tracking-tight block leading-tight mt-0.5">
                 {card.metric}
               </span>
-              <span className={`text-[11px] block mt-0.5 leading-none ${card.supportingClass}`}>
+              <span className={`text-[11px] block mt-0.5 leading-none font-mono ${card.supportingClass}`}>
                 {card.supporting}
               </span>
             </div>

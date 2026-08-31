@@ -27,6 +27,7 @@ export * from './sequences';
 export * from './inventory';
 export * from './settings';
 export * from './workflows';
+export * from './rentals';
 
 // Export all Relations
 export * from './relations';
@@ -58,6 +59,7 @@ import { auditLogs } from './audit';
 import { documents } from './documents';
 import { businessSequences } from './sequences';
 import { appSettings } from './settings';
+import { rentals, rentalPayments, rentalEvents } from './rentals';
 
 export type User = InferSelectModel<typeof users>;
 export type NewUser = InferInsertModel<typeof users>;
@@ -160,5 +162,14 @@ export type NewEmailNotification = InferInsertModel<typeof emailNotifications>;
 
 export type EmailQueueItem = InferSelectModel<typeof emailQueue>;
 export type NewEmailQueueItem = InferInsertModel<typeof emailQueue>;
+
+export type Rental = InferSelectModel<typeof rentals>;
+export type NewRental = InferInsertModel<typeof rentals>;
+
+export type RentalPayment = InferSelectModel<typeof rentalPayments>;
+export type NewRentalPayment = InferInsertModel<typeof rentalPayments>;
+
+export type RentalEvent = InferSelectModel<typeof rentalEvents>;
+export type NewRentalEvent = InferInsertModel<typeof rentalEvents>;
 
 

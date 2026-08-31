@@ -150,7 +150,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         userRecord = {
           id: '00000000-0000-0000-0000-000000000001',
           username: 'Admin',
-          displayName: 'Shailendra Rajput (Admin)',
+          displayName: 'Ramesh Bomble',
           email: 'admin@srenterprises.com',
           role: 'Super Admin' as const,
           status: 'ACTIVE' as const,

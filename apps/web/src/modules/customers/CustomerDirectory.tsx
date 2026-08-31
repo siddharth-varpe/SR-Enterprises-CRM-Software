@@ -229,18 +229,18 @@ export const CustomerDirectory: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-1">
         {/* Title & Breadcrumb */}
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight">
+          <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-slate-900 tracking-tight leading-tight">
             Customers
           </h1>
-          <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium mt-1">
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium mt-1">
             <span
               onClick={() => navigate('/dashboard')}
-              className="hover:text-slate-600 cursor-pointer transition-colors"
+              className="hover:text-slate-700 cursor-pointer transition-colors"
             >
               Home
             </span>
             <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-slate-700 font-semibold">Customers</span>
+            <span className="text-slate-900 font-bold">Customers</span>
           </div>
         </div>
 
@@ -274,7 +274,7 @@ export const CustomerDirectory: React.FC = () => {
                 setSelectedCustomerForEdit(null);
                 setIsFormModalOpen(true);
               }}
-              className="h-10 px-4 bg-[#1E88E5] hover:bg-[#1976D2] text-white shadow-xs rounded-xl flex items-center gap-2 text-xs sm:text-sm font-bold transition-all cursor-pointer"
+              className="h-10 px-4 bg-primary-600 hover:bg-primary-700 text-white shadow-2xs rounded-xl flex items-center gap-2 text-xs sm:text-sm font-bold transition-all cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Add Customer</span>

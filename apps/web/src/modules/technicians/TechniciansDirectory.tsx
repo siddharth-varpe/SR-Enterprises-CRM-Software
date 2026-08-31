@@ -57,12 +57,14 @@ export const TechniciansDirectory: React.FC = () => {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-6 max-w-7xl mx-auto pb-12 select-none animate-in fade-in duration-150">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Technicians & Field Workforce</h1>
-          <p className="text-sm text-slate-700 mt-1">
+          <h1 className="text-2xl sm:text-3xl font-display font-extrabold tracking-tight text-slate-900">
+            Technicians &amp; Field Workforce
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">
             Manage field service engineers, skill sets, live job dispatch, and operational availability.
           </p>
         </div>

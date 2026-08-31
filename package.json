@@ -5,7 +5,8 @@
   "description": "SR Enterprises CRM - Commercial-grade SaaS for RO sales, service, warranty & job card management",
   "packageManager": "pnpm@9.15.4",
   "scripts": {
-    "dev": "turbo dev || pnpm --parallel --filter @crm/* dev",
+    "dev": "pnpm --parallel --filter @crm/api --filter @crm/web dev",
+    "dev:all": "pnpm --parallel --filter @crm/* dev",
     "dev:api": "pnpm --filter @crm/api dev",
     "dev:web": "pnpm --filter @crm/web dev",
     "dev:desktop": "pnpm --filter @crm/desktop dev",

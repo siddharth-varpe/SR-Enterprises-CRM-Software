@@ -79,7 +79,7 @@ export function AppShell({ children, activePath = '/dashboard', onNavigate }: Ap
     <div className="min-h-screen bg-workspace flex flex-col font-sans relative print:bg-white print:min-h-0 print:p-0 print:m-0">
       {/* Network Connectivity Notification Banner */}
       {!isOnline && (
-        <div className="bg-warning-500 text-slate-950 px-4 py-1.5 text-xs font-semibold flex items-center justify-center gap-2 shadow-xs z-50 print:hidden">
+        <div className="bg-amber-500 text-slate-950 px-4 py-1.5 text-xs font-semibold flex items-center justify-center gap-2 shadow-2xs z-50 print:hidden">
           <WifiOff className="w-4 h-4" />
           <span>Offline Mode: Working with cached data. Changes will synchronize upon reconnection.</span>
         </div>
@@ -113,7 +113,7 @@ export function AppShell({ children, activePath = '/dashboard', onNavigate }: Ap
         {/* Top Application Header */}
         <header
           onClick={handleWorkspaceClick}
-          className="h-16 bg-white border-b border-slate-200 px-4 lg:px-6 flex items-center justify-between sticky top-0 z-20 shadow-xs print:hidden"
+          className="h-16 bg-white border-b border-slate-200/90 px-4 lg:px-6 flex items-center justify-between sticky top-0 z-20 shadow-2xs print:hidden"
         >
           <div className="flex items-center gap-3">
             {/* Mobile Navigation Hamburger Toggle */}
@@ -131,10 +131,10 @@ export function AppShell({ children, activePath = '/dashboard', onNavigate }: Ap
 
             {/* Breadcrumb / Section context */}
             <div className="hidden sm:block">
-              <span className="font-extrabold text-slate-900 text-sm tracking-tight block">
+              <span className="font-display font-extrabold text-slate-900 text-sm tracking-tight block">
                 SR ENTERPRISES CRM
               </span>
-              <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider block">
+              <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider block">
                 Water Purifier &amp; RO Management
               </span>
             </div>
@@ -146,53 +146,38 @@ export function AppShell({ children, activePath = '/dashboard', onNavigate }: Ap
             <button
               type="button"
               onClick={() => setCommandPaletteOpen(true)}
-              className="hidden md:flex items-center justify-between gap-3 bg-slate-100 hover:bg-slate-200/70 transition-colors px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-500 w-60 text-left focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer"
+              className="hidden md:flex items-center justify-between gap-3 bg-slate-50 hover:bg-slate-100 transition-colors px-3 py-1.5 rounded-lg border border-slate-200/90 text-xs text-slate-500 w-64 text-left focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer"
               aria-label="Open search dialog (Ctrl+K)"
             >
               <div className="flex items-center gap-2">
                 <Search className="w-4 h-4 text-slate-400" />
-                <span>Search CRM...</span>
+                <span className="text-slate-600 font-medium">Search CRM...</span>
               </div>
-              <kbd className="bg-white px-1.5 py-0.5 rounded border border-slate-300 text-[10px] text-slate-400 font-mono shadow-xs">
+              <kbd className="bg-white px-1.5 py-0.5 rounded border border-slate-200 text-[10px] text-slate-500 font-mono shadow-2xs">
                 Ctrl+K
               </kbd>
             </button>
 
             {/* Connectivity Status Indicator */}
-            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-[11px] font-medium text-slate-600 border border-slate-200">
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100/90 text-[11px] font-semibold text-slate-700 border border-slate-200">
               <span
                 className={cn(
                   'w-2 h-2 rounded-full',
-                  isOnline ? 'bg-success-600' : 'bg-warning-600'
+                  isOnline ? 'bg-emerald-600' : 'bg-amber-600'
                 )}
               />
               <span className="capitalize">{status}</span>
             </div>
-
-            {/* Notification Center Trigger Button */}
-            <button
-              type="button"
-              onClick={() => setNotificationCenterOpen(true)}
-              className="p-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 relative focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors cursor-pointer"
-              aria-label="Open notifications center"
-            >
-              <Bell className="w-5 h-5" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-rose-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white animate-pulse">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
-            </button>
 
             {/* User Profile Dropdown Menu */}
             <DropdownMenu
               trigger={
                 <button
                   type="button"
-                  className="flex items-center gap-2 p-1 rounded-full hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer"
+                  className="flex items-center gap-2 p-1 rounded-lg hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer"
                   aria-label="User account menu"
                 >
-                  <div className="w-8 h-8 rounded-full bg-[#00152B] text-white flex items-center justify-center text-xs font-semibold shadow-xs">
+                  <div className="w-8 h-8 rounded-lg bg-[#0B132B] text-white flex items-center justify-center text-xs font-bold font-mono shadow-2xs">
                     {user?.displayName
                       ? user.displayName
                           .split(' ')

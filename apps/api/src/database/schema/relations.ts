@@ -20,6 +20,7 @@ import { notifications } from './notifications';
 import { customerActivities } from './activities';
 import { auditLogs } from './audit';
 import { documents } from './documents';
+import { rentals, rentalPayments, rentalEvents } from './rentals';
 
 /**
  * Users & RBAC Relations
@@ -78,6 +79,8 @@ export const customersRelations = relations(customers, ({ one, many }) => ({
   inquiries: many(inquiries),
   whatsappContacts: many(whatsappContacts),
   whatsappConversations: many(whatsappConversations),
+  rentals: many(rentals),
+  rentalPayments: many(rentalPayments),
 }));
 
 export const customerAddressesRelations = relations(customerAddresses, ({ one }) => ({
@@ -419,5 +422,47 @@ export const documentsRelations = relations(documents, ({ one }) => ({
   uploadedByUser: one(users, {
     fields: [documents.uploadedByUserId],
     references: [users.id],
+  }),
+}));
+
+/**
+ * Rentals Relations
+ */
+export const rentalsRelations = relations(rentals, ({ one, many }) => ({
+  customer: one(customers, {
+    fields: [rentals.customerId],
+    references: [customers.id],
+  }),
+  technician: one(technicians, {
+    fields: [rentals.technicianId],
+    references: [technicians.id],
+  }),
+  createdByUser: one(users, {
+    fields: [rentals.createdBy],
+    references: [users.id],
+  }),
+  payments: many(rentalPayments),
+  events: many(rentalEvents),
+}));
+
+export const rentalPaymentsRelations = relations(rentalPayments, ({ one }) => ({
+  rental: one(rentals, {
+    fields: [rentalPayments.rentalId],
+    references: [rentals.id],
+  }),
+  customer: one(customers, {
+    fields: [rentalPayments.customerId],
+    references: [customers.id],
+  }),
+  recordedByUser: one(users, {
+    fields: [rentalPayments.recordedBy],
+    references: [users.id],
+  }),
+}));
+
+export const rentalEventsRelations = relations(rentalEvents, ({ one }) => ({
+  rental: one(rentals, {
+    fields: [rentalEvents.rentalId],
+    references: [rentals.id],
   }),
 }));

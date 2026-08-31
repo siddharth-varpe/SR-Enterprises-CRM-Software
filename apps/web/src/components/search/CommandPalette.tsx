@@ -152,16 +152,16 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onNavigate }) =>
       role="dialog"
       aria-modal="true"
       aria-label="Global search and navigation"
-      className="fixed inset-0 z-50 flex items-start justify-center p-4 sm:p-6 pt-20 sm:pt-24 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-fast"
+      className="fixed inset-0 z-50 flex items-start justify-center p-4 sm:p-6 pt-20 sm:pt-24 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-fast"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           setCommandPaletteOpen(false);
         }
       }}
     >
-      <div className="w-full max-w-xl bg-white rounded-modal shadow-modal border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95 duration-fast">
+      <div className="w-full max-w-xl bg-white rounded-modal shadow-modal border border-slate-200/90 overflow-hidden flex flex-col animate-in zoom-in-95 duration-fast">
         {/* Search Input Bar */}
-        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-100 bg-slate-50/50">
+        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-100 bg-slate-50/70">
           <Search className="w-5 h-5 text-slate-400 shrink-0" />
           <input
             ref={inputRef}
@@ -173,9 +173,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onNavigate }) =>
             }}
             onKeyDown={handleKeyDown}
             placeholder="Search modules, pages, actions..."
-            className="w-full bg-transparent border-none text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
+            className="w-full bg-transparent border-none text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none"
           />
-          <kbd className="hidden sm:inline-block px-2 py-0.5 rounded bg-slate-200/80 text-[10px] font-mono text-slate-500">
+          <kbd className="hidden sm:inline-block px-2 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-mono text-slate-500 shadow-2xs">
             ESC
           </kbd>
         </div>
@@ -183,7 +183,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onNavigate }) =>
         {/* Search Results List */}
         <div className="max-h-80 overflow-y-auto p-2 divide-y divide-slate-50">
           {filteredItems.length === 0 ? (
-            <div className="p-8 text-center text-xs text-slate-500">
+            <div className="p-8 text-center text-xs text-slate-500 font-medium">
               No matching modules or actions found for &quot;{query}&quot;
             </div>
           ) : (
@@ -200,21 +200,21 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onNavigate }) =>
                     setCommandPaletteOpen(false);
                   }}
                   onMouseEnter={() => setSelectedIndex(idx)}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-btn text-xs font-medium transition-colors text-left ${
-                    isSelected ? 'bg-primary-50 text-primary-900' : 'text-slate-700 hover:bg-slate-50'
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-btn text-xs font-medium transition-colors text-left cursor-pointer ${
+                    isSelected ? 'bg-sky-50 text-sky-950' : 'text-slate-700 hover:bg-slate-50'
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`p-1.5 rounded-md ${
-                        isSelected ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-500'
+                      className={`p-1.5 rounded-md transition-colors ${
+                        isSelected ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-600'
                       }`}
                     >
                       <Icon className="w-4 h-4" />
                     </div>
                     <div>
-                      <span className="font-semibold text-slate-900 block">{item.label}</span>
-                      <span className="text-[10px] text-slate-400 block truncate max-w-sm">
+                      <span className="font-bold text-slate-900 block">{item.label}</span>
+                      <span className="text-[10px] text-slate-500 font-medium block truncate max-w-sm">
                         {item.subtitle ? `${item.category} • ${item.subtitle}` : item.category}
                       </span>
                     </div>
@@ -228,15 +228,15 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onNavigate }) =>
         </div>
 
         {/* Footer shortcuts */}
-        <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
+        <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500 font-medium">
           <div className="flex items-center gap-2">
             <span>Navigation:</span>
-            <kbd className="px-1 py-0.5 rounded bg-slate-200 font-mono">↑</kbd>
-            <kbd className="px-1 py-0.5 rounded bg-slate-200 font-mono">↓</kbd>
+            <kbd className="px-1.5 py-0.5 rounded bg-white border border-slate-200 font-mono shadow-2xs">↑</kbd>
+            <kbd className="px-1.5 py-0.5 rounded bg-white border border-slate-200 font-mono shadow-2xs">↓</kbd>
             <span>Select:</span>
-            <kbd className="px-1 py-0.5 rounded bg-slate-200 font-mono">Enter</kbd>
+            <kbd className="px-1.5 py-0.5 rounded bg-white border border-slate-200 font-mono shadow-2xs">Enter</kbd>
           </div>
-          <span>SR Enterprises CRM</span>
+          <span className="font-semibold text-slate-600">SR Enterprises CRM</span>
         </div>
       </div>
     </div>

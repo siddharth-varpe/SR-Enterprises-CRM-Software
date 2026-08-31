@@ -6,6 +6,7 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { CustomerAssetsList } from './components/CustomerAssetsList';
 import { CustomerActivityTimeline } from './components/CustomerActivityTimeline';
+import { CustomerRentalsSection } from './components/CustomerRentalsSection';
 import { CustomerFormModal } from './components/CustomerFormModal';
 import { CustomerArchiveDialog } from './components/CustomerArchiveDialog';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
@@ -54,6 +55,7 @@ import {
   ShoppingBag,
   Package,
   Trash2,
+  Repeat,
 } from 'lucide-react';
 
 export const CustomerProfile: React.FC = () => {
@@ -229,17 +231,18 @@ export const CustomerProfile: React.FC = () => {
   }, [allCustomerPayments]);
 
   const handleDeleteCustomer = async () => {
-    if (!customer) return;
+    const targetId = customer?.id || id;
+    if (!targetId) return;
     try {
-      await deleteCustomerMutation.mutateAsync();
+      await deleteCustomerMutation.mutateAsync(targetId);
       toast.success(
-        `Customer ${customer.fullName} (${customer.customerNumber}) and all associated records have been completely deleted from the CRM.`,
+        `Customer ${customer?.fullName || 'record'} (${customer?.customerNumber || ''}) has been permanently deleted.`,
         'Customer Deleted'
       );
       setIsDeleteDialogOpen(false);
       navigate('/customers');
     } catch (err: any) {
-      toast.error(err.message || 'Failed to delete customer completely', 'Delete Error');
+      toast.error(err.message || 'Failed to delete customer', 'Delete Error');
     }
   };
 
@@ -384,6 +387,7 @@ export const CustomerProfile: React.FC = () => {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: <UserCheck className="w-4 h-4" /> },
     { id: 'sales', label: `Purchases (${customerSalesList.length})`, icon: <ShoppingBag className="w-4 h-4" /> },
+    { id: 'rentals', label: 'Rentals', icon: <Repeat className="w-4 h-4" /> },
     { id: 'services', label: 'Services', icon: <Wrench className="w-4 h-4" /> },
     { id: 'invoices', label: 'Invoices', icon: <Receipt className="w-4 h-4" /> },
     { id: 'payments', label: `Payments (${recordedPayments.length})`, icon: <CreditCard className="w-4 h-4" /> },
@@ -397,13 +401,13 @@ export const CustomerProfile: React.FC = () => {
       {/* 1. Top Header & Breadcrumbs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Customer Profile</h1>
-          <nav className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
-            <span className="hover:text-slate-800 cursor-pointer" onClick={() => navigate('/dashboard')}>Home</span>
+          <h1 className="text-2xl font-display font-extrabold text-slate-900 tracking-tight">Customer Profile</h1>
+          <nav className="flex items-center gap-1.5 text-xs text-slate-500 mt-1 font-medium">
+            <span className="hover:text-slate-900 cursor-pointer" onClick={() => navigate('/dashboard')}>Home</span>
             <span>&gt;</span>
-            <span className="hover:text-slate-800 cursor-pointer" onClick={() => navigate('/customers')}>Customers</span>
+            <span className="hover:text-slate-900 cursor-pointer" onClick={() => navigate('/customers')}>Customers</span>
             <span>&gt;</span>
-            <span className="text-slate-800 font-semibold">{customer.fullName}</span>
+            <span className="text-slate-900 font-bold">{customer.fullName}</span>
           </nav>
         </div>
 
@@ -415,7 +419,7 @@ export const CustomerProfile: React.FC = () => {
               setSelectedInvoiceIdForPayment(undefined);
               setIsRecordPaymentModalOpen(true);
             }}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition-colors shadow-2xs cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200/90 rounded-xl hover:bg-emerald-100 transition-colors shadow-2xs cursor-pointer"
           >
             <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
             <span>Record Payment</span>
@@ -424,7 +428,7 @@ export const CustomerProfile: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsDeleteDialogOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl hover:bg-rose-100 transition-colors shadow-2xs cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-rose-800 bg-rose-50 border border-rose-200/90 rounded-xl hover:bg-rose-100 transition-colors shadow-2xs cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5 text-rose-600" />
             <span>Delete Customer</span>
@@ -433,7 +437,7 @@ export const CustomerProfile: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsEditModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200/90 rounded-xl hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
           >
             <span>More Actions</span>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
@@ -441,7 +445,7 @@ export const CustomerProfile: React.FC = () => {
 
           <Button
             variant="primary"
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs px-4 py-2 flex items-center gap-1.5 shadow-xs"
+            className="rounded-xl text-xs px-4 py-2 flex items-center gap-1.5 shadow-2xs"
             onClick={() => navigate('/services')}
             leftIcon={<Plus className="w-4 h-4" />}
           >
@@ -452,12 +456,12 @@ export const CustomerProfile: React.FC = () => {
       </div>
 
       {/* 2. Main Profile Summary Card */}
-      <Card className="p-6 rounded-2xl border border-slate-200/80 shadow-xs bg-white">
+      <Card className="p-6 rounded-xl border border-slate-200/90 shadow-2xs bg-white">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           {/* Left: Avatar & Primary Details */}
           <div className="flex items-start gap-4">
             <div className="relative shrink-0">
-              <div className="w-20 h-20 sm:w-22 sm:h-22 rounded-2xl overflow-hidden bg-gradient-to-br from-blue-100 to-indigo-100 border border-slate-200 flex items-center justify-center shadow-inner">
+              <div className="w-20 h-20 sm:w-22 sm:h-22 rounded-2xl overflow-hidden bg-sky-50 border border-sky-200/80 flex items-center justify-center shadow-inner">
                 <img
                   src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
                   alt={customer.fullName}
@@ -466,12 +470,12 @@ export const CustomerProfile: React.FC = () => {
                     (e.target as HTMLElement).style.display = 'none';
                   }}
                 />
-                <span className="text-2xl font-bold text-primary-700 uppercase">
+                <span className="text-2xl font-mono font-bold text-sky-700 uppercase">
                   {customer.fullName.slice(0, 2)}
                 </span>
               </div>
               <span
-                className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-2 border-white rounded-full flex items-center justify-center shadow-xs"
+                className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-2 border-white rounded-full flex items-center justify-center shadow-2xs"
                 title="Active Customer"
               >
                 <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
@@ -480,17 +484,17 @@ export const CustomerProfile: React.FC = () => {
 
             <div className="space-y-1.5">
               <div className="flex items-center gap-2.5 flex-wrap">
-                <h2 className="text-xl font-bold text-slate-900 tracking-tight">{customer.fullName}</h2>
-                <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200/60 rounded-full text-2xs font-bold tracking-wide">
+                <h2 className="text-xl font-display font-extrabold text-slate-900 tracking-tight">{customer.fullName}</h2>
+                <span className="px-2.5 py-0.5 bg-sky-50 text-sky-800 border border-sky-200/80 rounded-full text-2xs font-bold font-mono tracking-wide">
                   Premium Customer
                 </span>
               </div>
 
-              <div className="text-xs font-mono text-slate-500 font-medium">
+              <div className="text-xs font-mono text-slate-500 font-semibold">
                 {customer.customerNumber}
               </div>
 
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-600 pt-1">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-slate-600 pt-1 font-medium">
                 <div className="flex items-center gap-1.5">
                   <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   <span>{customer.email || 'No email registered'}</span>
@@ -498,13 +502,13 @@ export const CustomerProfile: React.FC = () => {
 
                 <div className="flex items-center gap-1.5">
                   <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span>{customer.phone || 'No phone registered'}</span>
+                  <span className="font-mono">{customer.phone || 'No phone registered'}</span>
                 </div>
 
                 <div className="flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   <span className="truncate max-w-[220px]">
-                    {defaultAddress?.city ? `${defaultAddress.city}, ` : ''}{defaultAddress?.state || 'Maharashtra, India'}
+                    {[defaultAddress?.city, defaultAddress?.state].filter(Boolean).join(', ') || defaultAddress?.addressLine1 || 'Location not specified'}
                   </span>
                 </div>
               </div>
@@ -513,46 +517,46 @@ export const CustomerProfile: React.FC = () => {
 
           {/* Right: Metadata Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-3 lg:border-l lg:border-slate-100 lg:pl-6">
-            <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50/70 border border-slate-100">
-              <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/60 flex items-center justify-center shrink-0">
+            <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50/80 border border-slate-200/80">
+              <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/80 flex items-center justify-center shrink-0 shadow-2xs">
                 <Calendar className="w-4 h-4 text-slate-500" />
               </div>
               <div className="text-2xs">
                 <div className="text-slate-400 font-medium">Customer Since</div>
-                <div className="font-bold text-slate-800">{customerSinceFormatted}</div>
+                <div className="font-bold text-slate-900 font-mono">{customerSinceFormatted}</div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50/70 border border-slate-100">
-              <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/60 flex items-center justify-center shrink-0">
+            <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50/80 border border-slate-200/80">
+              <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/80 flex items-center justify-center shrink-0 shadow-2xs">
                 <Users className="w-4 h-4 text-slate-500" />
               </div>
               <div className="text-2xs">
                 <div className="text-slate-400 font-medium">Customer Type</div>
-                <div className="font-bold text-slate-800 capitalize">
+                <div className="font-bold text-slate-900 capitalize">
                   {customer.customerType ? customer.customerType.toLowerCase() : 'Individual'}
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50/70 border border-slate-100">
-              <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/60 flex items-center justify-center shrink-0">
+            <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50/80 border border-slate-200/80">
+              <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/80 flex items-center justify-center shrink-0 shadow-2xs">
                 <UserCheck className="w-4 h-4 text-slate-500" />
               </div>
               <div className="text-2xs">
                 <div className="text-slate-400 font-medium">Assigned To</div>
-                <div className="font-bold text-slate-800">Support Desk</div>
+                <div className="font-bold text-slate-900">Support Desk</div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50/70 border border-slate-100">
-              <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/60 flex items-center justify-center shrink-0">
-                <Shield className="w-4 h-4 text-emerald-500" />
+            <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50/80 border border-slate-200/80">
+              <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/80 flex items-center justify-center shrink-0 shadow-2xs">
+                <Shield className="w-4 h-4 text-emerald-600" />
               </div>
               <div className="text-2xs">
                 <div className="text-slate-400 font-medium">Status</div>
-                <div className="font-bold text-emerald-600 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full inline-block" />
+                <div className="font-bold text-emerald-700 flex items-center gap-1 font-mono">
+                  <span className="w-1.5 h-1.5 bg-emerald-600 rounded-full inline-block" />
                   <span>{customer.status === 'ACTIVE' ? 'Active' : customer.status || 'Active'}</span>
                 </div>
               </div>
@@ -562,7 +566,7 @@ export const CustomerProfile: React.FC = () => {
       </Card>
 
       {/* 3. Navigation Tabs */}
-      <div className="border-b border-slate-200">
+      <div className="border-b border-slate-200/90">
         <div className="flex items-center gap-1 sm:gap-4 overflow-x-auto no-scrollbar">
           {tabs.map((t) => {
             const isActive = activeTab === t.id;
@@ -573,8 +577,8 @@ export const CustomerProfile: React.FC = () => {
                 onClick={() => setActiveTab(t.id)}
                 className={`flex items-center gap-2 py-3 px-3.5 text-xs font-bold transition-all border-b-2 whitespace-nowrap cursor-pointer ${
                   isActive
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+                    ? 'border-primary-600 text-primary-600 font-bold'
+                    : 'border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300'
                 }`}
               >
                 {t.icon}
@@ -863,70 +867,70 @@ export const CustomerProfile: React.FC = () => {
           {/* Right Sidebar Widgets (Narrow Column - 5 Cols) */}
           <div className="lg:col-span-5 space-y-6">
             {/* 1. Financial Summary Card */}
-            <Card className="p-5 rounded-2xl border border-slate-200/80 shadow-xs bg-white">
+            <Card className="p-5 rounded-xl border border-slate-200/90 shadow-2xs bg-white">
               <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-slate-900">Financial Summary</h3>
-                  <span className="text-2xs text-slate-400 font-medium">Financial Position</span>
+                  <h3 className="text-sm font-display font-bold text-slate-900">Financial Summary</h3>
+                  <span className="text-2xs text-slate-400 font-medium font-mono">Financial Position</span>
                 </div>
-                <div className="flex items-center gap-1 text-2xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+                <div className="flex items-center gap-1 text-2xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg font-mono">
                   <span>{financialPeriod}</span>
                   <ChevronDown className="w-3 h-3 text-slate-400" />
                 </div>
               </div>
 
               {/* Big Spent Row */}
-              <div className="flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-blue-50/70 to-indigo-50/40 border border-blue-100/80 mb-4">
+              <div className="flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-sky-50/70 to-teal-50/40 border border-sky-100/80 mb-4">
                 <div>
-                  <div className="text-2xs font-bold text-slate-400 uppercase tracking-wider">Total Spent</div>
+                  <div className="text-2xs font-bold text-slate-500 uppercase tracking-wider font-mono">Total Spent</div>
                   <div className="text-2xl font-bold text-slate-900 font-mono tracking-tight mt-0.5">
                     {totalSpentFormatted}
                   </div>
-                  <div className="inline-flex items-center gap-1 text-2xs font-bold text-emerald-600 bg-emerald-100/80 px-2 py-0.5 rounded-full mt-1.5">
+                  <div className="inline-flex items-center gap-1 text-2xs font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full mt-1.5 font-mono">
                     <span>↑ 12.5% vs last year</span>
                   </div>
                 </div>
 
-                <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-600/20">
+                <div className="w-12 h-12 rounded-xl bg-primary-600 text-white flex items-center justify-center shadow-md shadow-primary-600/20">
                   <Wallet className="w-6 h-6" />
                 </div>
               </div>
 
               {/* 4 Financial Sub-KPIs in a Grid */}
               <div className="grid grid-cols-4 gap-2 text-center">
-                <div className="p-2 rounded-xl bg-emerald-50/50 border border-emerald-100/80">
-                  <div className="text-2xs font-bold text-emerald-700">Paid</div>
+                <div className="p-2 rounded-xl bg-emerald-50/60 border border-emerald-200/80">
+                  <div className="text-2xs font-bold text-emerald-700 font-mono">Paid</div>
                   <div className="text-xs font-bold text-emerald-900 font-mono mt-0.5">{totalPaidFormatted}</div>
-                  <div className="text-3xs font-semibold text-emerald-600 mt-0.5">{paidPercentage}%</div>
+                  <div className="text-3xs font-semibold text-emerald-700 mt-0.5 font-mono">{paidPercentage}%</div>
                 </div>
 
-                <div className="p-2 rounded-xl bg-amber-50/50 border border-amber-100/80">
-                  <div className="text-2xs font-bold text-amber-700">Outstanding</div>
+                <div className="p-2 rounded-xl bg-amber-50/60 border border-amber-200/80">
+                  <div className="text-2xs font-bold text-amber-700 font-mono">Outstanding</div>
                   <div className="text-xs font-bold text-amber-900 font-mono mt-0.5">{totalOutstandingFormatted}</div>
-                  <div className="text-3xs font-semibold text-amber-600 mt-0.5">{outstandingPercentage}%</div>
+                  <div className="text-3xs font-semibold text-amber-700 mt-0.5 font-mono">{outstandingPercentage}%</div>
                 </div>
 
-                <div className="p-2 rounded-xl bg-rose-50/50 border border-rose-100/80">
-                  <div className="text-2xs font-bold text-rose-700">Overdue</div>
+                <div className="p-2 rounded-xl bg-rose-50/60 border border-rose-200/80">
+                  <div className="text-2xs font-bold text-rose-700 font-mono">Overdue</div>
                   <div className="text-xs font-bold text-rose-900 font-mono mt-0.5">₹0.00</div>
-                  <div className="text-3xs font-semibold text-rose-600 mt-0.5">0%</div>
+                  <div className="text-3xs font-semibold text-rose-700 mt-0.5 font-mono">0%</div>
                 </div>
 
-                <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/60">
-                  <div className="text-2xs font-bold text-slate-600">Total Invoices</div>
+                <div className="p-2 rounded-xl bg-slate-50 border border-slate-200/80">
+                  <div className="text-2xs font-bold text-slate-600 font-mono">Invoices</div>
                   <div className="text-xs font-bold text-slate-900 font-mono mt-0.5">
                     {recordedInvoices.length}
                   </div>
-                  <div className="text-3xs font-semibold text-slate-400 mt-0.5">Invoices</div>
+                  <div className="text-3xs font-semibold text-slate-500 mt-0.5 font-mono">Count</div>
                 </div>
               </div>
             </Card>
 
             {/* 2. Payment Trend (Smooth Line Chart) */}
-            <Card className="p-5 rounded-2xl border border-slate-200/80 shadow-xs bg-white">
+            <Card className="p-5 rounded-xl border border-slate-200/90 shadow-2xs bg-white">
               <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
-                <h3 className="text-sm font-bold text-slate-900">Payment Trend</h3>
-                <div className="flex items-center gap-1 text-2xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">
+                <h3 className="text-sm font-display font-bold text-slate-900">Payment Trend</h3>
+                <div className="flex items-center gap-1 text-2xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg font-mono">
                   <span>This Year</span>
                   <ChevronDown className="w-3 h-3 text-slate-400" />
                 </div>
@@ -945,8 +949,8 @@ export const CustomerProfile: React.FC = () => {
                   <svg className="w-full h-full overflow-visible" viewBox="0 0 350 140" preserveAspectRatio="none">
                     <defs>
                       <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25" />
-                        <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0" />
+                        <stop offset="0%" stopColor="#0284C7" stopOpacity="0.25" />
+                        <stop offset="100%" stopColor="#0284C7" stopOpacity="0.0" />
                       </linearGradient>
                     </defs>
 
@@ -969,7 +973,7 @@ export const CustomerProfile: React.FC = () => {
                       <path
                         d={trendMonthsData.linePath}
                         fill="none"
-                        stroke="#2563eb"
+                        stroke="#0284C7"
                         strokeWidth="2.5"
                         strokeLinecap="round"
                       />
@@ -1002,7 +1006,7 @@ export const CustomerProfile: React.FC = () => {
                               y1="15"
                               x2={p.x}
                               y2="125"
-                              stroke="#93c5fd"
+                              stroke="#7dd3fc"
                               strokeDasharray="2 2"
                               strokeWidth="1.5"
                             />
@@ -1012,7 +1016,7 @@ export const CustomerProfile: React.FC = () => {
                             cx={p.x}
                             cy={p.y}
                             r={isHovered ? 5.5 : 3.5}
-                            fill={isHovered ? '#1d4ed8' : '#2563eb'}
+                            fill={isHovered ? '#0369a1' : '#0284C7'}
                             className="stroke-white stroke-2 transition-all duration-150"
                           />
                         </g>
@@ -1035,10 +1039,10 @@ export const CustomerProfile: React.FC = () => {
                           transform: 'translate(-50%, -100%)',
                         }}
                       >
-                        <div className="text-slate-400 text-3xs whitespace-nowrap">{activePoint.fullName}</div>
+                        <div className="text-slate-400 text-3xs whitespace-nowrap font-mono">{activePoint.fullName}</div>
                         <div className="font-bold font-mono text-white whitespace-nowrap">{formatINR(activePoint.total)}</div>
                         {activePoint.count > 0 && (
-                          <div className="text-3xs text-blue-300 whitespace-nowrap">{activePoint.count} payment{activePoint.count > 1 ? 's' : ''}</div>
+                          <div className="text-3xs text-sky-300 whitespace-nowrap font-mono">{activePoint.count} payment{activePoint.count > 1 ? 's' : ''}</div>
                         )}
                         <div className="w-2 h-2 bg-slate-900 rotate-45 absolute -bottom-1 left-1/2 -translate-x-1/2" />
                       </div>
@@ -1047,7 +1051,7 @@ export const CustomerProfile: React.FC = () => {
                 </div>
 
                 {/* X Axis Months */}
-                <div className="flex justify-between text-2xs text-slate-400 font-medium px-2 mt-2">
+                <div className="flex justify-between text-2xs text-slate-400 font-medium px-2 mt-2 font-mono">
                   {trendMonthsData.months.map((m, idx) => {
                     const activeIndex = hoveredTrendIndex !== null ? hoveredTrendIndex : trendMonthsData.defaultActiveIdx;
                     const isHovered = idx === activeIndex;
@@ -1058,7 +1062,7 @@ export const CustomerProfile: React.FC = () => {
                         onMouseEnter={() => setHoveredTrendIndex(idx)}
                         onMouseLeave={() => setHoveredTrendIndex(null)}
                         className={`cursor-pointer transition-colors ${
-                          isHovered ? 'text-blue-600 font-bold scale-105' : 'hover:text-slate-600'
+                          isHovered ? 'text-primary-600 font-bold' : 'hover:text-slate-700'
                         }`}
                       >
                         {m.label}
@@ -1233,6 +1237,15 @@ export const CustomerProfile: React.FC = () => {
             </table>
           </div>
         </Card>
+      )}
+
+      {/* Rentals Tab Content */}
+      {activeTab === 'rentals' && (
+        <CustomerRentalsSection
+          customerId={customer.id}
+          customerName={customer.fullName}
+          customerPhone={customer.phone}
+        />
       )}
 
       {/* Services Tab Content */}

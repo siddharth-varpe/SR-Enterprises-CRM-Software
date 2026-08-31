@@ -119,6 +119,12 @@ export async function seedInitialSystemData(): Promise<void> {
   try {
     const existingUsers = await db.select({ id: users.id }).from(users).limit(1);
     if (existingUsers && existingUsers.length > 0) {
+      try {
+        await db
+          .update(users)
+          .set({ displayName: 'Ramesh Bomble' })
+          .where(eq(users.username, 'admin'));
+      } catch {}
       return;
     }
   } catch {
@@ -210,7 +216,7 @@ export async function seedInitialSystemData(): Promise<void> {
         id: '00000000-0000-0000-0000-000000000001',
         username: 'admin',
         passwordHash: adminPasswordHash,
-        displayName: 'Shailendra Rajput (Admin)',
+        displayName: 'Ramesh Bomble',
         email: 'admin@srenterprises.com',
         role: 'Super Admin',
         status: 'ACTIVE',
@@ -219,13 +225,19 @@ export async function seedInitialSystemData(): Promise<void> {
         target: users.username,
         set: {
           passwordHash: adminPasswordHash,
-          displayName: 'Shailendra Rajput (Admin)',
+          displayName: 'Ramesh Bomble',
           email: 'admin@srenterprises.com',
           role: 'Super Admin',
           status: 'ACTIVE',
           updatedAt: new Date(),
         },
       });
+
+    // Ensure existing admin user record in database has updated name
+    await db
+      .update(users)
+      .set({ displayName: 'Ramesh Bomble' })
+      .where(eq(users.username, 'admin'));
   } catch (err) {
     console.warn('[Database] Seed initial data notice:', err);
   }

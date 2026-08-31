@@ -33,18 +33,18 @@ export const InvoiceDirectory: React.FC = () => {
       header: 'Invoice #',
       render: (row: InvoiceSummaryData) => (
         <div className="flex items-start gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
+          <div className="w-8 h-8 rounded-lg bg-sky-50 text-sky-700 border border-sky-200/80 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 shadow-2xs">
             <FileText className="w-4 h-4" />
           </div>
           <div>
             <div
-              className="font-bold text-slate-900 hover:text-primary-600 cursor-pointer flex items-center gap-1"
+              className="font-bold text-slate-900 hover:text-primary-600 cursor-pointer flex items-center gap-1 font-mono"
               onClick={() => navigate(`/invoices/${row.id}`)}
             >
               {row.invoiceNumber}
               <ArrowUpRight className="w-3.5 h-3.5 text-slate-400" />
             </div>
-            <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+            <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-1 font-mono">
               <Calendar className="w-3 h-3 text-slate-400" />
               {new Date(row.invoiceDate).toLocaleDateString('en-IN', {
                 day: 'numeric',
@@ -62,14 +62,14 @@ export const InvoiceDirectory: React.FC = () => {
       render: (row: InvoiceSummaryData) => (
         <div>
           <div
-            className="font-medium text-slate-900 hover:text-primary-600 cursor-pointer flex items-center gap-1"
+            className="font-semibold text-slate-900 hover:text-primary-600 cursor-pointer flex items-center gap-1"
             onClick={() => navigate(`/customers/${row.customerId}`)}
           >
             <User className="w-3.5 h-3.5 text-slate-400" />
             {row.customerName}
           </div>
           <div className="text-xs text-slate-500 mt-0.5">
-            {row.customerPhone} • <span className="font-mono text-[11px]">{row.customerNumber}</span>
+            <span className="font-mono">{row.customerPhone}</span> • <span className="font-mono text-[11px] font-semibold">{row.customerNumber}</span>
           </div>
         </div>
       ),
@@ -80,15 +80,15 @@ export const InvoiceDirectory: React.FC = () => {
       render: (row: InvoiceSummaryData) => {
         const isOverdue = new Date(row.dueDate) < new Date() && parseFloat(row.outstandingAmount) > 0;
         return (
-          <div className="text-xs">
-            <div className={`font-medium ${isOverdue ? 'text-red-600 font-bold' : 'text-slate-700'}`}>
+          <div className="text-xs font-mono">
+            <div className={`font-semibold ${isOverdue ? 'text-red-700 font-bold' : 'text-slate-700'}`}>
               {new Date(row.dueDate).toLocaleDateString('en-IN', {
                 day: 'numeric',
                 month: 'short',
                 year: 'numeric',
               })}
             </div>
-            {isOverdue && <span className="text-[10px] text-red-500 font-semibold uppercase">Overdue</span>}
+            {isOverdue && <span className="text-[10px] text-red-600 font-bold uppercase">Overdue</span>}
           </div>
         );
       },
@@ -109,8 +109,8 @@ export const InvoiceDirectory: React.FC = () => {
         const outstanding = parseFloat(row.outstandingAmount);
         return (
           <div
-            className={`font-mono text-xs font-semibold ${
-              outstanding > 0 ? 'text-amber-700' : 'text-emerald-600'
+            className={`font-mono text-xs font-bold ${
+              outstanding > 0 ? 'text-amber-800' : 'text-emerald-700'
             }`}
           >
             {outstanding > 0 ? `₹${outstanding.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : 'Paid in Full'}
@@ -144,16 +144,16 @@ export const InvoiceDirectory: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+    <div className="space-y-6 max-w-7xl mx-auto pb-12 select-none">
       {/* Page Header */}
       <PageHeader
-        title="Invoices & Billing"
+        title="Invoices &amp; Billing"
         description="Authoritative GST tax invoices, billing snapshots, and outstanding receivables."
         breadcrumbs={[{ label: 'Home', href: '/dashboard' }, { label: 'Invoices' }]}
       />
 
       {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-3 items-center justify-between">
+      <div className="bg-white p-4 rounded-xl border border-slate-200/90 shadow-2xs flex flex-col md:flex-row gap-3 items-center justify-between">
         <div className="w-full md:w-96">
           <SearchInput
             placeholder="Search invoice #, customer name, or phone..."
@@ -204,7 +204,7 @@ export const InvoiceDirectory: React.FC = () => {
       </div>
 
       {/* Main Data Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden">
         <DataTable<InvoiceSummaryData>
           columns={columns}
           data={invoices}

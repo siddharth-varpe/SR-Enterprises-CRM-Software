@@ -17,8 +17,8 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
   return (
     <div className={cn('flex items-center justify-between gap-4 mb-4', className)}>
       <div>
-        <h2 className="text-base lg:text-lg font-semibold text-slate-900">{title}</h2>
-        {description && <p className="text-xs text-slate-500 mt-0.5">{description}</p>}
+        <h2 className="text-base lg:text-lg font-display font-bold text-slate-900 tracking-tight">{title}</h2>
+        {description && <p className="text-xs text-slate-500 font-medium mt-0.5">{description}</p>}
       </div>
       {actions && <div className="flex items-center gap-2">{actions}</div>}
     </div>

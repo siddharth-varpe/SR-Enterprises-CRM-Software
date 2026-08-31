@@ -72,12 +72,12 @@ export const TechnicianTable: React.FC<TechnicianTableProps> = ({
 
   if (technicians.length === 0) {
     return (
-      <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center shadow-2xs">
-        <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
+      <div className="bg-white border border-slate-200/90 rounded-xl p-12 text-center shadow-2xs">
+        <div className="w-12 h-12 rounded-xl bg-sky-50 text-sky-700 border border-sky-200/80 flex items-center justify-center mx-auto mb-3 shadow-2xs">
           <Users className="w-6 h-6" />
         </div>
-        <h3 className="text-base font-semibold text-slate-900">No Technicians Found</h3>
-        <p className="text-sm text-slate-700 mt-1 max-w-sm mx-auto">
+        <h3 className="text-base font-display font-bold text-slate-900">No Technicians Found</h3>
+        <p className="text-sm text-slate-500 mt-1 max-w-sm mx-auto font-medium">
           No technicians match your search or filter. You can add a new technician to your service fleet.
         </p>
       </div>
@@ -85,15 +85,15 @@ export const TechnicianTable: React.FC<TechnicianTableProps> = ({
   }
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl shadow-2xs overflow-hidden">
+    <div className="bg-white border border-slate-200/90 rounded-xl shadow-2xs overflow-hidden select-none">
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="border-b border-slate-200/80 bg-slate-50/75 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <tr className="border-b border-slate-200/80 bg-slate-50/90 text-[11px] font-bold text-slate-500 uppercase tracking-wider font-mono">
               <th className="py-3 px-4">Technician</th>
               <th className="py-3 px-4">Contact Info</th>
               <th className="py-3 px-4">Status</th>
-              <th className="py-3 px-4">Skills & Specialization</th>
+              <th className="py-3 px-4">Skills &amp; Specialization</th>
               <th className="py-3 px-4 text-center">Active Jobs</th>
               <th className="py-3 px-4 text-center">Completed</th>
               <th className="py-3 px-4 text-center">Actions</th>
@@ -103,18 +103,18 @@ export const TechnicianTable: React.FC<TechnicianTableProps> = ({
             {technicians.map((t) => (
               <tr
                 key={t.id}
-                className="hover:bg-slate-50/60 transition-colors group cursor-pointer"
+                className="hover:bg-slate-50/70 transition-colors group cursor-pointer"
                 onClick={() => onViewDetail(t)}
               >
                 {/* Technician name & avatar */}
                 <td className="py-3.5 px-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm flex items-center justify-center flex-shrink-0">
+                    <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-700 font-mono font-bold text-sm flex items-center justify-center shrink-0 border border-sky-200/80 shadow-2xs">
                       {t.fullName.charAt(0)}
                     </div>
                     <div>
                       <div className="font-bold text-slate-900">{t.fullName}</div>
-                      <div className="text-xs text-slate-700">
+                      <div className="text-xs text-slate-500 font-mono">
                         Joined {new Date(t.createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
                       </div>
                     </div>
@@ -124,12 +124,12 @@ export const TechnicianTable: React.FC<TechnicianTableProps> = ({
                 {/* Contact */}
                 <td className="py-3.5 px-4">
                   <div>
-                    <div className="font-semibold text-slate-900 flex items-center gap-1.5 text-xs">
+                    <div className="font-semibold text-slate-900 flex items-center gap-1.5 text-xs font-mono">
                       <Phone className="w-3 h-3 text-slate-400" />
                       {t.phone}
                     </div>
                     {t.email && (
-                      <div className="text-xs text-slate-700 flex items-center gap-1.5 mt-0.5">
+                      <div className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
                         <Mail className="w-3 h-3 text-slate-400" />
                         {t.email}
                       </div>
@@ -147,13 +147,13 @@ export const TechnicianTable: React.FC<TechnicianTableProps> = ({
                       t.skills.map((skill, i) => (
                         <span
                           key={i}
-                          className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md text-[11px] font-medium"
+                          className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md text-[11px] font-semibold border border-slate-200/60"
                         >
                           {skill}
                         </span>
                       ))
                     ) : (
-                      <span className="text-xs text-slate-700 italic">General Technician</span>
+                      <span className="text-xs text-slate-400 italic">General Technician</span>
                     )}
                   </div>
                 </td>
@@ -161,10 +161,10 @@ export const TechnicianTable: React.FC<TechnicianTableProps> = ({
                 {/* Active Jobs */}
                 <td className="py-3.5 px-4 text-center">
                   <span
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono font-bold border ${
                       (t.activeJobsCount || 0) > 0
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-slate-100 text-slate-600'
+                        ? 'bg-sky-50 text-sky-800 border-sky-200/80'
+                        : 'bg-slate-100 text-slate-600 border-slate-200'
                     }`}
                   >
                     <Briefcase className="w-3 h-3" />
@@ -173,7 +173,7 @@ export const TechnicianTable: React.FC<TechnicianTableProps> = ({
                 </td>
 
                 {/* Completed Jobs */}
-                <td className="py-3.5 px-4 text-center font-semibold text-slate-900 text-xs">
+                <td className="py-3.5 px-4 text-center font-bold font-mono text-slate-900 text-xs">
                   {t.completedJobsCount || 0}
                 </td>
 
@@ -183,7 +183,7 @@ export const TechnicianTable: React.FC<TechnicianTableProps> = ({
                     <button
                       type="button"
                       onClick={() => onEdit(t)}
-                      className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                      className="p-1.5 text-slate-400 hover:text-primary-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                       title="Edit Profile"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
@@ -191,7 +191,7 @@ export const TechnicianTable: React.FC<TechnicianTableProps> = ({
                     <button
                       type="button"
                       onClick={() => onViewDetail(t)}
-                      className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                      className="p-1.5 text-slate-400 hover:text-primary-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                       title="View Details"
                     >
                       <ChevronRight className="w-4 h-4" />

@@ -79,18 +79,16 @@ export class EmailQueueWorker {
         .where(eq(emailNotifications.idempotencyKey, idempotencyKey));
 
       if (existing) {
-        if (existing.status === 'SENT' || existing.status === 'PENDING') {
-          return {
-            notificationId: existing.id,
-            queueId: '',
-            isDuplicate: true,
-            status: existing.status,
-          };
-        }
+        return {
+          notificationId: existing.id,
+          queueId: '',
+          isDuplicate: true,
+          status: existing.status,
+        };
       }
     } catch {
       const memExisting = memoryEmailNotifications.find((n) => n.idempotencyKey === idempotencyKey);
-      if (memExisting && (memExisting.status === 'SENT' || memExisting.status === 'PENDING')) {
+      if (memExisting) {
         return {
           notificationId: memExisting.id,
           queueId: '',

@@ -67,6 +67,9 @@ export async function resolveConfiguredSequenceOptions(
       case 'REMINDER':
         prefix = numbering.reminderPrefix || defaultPrefix;
         break;
+      case 'RENTAL':
+        prefix = 'RNT';
+        break;
     }
     return {
       prefix,

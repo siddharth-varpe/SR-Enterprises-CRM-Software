@@ -51,10 +51,10 @@ export const CustomerAddressSchema = z.object({
   addressType: z.enum(['BILLING', 'SERVICE', 'BOTH']).optional(),
   addressLine1: z.string().optional().default(''),
   addressLine2: z.string().optional().nullable(),
-  city: z.string().optional().default('Pune'),
-  state: z.string().optional().default('Maharashtra'),
-  pincode: z.string().optional(),
-  postalCode: z.string().optional(),
+  city: z.string().optional().default(''),
+  state: z.string().optional().default(''),
+  pincode: z.string().optional().default(''),
+  postalCode: z.string().optional().default(''),
   landmark: z.string().optional().nullable(),
   isDefault: z.boolean().default(true).optional(),
 });
@@ -64,8 +64,8 @@ export type CustomerAddressInput = {
   addressType?: 'BILLING' | 'SERVICE' | 'BOTH';
   addressLine1: string;
   addressLine2?: string | null;
-  city: string;
-  state: string;
+  city?: string;
+  state?: string;
   pincode?: string;
   postalCode?: string;
   landmark?: string | null;
@@ -110,9 +110,9 @@ export const CreateCustomerSchema = z
       .map((a) => ({
         ...a,
         addressLine1: (a?.addressLine1 || '').trim() || 'Main Service Location',
-        city: (a?.city || val.city || 'Raipur').trim(),
-        state: (a?.state || val.state || 'Chhattisgarh').trim(),
-        postalCode: (a?.postalCode || a?.pincode || val.postalCode || val.pincode || '492001').trim(),
+        city: (a?.city || val.city || '').trim(),
+        state: (a?.state || val.state || '').trim(),
+        postalCode: (a?.postalCode || a?.pincode || val.postalCode || val.pincode || '').trim(),
       }));
 
     if (addresses.length === 0) {
@@ -120,10 +120,10 @@ export const CreateCustomerSchema = z
         {
           addressLine1: (val.addressLine1 || 'Main Service Location').trim(),
           addressLine2: val.addressLine2 || null,
-          city: (val.city || 'Raipur').trim(),
-          state: (val.state || 'Chhattisgarh').trim(),
-          postalCode: (val.postalCode || val.pincode || '492001').trim(),
-          pincode: (val.pincode || val.postalCode || '492001').trim(),
+          city: (val.city || '').trim(),
+          state: (val.state || '').trim(),
+          postalCode: (val.postalCode || val.pincode || '').trim(),
+          pincode: (val.pincode || val.postalCode || '').trim(),
           isDefault: true,
           type: 'BOTH',
           addressType: 'SERVICE',

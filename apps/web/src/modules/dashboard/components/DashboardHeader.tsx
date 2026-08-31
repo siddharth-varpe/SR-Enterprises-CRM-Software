@@ -43,9 +43,8 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         {/* Left: Greeting & Operational Subtitle */}
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight leading-tight flex items-center gap-2">
-            <span>Good morning, {user?.username || 'Admin'}</span>
-            <span>👋</span>
+          <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-slate-900 tracking-tight leading-tight">
+            Good morning, {user?.username || 'Admin'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
             Here's what's happening with your business today.
@@ -64,69 +63,14 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search customers, invoices, services..."
-              className="w-full h-11 pl-10 pr-4 bg-white rounded-xl border border-slate-200/90 text-xs sm:text-sm font-medium text-slate-900 placeholder:text-slate-400 shadow-2xs hover:border-slate-300 focus:border-[#5B3EBB] focus:ring-2 focus:ring-[#5B3EBB]/15 focus:outline-none transition-all"
+              className="w-full h-11 pl-10 pr-4 bg-white rounded-xl border border-slate-200/90 text-xs sm:text-sm font-medium text-slate-900 placeholder:text-slate-400 shadow-2xs hover:border-slate-300 focus:border-primary-600 focus:ring-2 focus:ring-primary-500/15 focus:outline-none transition-all"
             />
           </form>
 
           {/* Date Selector Control */}
           <div className="h-11 px-3.5 bg-white rounded-xl border border-slate-200/90 shadow-2xs flex items-center gap-2 text-slate-700 text-xs sm:text-sm font-semibold cursor-pointer hover:border-slate-300 transition-colors">
             <Calendar className="w-4 h-4 text-slate-500" />
-            <span>{todayFormatted}</span>
-          </div>
-
-          {/* Notifications Control with Unread Badge */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowNotifications(!showNotifications)}
-              aria-label="View notifications"
-              className="relative w-11 h-11 bg-white rounded-xl border border-slate-200/90 shadow-2xs flex items-center justify-center text-slate-600 hover:text-slate-900 hover:border-slate-300 transition-colors cursor-pointer"
-            >
-              <Bell className="w-4 h-4" />
-              {unreadNotificationsCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4.5 h-4.5 bg-[#E53935] text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-xs border-2 border-white">
-                  {unreadNotificationsCount}
-                </span>
-              )}
-            </button>
-
-            {/* Notifications Dropdown Popover */}
-            {showNotifications && (
-              <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 p-4 animate-in fade-in slide-in-from-top-2 duration-150">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-                  <span className="text-sm font-bold text-slate-900">Notifications</span>
-                  <span className="text-[11px] font-semibold text-primary-600 bg-primary-50 px-2 py-0.5 rounded-full">
-                    {unreadNotificationsCount} unread
-                  </span>
-                </div>
-                <div className="space-y-2 text-xs">
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-2.5">
-                    <div className="w-2 h-2 rounded-full bg-red-500 mt-1 shrink-0" />
-                    <div>
-                      <p className="font-semibold text-slate-900">4 urgent services pending</p>
-                      <p className="text-slate-500 text-[11px] mt-0.5">High TDS emergency service calls</p>
-                    </div>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-2.5">
-                    <div className="w-2 h-2 rounded-full bg-blue-500 mt-1 shrink-0" />
-                    <div>
-                      <p className="font-semibold text-slate-900">3 new inquiries from website</p>
-                      <p className="text-slate-500 text-[11px] mt-0.5">Kent Grand Plus installation requests</p>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowNotifications(false);
-                    navigate('/notifications');
-                  }}
-                  className="w-full mt-3 py-2 text-center text-xs font-bold text-primary-600 hover:text-primary-700 bg-primary-50/70 hover:bg-primary-50 rounded-xl transition-colors cursor-pointer"
-                >
-                  View All Notifications
-                </button>
-              </div>
-            )}
+            <span className="font-mono text-xs sm:text-sm">{todayFormatted}</span>
           </div>
 
           {/* Admin Profile Area */}
@@ -137,14 +81,14 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               aria-label="User account menu"
               className="h-11 px-3 bg-white rounded-xl border border-slate-200/90 shadow-2xs flex items-center gap-2.5 hover:border-slate-300 transition-colors cursor-pointer"
             >
-              <div className="w-7 h-7 rounded-lg bg-[#5B3EBB]/10 text-[#5B3EBB] font-bold text-xs flex items-center justify-center border border-[#5B3EBB]/20 overflow-hidden">
+              <div className="w-7 h-7 rounded-lg bg-sky-50 text-sky-700 font-bold font-mono text-xs flex items-center justify-center border border-sky-200 overflow-hidden">
                 {user?.username?.charAt(0).toUpperCase() || 'A'}
               </div>
               <div className="text-left hidden sm:block">
                 <span className="block text-xs font-bold text-slate-900 leading-tight">
                   {user?.username || 'Admin'}
                 </span>
-                <span className="block text-[10px] text-slate-400 font-medium leading-none mt-0.5">
+                <span className="block text-[10px] text-slate-500 font-semibold leading-none mt-0.5 font-mono">
                   {user?.role || 'Super Admin'}
                 </span>
               </div>
@@ -153,10 +97,10 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 
             {/* Profile Dropdown Menu */}
             {showProfileMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-slate-200 z-50 p-2 animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-dropdown border border-slate-200/90 z-50 p-2 animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="px-3 py-2 border-b border-slate-100 mb-1">
                   <p className="text-xs font-bold text-slate-900">{user?.displayName || 'Administrator'}</p>
-                  <p className="text-[11px] text-slate-400">{user?.email || 'admin@srenterprises.com'}</p>
+                  <p className="text-[11px] text-slate-500 font-mono">{user?.email || 'admin@srenterprises.com'}</p>
                 </div>
                 <button
                   type="button"
@@ -164,7 +108,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                     setShowProfileMenu(false);
                     navigate('/settings');
                   }}
-                  className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-lg flex items-center gap-2"
+                  className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 rounded-lg flex items-center gap-2 cursor-pointer"
                 >
                   <User className="w-3.5 h-3.5 text-slate-400" />
                   <span>Account Settings</span>
@@ -175,7 +119,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                     setShowProfileMenu(false);
                     await logout();
                   }}
-                  className="w-full px-3 py-2 text-left text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2 mt-1"
+                  className="w-full px-3 py-2 text-left text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-2 mt-1 cursor-pointer"
                 >
                   <LogOut className="w-3.5 h-3.5 text-red-500" />
                   <span>Sign Out</span>

@@ -19,8 +19,9 @@ const getPriorityRank = (category?: string, priority?: string): number => {
 export const TodaysScheduleCard: React.FC<TodaysScheduleCardProps> = ({ schedule }) => {
   const navigate = useNavigate();
 
-  // Sort schedule from top to bottom on priority basis:
-  // Active appointments first (Urgent/Emergency -> High -> Warranty -> General -> Low), completed appointments at the bottom
+  // Sort schedule strictly from top to bottom:
+  // 1. Active appointments first, sorted by priority (Urgent -> High -> Warranty -> General -> Low) then service time/date
+  // 2. Completed appointments always attached to the bottom in grey
   const sortedSchedule = useMemo(() => {
     return [...schedule].sort((a, b) => {
       const aCompleted = (a.status || '').toLowerCase() === 'completed';
@@ -30,15 +31,17 @@ export const TodaysScheduleCard: React.FC<TodaysScheduleCardProps> = ({ schedule
       if (!aCompleted && bCompleted) return -1;
       if (aCompleted && !bCompleted) return 1;
 
-      // 2. Active services sorted by priority rank (1: Urgent/Emergency -> 2: High -> 3: Warranty -> 4: General/Normal -> 5: Low)
+      // 2. Active services sorted by priority rank
       const rankA = getPriorityRank(a.category, a.priority);
       const rankB = getPriorityRank(b.category, b.priority);
-
       if (rankA !== rankB) {
         return rankA - rankB;
       }
 
-      return 0;
+      // 3. Sorted by service time / schedule date
+      const timeA = a.time || '';
+      const timeB = b.time || '';
+      return timeA.localeCompare(timeB);
     });
   }, [schedule]);
 
@@ -47,10 +50,11 @@ export const TodaysScheduleCard: React.FC<TodaysScheduleCardProps> = ({ schedule
 
     if (isCompleted) {
       return {
-        containerClass: 'opacity-50 hover:opacity-80 transition-opacity',
+        containerClass: 'opacity-70 hover:opacity-100 transition-opacity',
         dotColor: 'bg-slate-400',
         borderLeft: 'border-l-2 border-slate-300',
-        badgeClass: 'text-slate-600 bg-slate-100 border border-slate-200/80',
+        cardBg: 'bg-slate-50/60 hover:bg-slate-100/70',
+        badgeClass: 'text-slate-600 bg-slate-100 border border-slate-200 font-mono',
         badgeText: 'Completed',
       };
     }
@@ -61,9 +65,10 @@ export const TodaysScheduleCard: React.FC<TodaysScheduleCardProps> = ({ schedule
       // Urgent / Emergency
       return {
         containerClass: 'opacity-100',
-        dotColor: 'bg-[#E53935]',
-        borderLeft: 'border-l-2 border-[#E53935]',
-        badgeClass: 'text-[#E53935] bg-red-50 border border-red-100',
+        dotColor: 'bg-red-600',
+        borderLeft: 'border-l-2 border-red-600',
+        cardBg: 'bg-white hover:bg-slate-50/80',
+        badgeClass: 'text-red-800 bg-red-50 border border-red-200 font-mono',
         badgeText: item.category || 'Emergency',
       };
     }
@@ -72,9 +77,10 @@ export const TodaysScheduleCard: React.FC<TodaysScheduleCardProps> = ({ schedule
       // High Priority
       return {
         containerClass: 'opacity-100',
-        dotColor: 'bg-[#FB8C00]',
-        borderLeft: 'border-l-2 border-[#FB8C00]',
-        badgeClass: 'text-[#FB8C00] bg-amber-50 border border-amber-100',
+        dotColor: 'bg-amber-600',
+        borderLeft: 'border-l-2 border-amber-600',
+        cardBg: 'bg-white hover:bg-slate-50/80',
+        badgeClass: 'text-amber-900 bg-amber-50 border border-amber-200 font-mono',
         badgeText: item.category || 'High',
       };
     }
@@ -83,9 +89,10 @@ export const TodaysScheduleCard: React.FC<TodaysScheduleCardProps> = ({ schedule
       // Warranty
       return {
         containerClass: 'opacity-100',
-        dotColor: 'bg-[#7E57C2]',
-        borderLeft: 'border-l-2 border-[#7E57C2]',
-        badgeClass: 'text-[#7E57C2] bg-purple-50 border border-purple-100',
+        dotColor: 'bg-teal-600',
+        borderLeft: 'border-l-2 border-teal-600',
+        cardBg: 'bg-white hover:bg-slate-50/80',
+        badgeClass: 'text-teal-900 bg-teal-50 border border-teal-200 font-mono',
         badgeText: item.category || 'Warranty',
       };
     }
@@ -93,36 +100,37 @@ export const TodaysScheduleCard: React.FC<TodaysScheduleCardProps> = ({ schedule
     // General / Normal / Low
     return {
       containerClass: 'opacity-100',
-      dotColor: 'bg-[#10B981]',
-      borderLeft: 'border-l-2 border-[#10B981]',
-      badgeClass: 'text-[#10B981] bg-emerald-50 border border-emerald-100',
+      dotColor: 'bg-sky-600',
+      borderLeft: 'border-l-2 border-sky-600',
+      cardBg: 'bg-white hover:bg-slate-50/80',
+      badgeClass: 'text-sky-900 bg-sky-50 border border-sky-200 font-mono',
       badgeText: item.category || 'General',
     };
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-5 sm:p-6 shadow-xs select-none flex flex-col justify-between h-full">
+    <div className="bg-white rounded-xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs select-none flex flex-col justify-start h-full">
       {/* Header with Title and View Calendar Action */}
-      <div className="flex items-center justify-between pb-3.5 mb-2">
-        <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+      <div className="flex items-center justify-between pb-3.5 mb-3 border-b border-slate-100/80 shrink-0">
+        <h2 className="text-base sm:text-lg font-display font-bold text-slate-900 tracking-tight">
           Today's Schedule
         </h2>
         <button
           type="button"
           onClick={() => navigate('/services')}
-          className="text-xs font-semibold text-blue-600 hover:text-blue-700 bg-white border border-blue-400 hover:bg-blue-50/50 transition-colors cursor-pointer px-3 py-1 rounded-lg shadow-2xs"
+          className="text-xs font-bold text-primary-700 hover:text-primary-800 bg-sky-50 border border-sky-200 hover:bg-sky-100 transition-colors cursor-pointer px-3 py-1 rounded-lg shadow-2xs"
         >
           View Calendar
         </button>
       </div>
 
-      {/* Vertical Timeline List */}
+      {/* Vertical Timeline List (Top to Bottom alignment) */}
       {sortedSchedule.length === 0 ? (
-        <div className="py-12 text-center text-slate-400 text-xs font-medium">
+        <div className="py-8 text-center text-slate-400 text-xs font-medium">
           No appointments scheduled for today.
         </div>
       ) : (
-        <div className="space-y-2.5 flex-1 flex flex-col justify-around">
+        <div className="space-y-3 flex-1 flex flex-col justify-start">
           {sortedSchedule.map((item) => {
             const style = getItemStyle(item);
 
@@ -144,13 +152,13 @@ export const TodaysScheduleCard: React.FC<TodaysScheduleCardProps> = ({ schedule
 
                 {/* Appointment Content Card */}
                 <div
-                  className={`flex-1 bg-white hover:bg-slate-50/70 border border-slate-100 ${style.borderLeft} rounded-r-xl rounded-l-xs p-2.5 px-3.5 transition-colors shadow-2xs flex items-center justify-between`}
+                  className={`flex-1 ${style.cardBg} border border-slate-200/80 ${style.borderLeft} rounded-r-xl rounded-l-xs p-2.5 px-3.5 transition-colors shadow-2xs flex items-center justify-between`}
                 >
                   <div>
-                    <h3 className="text-xs font-bold text-slate-900 leading-tight">
+                    <h3 className="text-xs font-bold text-slate-900 leading-tight font-display">
                       {item.customerName}
                     </h3>
-                    <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                    <p className="text-[11px] text-slate-500 font-medium mt-0.5 font-sans">
                       {item.serviceName} • {item.mode}
                     </p>
                   </div>
@@ -169,4 +177,3 @@ export const TodaysScheduleCard: React.FC<TodaysScheduleCardProps> = ({ schedule
     </div>
   );
 };
-

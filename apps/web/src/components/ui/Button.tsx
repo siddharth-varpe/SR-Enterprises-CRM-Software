@@ -29,14 +29,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     ref
   ) => {
     const baseStyles =
-      'inline-flex items-center justify-center font-medium rounded-btn transition-colors duration-fast focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 disabled:opacity-50 disabled:pointer-events-none select-none';
+      'inline-flex items-center justify-center font-medium rounded-btn transition-colors duration-fast focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 disabled:opacity-50 disabled:pointer-events-none select-none cursor-pointer';
 
     const variants: Record<ButtonVariant, string> = {
-      primary: 'bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800 shadow-card',
-      secondary: 'bg-slate-100 text-slate-800 hover:bg-slate-200 active:bg-slate-300 border border-slate-200',
-      outline: 'bg-transparent border border-slate-300 text-slate-700 hover:bg-slate-50 active:bg-slate-100',
+      primary: 'bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800 shadow-2xs font-semibold',
+      secondary: 'bg-slate-100 text-slate-800 hover:bg-slate-200/80 active:bg-slate-200 border border-slate-200/90 font-medium',
+      outline: 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 active:bg-slate-100 font-medium shadow-2xs',
       ghost: 'bg-transparent text-slate-700 hover:bg-slate-100 active:bg-slate-200',
-      destructive: 'bg-danger-600 text-white hover:bg-danger-700 active:bg-danger-800 shadow-card focus:ring-danger-500',
+      destructive: 'bg-danger-600 text-white hover:bg-danger-700 active:bg-danger-800 shadow-2xs focus:ring-danger-500 font-semibold',
       link: 'bg-transparent text-primary-600 hover:underline p-0 h-auto font-normal',
     };
 

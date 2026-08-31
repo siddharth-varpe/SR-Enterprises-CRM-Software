@@ -128,7 +128,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, className }) =>
       <div className="max-w-md w-full mx-auto">
         {/* Right Panel Header */}
         <div className="mb-5 sm:mb-6">
-          <h2 className="text-3xl sm:text-4xl lg:text-[42px] font-extrabold text-slate-900 tracking-tight leading-none">
+          <h2 className="text-3xl sm:text-4xl lg:text-[40px] font-display font-extrabold text-slate-900 tracking-tight leading-none">
             Welcome Admin
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1.5 sm:mt-2">
@@ -140,7 +140,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, className }) =>
         {errorMessage && (
           <div
             role="alert"
-            className="mb-4 p-3 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium flex items-start gap-2.5 animate-in fade-in duration-150"
+            className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium flex items-start gap-2.5 animate-in fade-in duration-150"
           >
             <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
             <div className="flex-1">
@@ -175,7 +175,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, className }) =>
                 autoComplete="username"
                 className={cn(
                   'w-full h-12 pl-10 pr-3.5 bg-white rounded-xl border text-sm font-medium text-slate-900 placeholder:text-slate-400 transition-all duration-150',
-                  'border-slate-200 hover:border-slate-300 focus:border-[#5B3EBB] focus:ring-2 focus:ring-[#5B3EBB]/20 focus:outline-none',
+                  'border-slate-200/90 hover:border-slate-300 focus:border-primary-600 focus:ring-2 focus:ring-primary-500/20 focus:outline-none shadow-2xs',
                   (isSubmitting || isLockedOut) && 'bg-slate-50 cursor-not-allowed opacity-75'
                 )}
               />
@@ -201,7 +201,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, className }) =>
                 autoComplete="current-password"
                 className={cn(
                   'w-full h-12 pl-10 pr-10 bg-white rounded-xl border text-sm font-medium text-slate-900 placeholder:text-slate-400 transition-all duration-150',
-                  'border-slate-200 hover:border-slate-300 focus:border-[#5B3EBB] focus:ring-2 focus:ring-[#5B3EBB]/20 focus:outline-none',
+                  'border-slate-200/90 hover:border-slate-300 focus:border-primary-600 focus:ring-2 focus:ring-primary-500/20 focus:outline-none shadow-2xs',
                   (isSubmitting || isLockedOut) && 'bg-slate-50 cursor-not-allowed opacity-75'
                 )}
               />
@@ -236,9 +236,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess, className }) =>
               type="submit"
               disabled={isSubmitting || isLockedOut}
               className={cn(
-                'w-full h-12 sm:h-13 rounded-xl bg-[#5B3EBB] hover:bg-[#4E2FB5] active:scale-[0.99] text-white font-bold text-sm sm:text-base shadow-md shadow-[#5B3EBB]/25',
-                'flex items-center justify-center gap-2 transition-all duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#5B3EBB] focus:ring-offset-2',
-                (isSubmitting || isLockedOut) && 'opacity-60 cursor-not-allowed hover:bg-[#5B3EBB] active:scale-100 shadow-none'
+                'w-full h-12 sm:h-13 rounded-xl bg-primary-600 hover:bg-primary-700 active:scale-[0.99] text-white font-bold text-sm sm:text-base shadow-2xs',
+                'flex items-center justify-center gap-2 transition-all duration-150 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+                (isSubmitting || isLockedOut) && 'opacity-60 cursor-not-allowed hover:bg-primary-600 active:scale-100 shadow-none'
               )}
             >
               {isSubmitting ? (

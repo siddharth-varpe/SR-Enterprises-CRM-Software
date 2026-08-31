@@ -50,9 +50,9 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
           addressLine1: a.addressLine1 || '',
           addressLine2: a.addressLine2 || '',
           landmark: a.landmark || '',
-          city: a.city || 'Raipur',
-          state: a.state || 'Chhattisgarh',
-          postalCode: a.postalCode || '492001',
+          city: a.city || '',
+          state: a.state || '',
+          postalCode: a.postalCode || (a as any).pincode || '',
           isDefault: a.isDefault ?? true,
         }))
       : [
@@ -61,9 +61,9 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
             addressLine1: '',
             addressLine2: '',
             landmark: '',
-            city: 'Raipur',
-            state: 'Chhattisgarh',
-            postalCode: '492001',
+            city: '',
+            state: '',
+            postalCode: '',
             isDefault: true,
           },
         ],
@@ -319,9 +319,9 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
                   addressLine1: '',
                   addressLine2: '',
                   landmark: '',
-                  city: 'Raipur',
-                  state: 'Chhattisgarh',
-                  postalCode: '492001',
+                  city: '',
+                  state: '',
+                  postalCode: '',
                   isDefault: false,
                 })
               }
@@ -378,19 +378,19 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
                   <div className="grid grid-cols-3 gap-2">
                     <Input
                       label="City"
-                      required
+                      placeholder="e.g. Pune"
                       error={errors.addresses?.[idx]?.city?.message}
                       {...register(`addresses.${idx}.city`)}
                     />
                     <Input
                       label="State"
-                      required
+                      placeholder="e.g. Maharashtra"
                       error={errors.addresses?.[idx]?.state?.message}
                       {...register(`addresses.${idx}.state`)}
                     />
                     <Input
                       label="Pincode"
-                      required
+                      placeholder="e.g. 411001"
                       error={errors.addresses?.[idx]?.postalCode?.message}
                       {...register(`addresses.${idx}.postalCode`)}
                     />

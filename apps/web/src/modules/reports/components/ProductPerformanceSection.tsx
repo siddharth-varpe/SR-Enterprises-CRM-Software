@@ -3,66 +3,84 @@ import { Package, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { formatCurrency, formatNumber } from '../../../lib/formatters';
 import type { TopProductItem } from '../reports.types';
 import type { ProductAnalytics } from '@crm/types';
+import type { ProductCatalogItem } from '../../sales/sales.api';
 
 interface ProductPerformanceSectionProps {
   productData?: ProductAnalytics;
+  catalogProducts?: ProductCatalogItem[];
 }
 
-export const ProductPerformanceSection: React.FC<ProductPerformanceSectionProps> = ({ productData }) => {
+export const ProductPerformanceSection: React.FC<ProductPerformanceSectionProps> = ({
+  productData,
+  catalogProducts,
+}) => {
   const topProducts = productData?.topProducts ?? [];
   const totalRevenue = topProducts.reduce((sum, p) => sum + (p.revenue || 0), 0) || 1;
 
-  const items: TopProductItem[] = topProducts.length
-    ? topProducts.map((prod, idx) => ({
-        rank: idx + 1,
-        name: prod.productName || 'RO Purifier',
-        category: prod.category || 'Equipment',
-        unitsSold: prod.unitsSold || 0,
-        revenue: formatCurrency(prod.revenue || 0),
-        rawRevenue: prod.revenue || 0,
-        growth: prod.trendPercentage ?? 0,
-        sharePercentage: Math.round(((prod.revenue || 0) / totalRevenue) * 100),
-      }))
-    : [];
+  let items: TopProductItem[] = [];
+
+  if (topProducts.length > 0) {
+    items = topProducts.map((prod, idx) => ({
+      rank: idx + 1,
+      name: prod.productName || 'RO Purifier',
+      category: prod.category || 'Equipment',
+      unitsSold: prod.unitsSold || 0,
+      revenue: formatCurrency(prod.revenue || 0),
+      rawRevenue: prod.revenue || 0,
+      growth: prod.trendPercentage ?? 0,
+      sharePercentage: Math.round(((prod.revenue || 0) / totalRevenue) * 100),
+    }));
+  } else if (catalogProducts && catalogProducts.length > 0) {
+    items = catalogProducts.map((prod, idx) => ({
+      rank: idx + 1,
+      name: prod.name,
+      category: prod.productType ? prod.productType.replace(/_/g, ' ') : 'RO Machine',
+      unitsSold: 0,
+      revenue: formatCurrency(Number(prod.unitPrice || 0)),
+      rawRevenue: Number(prod.unitPrice || 0),
+      growth: 0,
+      sharePercentage: Math.round(100 / catalogProducts.length),
+    }));
+  }
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+        <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
           <Package className="w-4 h-4" />
         </div>
         <div>
-          <h2 className="text-base font-bold text-slate-900">Top Performing Products</h2>
-          <p className="text-xs text-slate-500">Revenue contribution, units sold, and period-over-period growth</p>
+          <h2 className="text-base font-bold text-slate-900 font-display">Product Performance &amp; Catalog</h2>
+          <p className="text-xs text-slate-500 font-sans">Revenue contribution, units sold, catalog price, and market share</p>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden">
+      <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/60 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+              <tr className="border-b border-slate-100 bg-slate-50/70 text-[11px] font-semibold text-slate-500 uppercase tracking-wider font-sans">
                 <th className="py-3 px-4 w-12 text-center">Rank</th>
                 <th className="py-3 px-4">Product Name</th>
                 <th className="py-3 px-4">Category</th>
                 <th className="py-3 px-4 text-center">Units Sold</th>
-                <th className="py-3 px-4 text-right">Revenue</th>
+                <th className="py-3 px-4 text-right">Price / Revenue</th>
                 <th className="py-3 px-4 text-center">Growth</th>
                 <th className="py-3 px-4 w-44">Revenue Share</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 font-sans">
               {items.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-slate-400 font-medium">
-                    No product sales transactions recorded in this period.
+                    No product records found in the database.
                   </td>
                 </tr>
               ) : (
                 items.map((prod) => (
                   <tr key={prod.rank} className="hover:bg-slate-50/70 transition-colors">
                     {/* Rank */}
-                    <td className="py-3 px-4 text-center font-bold text-slate-700">
+                    <td className="py-3 px-4 text-center font-bold text-slate-700 font-mono">
                       {prod.rank === 1 ? (
                         <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold inline-flex items-center justify-center">
                           1
@@ -98,7 +116,7 @@ export const ProductPerformanceSection: React.FC<ProductPerformanceSectionProps>
                     {/* Growth */}
                     <td className="py-3 px-4 text-center">
                       <span
-                        className={`inline-flex items-center gap-0.5 font-semibold text-[11px] ${
+                        className={`inline-flex items-center gap-0.5 font-semibold text-[11px] font-mono ${
                           prod.growth >= 0 ? 'text-emerald-600' : 'text-rose-600'
                         }`}
                       >
@@ -116,7 +134,7 @@ export const ProductPerformanceSection: React.FC<ProductPerformanceSectionProps>
                       <div className="flex items-center gap-2">
                         <div className="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
                           <div
-                            className="bg-blue-600 h-full rounded-full transition-all"
+                            className="bg-primary-600 h-full rounded-full transition-all"
                             style={{ width: `${Math.min(100, prod.sharePercentage)}%` }}
                           />
                         </div>
@@ -135,4 +153,3 @@ export const ProductPerformanceSection: React.FC<ProductPerformanceSectionProps>
     </div>
   );
 };
-

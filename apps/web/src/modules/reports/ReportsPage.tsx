@@ -1,8 +1,24 @@
 import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  TrendingUp,
+  ShoppingBag,
+  Users,
+  Wrench,
+  FileText,
+  WalletCards,
+  Package,
+  HardHat,
+} from 'lucide-react';
+import {
   useAnalyticsOverview,
 } from '../analytics/analytics.api';
+import { useCustomersQuery } from '../customers/customer.api';
+import { useInvoicesQuery } from '../invoices/invoices.api';
+import { useJobCardsQuery } from '../job-cards/job-cards.api';
+import { useTechniciansQuery } from '../technicians/technicians.api';
+import { useProductsQuery, useSalesQuery } from '../sales/sales.api';
+import { useWarrantiesQuery } from '../warranties/warranties.api';
 import { ReportsHeader } from './components/ReportsHeader';
 import { ReportControlBar } from './components/ReportControlBar';
 import { ReportKpiGrid } from './components/ReportKpiGrid';
@@ -11,10 +27,12 @@ import { SalesPerformanceSection } from './components/SalesPerformanceSection';
 import { CustomerInsightsSection } from './components/CustomerInsightsSection';
 import { ServicePerformanceSection } from './components/ServicePerformanceSection';
 import { FinancialOverviewSection } from './components/FinancialOverviewSection';
+import { PaymentPerformanceSection } from './components/PaymentPerformanceSection';
 import { ProductPerformanceSection } from './components/ProductPerformanceSection';
 import { TechnicianPerformanceSection } from './components/TechnicianPerformanceSection';
 import { WarrantyAlertsSection } from './components/WarrantyAlertsSection';
 import { BusinessInsightsSection } from './components/BusinessInsightsSection';
+import { ReportRecordsTable } from './components/ReportRecordsTable';
 import { ExportReportModal } from './components/ExportReportModal';
 import { ReportSkeletonLoader } from './components/ReportSkeletonLoader';
 import { formatCurrency, formatNumber } from '../../lib/formatters';
@@ -42,6 +60,16 @@ export const ReportsPage: React.FC = () => {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   };
 
+  // 1. Live CRM Domain Queries from all other pages
+  const { data: customersData, isLoading: isCustomersLoading, refetch: refetchCustomers } = useCustomersQuery({ page: 1, limit: 100 });
+  const { data: invoicesData, isLoading: isInvoicesLoading, refetch: refetchInvoices } = useInvoicesQuery({ page: 1, limit: 100 });
+  const { data: jobCardsData, isLoading: isJobCardsLoading, refetch: refetchJobCards } = useJobCardsQuery({ page: 1, limit: 100 });
+  const { data: techniciansData, isLoading: isTechniciansLoading, refetch: refetchTechnicians } = useTechniciansQuery({ page: 1, limit: 100 });
+  const { data: productsData, isLoading: isProductsLoading, refetch: refetchProducts } = useProductsQuery();
+  const { data: salesData, isLoading: isSalesLoading, refetch: refetchSales } = useSalesQuery({ page: 1, limit: 100 });
+  const { data: warrantiesData, isLoading: isWarrantiesLoading, refetch: refetchWarranties } = useWarrantiesQuery({ page: 1, limit: 100 });
+
+  // 2. High-level Analytics Overview Query
   const { data: overview, isLoading: isOverviewLoading, refetch: refetchOverview } = useAnalyticsOverview(apiFilter);
 
   const handleFilterChange = (updates: Partial<ReportFilterState>) => {
@@ -52,7 +80,14 @@ export const ReportsPage: React.FC = () => {
     setIsRefreshing(true);
     try {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['analytics'] }),
+        queryClient.invalidateQueries(),
+        refetchCustomers(),
+        refetchInvoices(),
+        refetchJobCards(),
+        refetchTechnicians(),
+        refetchProducts(),
+        refetchSales(),
+        refetchWarranties(),
         refetchOverview(),
       ]);
     } finally {
@@ -87,36 +122,66 @@ export const ReportsPage: React.FC = () => {
     }
   };
 
-  // Map API overview data to KPI grid
-  const dynamicKpis: Partial<Record<'revenue' | 'sales' | 'customers' | 'services' | 'outstanding', Partial<KpiMetric>>> = overview?.kpis
-    ? {
-        revenue: {
-          value: formatCurrency(overview.revenue?.grossBilled ?? 875450),
-          deltaPercentage: overview.kpis.grossBilled?.deltaPercentage ?? 12.4,
-          trend: overview.kpis.grossBilled?.trend ?? 'up',
-        },
-        sales: {
-          value: formatNumber(overview.sales?.salesCount ?? 56),
-          deltaPercentage: overview.sales?.comparison?.count?.deltaPercentage ?? 18.6,
-          trend: overview.sales?.comparison?.count?.trend ?? 'up',
-        },
-        customers: {
-          value: formatNumber(overview.customers?.totalCustomers ?? 632),
-          deltaPercentage: overview.customers?.comparison?.totalCustomers?.deltaPercentage ?? 8.2,
-          trend: overview.customers?.comparison?.totalCustomers?.trend ?? 'up',
-        },
-        services: {
-          value: formatNumber(overview.kpis.servicesCompleted?.current ?? 48),
-          deltaPercentage: overview.kpis.servicesCompleted?.deltaPercentage ?? 20.4,
-          trend: overview.kpis.servicesCompleted?.trend ?? 'up',
-        },
-        outstanding: {
-          value: formatCurrency(overview.revenue?.outstandingAmount ?? 4250),
-          deltaPercentage: overview.kpis.outstandingAmount?.deltaPercentage ?? -8.5,
-          trend: overview.kpis.outstandingAmount?.trend === 'up' ? 'up' : 'down',
-        },
-      }
-    : {};
+  // Real live counts calculated directly from loaded CRM datasets
+  const realTotalCustomers = customersData?.pagination?.total ?? customersData?.data?.length ?? overview?.customers?.totalCustomers ?? 0;
+  const realInvoicesList = invoicesData?.data ?? [];
+  const realGrossBilled = realInvoicesList.reduce((sum, inv) => sum + Number(inv.totalAmount || 0), 0) || (overview?.revenue?.grossBilled ?? 0);
+  const realAmountCollected = realInvoicesList.reduce((sum, inv) => sum + Number(inv.paidAmount || 0), 0) || (overview?.revenue?.amountCollected ?? 0);
+  const realOutstandingAmount = Math.max(0, realGrossBilled - realAmountCollected) || (overview?.revenue?.outstandingAmount ?? 0);
+  const realOverdueInvoices = realInvoicesList.filter((inv) => inv.status === 'OVERDUE').length;
+  const realOverdueAmount = realInvoicesList.filter((inv) => inv.status === 'OVERDUE').reduce((sum, inv) => sum + Number(inv.totalAmount || 0), 0) || (overview?.revenue?.overdueAmount ?? 0);
+
+  const realSalesList = salesData?.data ?? [];
+  const realSalesCount = salesData?.pagination?.total ?? realSalesList.length ?? (overview?.sales?.salesCount ?? 0);
+  const realTotalSalesAmount = realSalesList.reduce((sum, s) => sum + Number(s.totalAmount || 0), 0) || (overview?.sales?.totalSalesAmount ?? realGrossBilled);
+
+  const realJobCardsList = jobCardsData?.data ?? [];
+  const realTotalServices = jobCardsData?.pagination?.total ?? realJobCardsList.length ?? (overview?.services?.totalServices ?? 0);
+  const realCompletedServices = realJobCardsList.filter((j: any) => j.status === 'COMPLETED').length || (overview?.services?.completedServices ?? 0);
+  const realPendingServices = realJobCardsList.filter((j: any) => j.status !== 'COMPLETED').length || (overview?.services?.pendingServices ?? 0);
+
+  const realTechniciansList = techniciansData?.data ?? [];
+  const realActiveTechnicians = realTechniciansList.filter((t: any) => t.status === 'ACTIVE').length || realTechniciansList.length || (overview?.technicians?.activeTechniciansCount ?? 0);
+
+  const realProductsList = productsData ?? [];
+  const realWarrantiesList = warrantiesData?.data ?? [];
+  const realActiveWarranties = realWarrantiesList.filter((w: any) => w.status === 'ACTIVE').length || (overview?.warranties?.activeWarranties ?? 0);
+
+  // Map live metrics across all CRM data to KPI grid
+  const dynamicKpis: Partial<Record<'revenue' | 'sales' | 'customers' | 'services' | 'outstanding', Partial<KpiMetric>>> = {
+    revenue: {
+      value: formatCurrency(realGrossBilled),
+      deltaPercentage: overview?.kpis?.grossBilled?.deltaPercentage ?? 0,
+      trend: overview?.kpis?.grossBilled?.trend ?? 'neutral',
+      sparklineData: overview?.revenue?.revenueTrend?.map((t: any) => t.billed || 0) || [realGrossBilled, realGrossBilled],
+    },
+    sales: {
+      value: formatNumber(realSalesCount),
+      deltaPercentage: overview?.sales?.comparison?.count?.deltaPercentage ?? 0,
+      trend: overview?.sales?.comparison?.count?.trend ?? 'neutral',
+      sparklineData: overview?.sales?.salesTrend?.map((t: any) => t.secondaryValue || 0) || [realSalesCount, realSalesCount],
+    },
+    customers: {
+      value: formatNumber(realTotalCustomers),
+      deltaPercentage: overview?.customers?.comparison?.totalCustomers?.deltaPercentage ?? 0,
+      trend: overview?.customers?.comparison?.totalCustomers?.trend ?? 'neutral',
+      sparklineData: overview?.customers?.acquisitionTrend?.map((t: any) => t.value || 0) || [realTotalCustomers, realTotalCustomers],
+    },
+    services: {
+      value: formatNumber(realCompletedServices),
+      deltaPercentage: overview?.kpis?.servicesCompleted?.deltaPercentage ?? 0,
+      trend: overview?.kpis?.servicesCompleted?.trend ?? 'neutral',
+      sparklineData: overview?.services?.serviceTrend?.map((t: any) => t.completed || 0) || [realCompletedServices, realCompletedServices],
+    },
+    outstanding: {
+      value: formatCurrency(realOutstandingAmount),
+      deltaPercentage: overview?.kpis?.outstandingAmount?.deltaPercentage ?? 0,
+      trend: overview?.kpis?.outstandingAmount?.trend === 'up' ? 'up' : 'down',
+      sparklineData: overview?.revenue?.revenueTrend?.map((t: any) => (t.billed || 0) - (t.collected || 0)) || [realOutstandingAmount, realOutstandingAmount],
+    },
+  };
+
+  const isAnyInitialLoading = isOverviewLoading && isCustomersLoading && isInvoicesLoading;
 
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto pb-12 animate-in fade-in duration-150">
@@ -136,42 +201,49 @@ export const ReportsPage: React.FC = () => {
         isRefreshing={isRefreshing}
       />
 
-      {isOverviewLoading ? (
+      {isAnyInitialLoading ? (
         <ReportSkeletonLoader />
       ) : (
         <>
-          {/* 3. Top 5 Primary KPI Cards */}
-          <ReportKpiGrid kpis={dynamicKpis} />
-
-          {/* 4. Main Two-Column Revenue & Sales Trend Section */}
-          <RevenueSalesSection overview={overview} />
-
-          {/* 5. Domain Specific Content based on Selected Report Type Tab */}
+          {/* TAB 1: EXECUTIVE OVERVIEW */}
           {filters.reportType === 'overview' && (
-            <div className="space-y-6">
-              {/* Sales Performance */}
+            <div className="space-y-6 animate-in fade-in duration-200">
+              {/* Primary 5 KPI Cards */}
+              <ReportKpiGrid kpis={dynamicKpis} />
+
+              {/* Main Two-Column Revenue & Sales Trend Section */}
+              <RevenueSalesSection overview={overview} />
+
+              {/* Sales Performance Summary */}
               <SalesPerformanceSection salesData={overview?.sales} />
 
-              {/* Customer Insights */}
+              {/* Customer Insights Summary */}
               <CustomerInsightsSection customerData={overview?.customers} />
 
-              {/* Service Performance */}
+              {/* Service Operations Summary */}
               <ServicePerformanceSection serviceData={overview?.services} />
 
-              {/* Financial Overview */}
+              {/* Financial & Invoices Summary */}
               <FinancialOverviewSection revenueData={overview?.revenue} />
 
-              {/* Product Performance Table */}
-              <ProductPerformanceSection productData={overview?.products} />
+              {/* Top Products Table */}
+              <ProductPerformanceSection
+                productData={overview?.products}
+                catalogProducts={realProductsList}
+              />
 
-              {/* Technician Performance Table */}
-              <TechnicianPerformanceSection technicianData={overview?.technicians} />
+              {/* Technician Leaderboard Table */}
+              <TechnicianPerformanceSection
+                technicianData={overview?.technicians}
+                techniciansList={realTechniciansList}
+              />
 
-              {/* Warranty & Service Alerts */}
+              {/* Warranty & Maintenance Alerts */}
               <WarrantyAlertsSection warrantyData={overview?.warranties} customerData={overview?.customers} />
 
-              {/* Smart Business Insights */}
+              {/* Dynamic Business Insights */}
               <BusinessInsightsSection
+                overview={overview}
                 onActionClick={(category) => {
                   if (category === 'revenue') handleFilterChange({ reportType: 'invoices' });
                   else if (category === 'service') handleFilterChange({ reportType: 'services' });
@@ -182,61 +254,422 @@ export const ReportsPage: React.FC = () => {
             </div>
           )}
 
+          {/* TAB 2: SALES REPORT */}
           {filters.reportType === 'sales' && (
-            <div className="space-y-6">
+            <div className="space-y-6 animate-in fade-in duration-200">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <TrendingUp className="w-3.5 h-3.5 text-primary-600" />
+                    <span>Total Sales Revenue</span>
+                  </div>
+                  <div className="text-xl font-extrabold text-slate-900 mt-1 font-mono">
+                    {formatCurrency(realTotalSalesAmount)}
+                  </div>
+                  <div className="text-[11px] text-emerald-600 font-mono mt-0.5">
+                    Live from sales records
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <ShoppingBag className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Sales Orders</span>
+                  </div>
+                  <div className="text-xl font-extrabold text-purple-900 mt-1 font-mono">
+                    {formatNumber(realSalesCount)} Orders
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">Completed customer orders</div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <Package className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Avg Order Ticket</span>
+                  </div>
+                  <div className="text-xl font-extrabold text-slate-900 mt-1 font-mono">
+                    {formatCurrency(realSalesCount > 0 ? Math.round(realTotalSalesAmount / realSalesCount) : 0)}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">Average revenue per sale</div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <Users className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Active Product SKUs</span>
+                  </div>
+                  <div className="text-xl font-extrabold text-emerald-700 font-mono">
+                    {realProductsList.length} Catalog Items
+                  </div>
+                  <div className="text-[11px] text-emerald-600 font-mono mt-0.5">Available in inventory</div>
+                </div>
+              </div>
+
               <SalesPerformanceSection salesData={overview?.sales} />
-              <ProductPerformanceSection productData={overview?.products} />
-              <BusinessInsightsSection />
+              
+              <ProductPerformanceSection
+                productData={overview?.products}
+                catalogProducts={realProductsList}
+              />
+
+              {/* Live Real Sales Records from Database */}
+              <ReportRecordsTable
+                type="sales"
+                data={realSalesList}
+                isLoading={isSalesLoading}
+              />
+
+              <BusinessInsightsSection overview={overview} />
             </div>
           )}
 
+          {/* TAB 3: CUSTOMERS REPORT */}
           {filters.reportType === 'customers' && (
-            <div className="space-y-6">
+            <div className="space-y-6 animate-in fade-in duration-200">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <Users className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Registered Customers</span>
+                  </div>
+                  <div className="text-xl font-extrabold text-slate-900 mt-1 font-mono">
+                    {formatNumber(realTotalCustomers)} Accounts
+                  </div>
+                  <div className="text-[11px] text-emerald-600 mt-0.5 font-mono">
+                    Live CRM directory records
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <Users className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Active Accounts</span>
+                  </div>
+                  <div className="text-xl font-extrabold text-emerald-900 mt-1 font-mono">
+                    {formatNumber(realTotalCustomers)}
+                  </div>
+                  <div className="text-[11px] text-emerald-600 mt-0.5 font-mono">Active customer accounts</div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <Wrench className="w-3.5 h-3.5 text-primary-600" />
+                    <span>Active Machine Assets</span>
+                  </div>
+                  <div className="text-xl font-extrabold text-primary-900 mt-1 font-mono">
+                    {formatNumber(realActiveWarranties || realTotalCustomers)}
+                  </div>
+                  <div className="text-[11px] text-primary-600 mt-0.5 font-mono">Installed customer assets</div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <Wrench className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Service Requests Due</span>
+                  </div>
+                  <div className="text-xl font-extrabold text-amber-900 mt-1 font-mono">
+                    {formatNumber(realPendingServices)}
+                  </div>
+                  <div className="text-[11px] text-amber-600 mt-0.5">Filter maintenance due</div>
+                </div>
+              </div>
+
               <CustomerInsightsSection customerData={overview?.customers} />
+              
+              {/* Live Real Customers Records from Database */}
+              <ReportRecordsTable
+                type="customers"
+                data={customersData?.data ?? []}
+                isLoading={isCustomersLoading}
+              />
+
               <WarrantyAlertsSection warrantyData={overview?.warranties} customerData={overview?.customers} />
-              <BusinessInsightsSection />
+              <BusinessInsightsSection overview={overview} />
             </div>
           )}
 
+          {/* TAB 4: SERVICES REPORT */}
           {filters.reportType === 'services' && (
-            <div className="space-y-6">
+            <div className="space-y-6 animate-in fade-in duration-200">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <Wrench className="w-3.5 h-3.5 text-primary-600" />
+                    <span>Total Service Tickets</span>
+                  </div>
+                  <div className="text-xl font-extrabold text-slate-900 mt-1 font-mono">
+                    {formatNumber(realTotalServices)} Jobs
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">Live from job card logs</div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <Wrench className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Completed Services</span>
+                  </div>
+                  <div className="text-xl font-extrabold text-emerald-900 mt-1 font-mono">
+                    {formatNumber(realCompletedServices)} Jobs
+                  </div>
+                  <div className="text-[11px] text-emerald-600 font-mono mt-0.5">
+                    {realTotalServices > 0 ? Math.round((realCompletedServices / realTotalServices) * 100) : 100}% SLA Resolution
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <Wrench className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Pending Work</span>
+                  </div>
+                  <div className="text-xl font-extrabold text-amber-900 mt-1 font-mono">
+                    {formatNumber(realPendingServices)} Jobs
+                  </div>
+                  <div className="text-[11px] text-amber-700 mt-0.5">In technician queue</div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <HardHat className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Field Technicians</span>
+                  </div>
+                  <div className="text-xl font-extrabold text-indigo-900 mt-1 font-mono">
+                    {realActiveTechnicians} Staff
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">Registered on duty</div>
+                </div>
+              </div>
+
               <ServicePerformanceSection serviceData={overview?.services} />
-              <TechnicianPerformanceSection technicianData={overview?.technicians} />
+              
+              <TechnicianPerformanceSection
+                technicianData={overview?.technicians}
+                techniciansList={realTechniciansList}
+              />
+
+              {/* Live Real Services & Job Cards from Database */}
+              <ReportRecordsTable
+                type="services"
+                data={realJobCardsList}
+                isLoading={isJobCardsLoading}
+              />
+
               <WarrantyAlertsSection warrantyData={overview?.warranties} customerData={overview?.customers} />
             </div>
           )}
 
+          {/* TAB 5: INVOICES REPORT */}
           {filters.reportType === 'invoices' && (
-            <div className="space-y-6">
+            <div className="space-y-6 animate-in fade-in duration-200">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <FileText className="w-3.5 h-3.5 text-primary-600" />
+                    <span>Gross Invoiced</span>
+                  </div>
+                  <div className="text-xl font-extrabold text-slate-900 mt-1 font-mono">
+                    {formatCurrency(realGrossBilled)}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5 font-mono">
+                    {realInvoicesList.length} invoices generated
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <FileText className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Realized Collections</span>
+                  </div>
+                  <div className="text-xl font-extrabold text-emerald-900 mt-1 font-mono">
+                    {formatCurrency(realAmountCollected)}
+                  </div>
+                  <div className="text-[11px] text-emerald-600 font-mono mt-0.5">
+                    {realGrossBilled > 0 ? Math.round((realAmountCollected / realGrossBilled) * 100) : 100}% collected
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <FileText className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Outstanding Dues</span>
+                  </div>
+                  <div className="text-xl font-extrabold text-amber-900 mt-1 font-mono">
+                    {formatCurrency(realOutstandingAmount)}
+                  </div>
+                  <div className="text-[11px] text-amber-700 mt-0.5">Awaiting customer clearance</div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <FileText className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Overdue Invoices</span>
+                  </div>
+                  <div className="text-xl font-extrabold text-rose-900 mt-1 font-mono">
+                    {formatCurrency(realOverdueAmount)}
+                  </div>
+                  <div className="text-[11px] text-rose-600 mt-0.5 font-mono">
+                    {realOverdueInvoices} invoices overdue
+                  </div>
+                </div>
+              </div>
+
               <FinancialOverviewSection revenueData={overview?.revenue} />
-              <BusinessInsightsSection />
+
+              {/* Live Real Invoices Records from Database */}
+              <ReportRecordsTable
+                type="invoices"
+                data={realInvoicesList}
+                isLoading={isInvoicesLoading}
+              />
+
+              <BusinessInsightsSection overview={overview} />
             </div>
           )}
 
+          {/* TAB 6: PAYMENTS REPORT */}
           {filters.reportType === 'payments' && (
-            <div className="space-y-6">
+            <div className="space-y-6 animate-in fade-in duration-200">
+              <PaymentPerformanceSection
+                paymentData={overview?.payments}
+                revenueData={overview?.revenue}
+              />
+
+              {/* Invoices with payment statuses */}
+              <ReportRecordsTable
+                type="invoices"
+                data={realInvoicesList}
+                isLoading={isInvoicesLoading}
+              />
+
               <FinancialOverviewSection revenueData={overview?.revenue} />
-              <BusinessInsightsSection />
+              <BusinessInsightsSection overview={overview} />
             </div>
           )}
 
+          {/* TAB 7: PRODUCTS REPORT */}
           {filters.reportType === 'products' && (
-            <div className="space-y-6">
-              <ProductPerformanceSection productData={overview?.products} />
+            <div className="space-y-6 animate-in fade-in duration-200">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <Package className="w-3.5 h-3.5 text-primary-600" />
+                    <span>Product Catalog Value</span>
+                  </div>
+                  <div className="text-xl font-extrabold text-slate-900 mt-1 font-mono">
+                    {formatCurrency(realTotalSalesAmount || realGrossBilled)}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">Machine &amp; spare sales</div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <Package className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Active Catalog SKUs</span>
+                  </div>
+                  <div className="text-xl font-extrabold text-purple-900 mt-1 font-mono">
+                    {realProductsList.length} SKUs
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">In live database catalog</div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <Package className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Top Selling Model</span>
+                  </div>
+                  <div className="text-base font-extrabold text-slate-900 mt-1 truncate">
+                    {realProductsList[0]?.name || overview?.sales?.salesByProduct?.[0]?.productName || 'RO Purifier'}
+                  </div>
+                  <div className="text-[11px] text-emerald-600 font-mono mt-0.5">
+                    {realProductsList[0]?.productType ? realProductsList[0].productType.replace(/_/g, ' ') : 'RO Water Purifier'}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <Package className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Sales Orders Logged</span>
+                  </div>
+                  <div className="text-xl font-extrabold text-indigo-900 mt-1 font-mono">
+                    {realSalesCount} Orders
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">Dispatched units</div>
+                </div>
+              </div>
+
+              <ProductPerformanceSection
+                productData={overview?.products}
+                catalogProducts={realProductsList}
+              />
+
               <SalesPerformanceSection salesData={overview?.sales} />
+              <BusinessInsightsSection overview={overview} />
             </div>
           )}
 
+          {/* TAB 8: TECHNICIANS REPORT */}
           {filters.reportType === 'technicians' && (
-            <div className="space-y-6">
-              <TechnicianPerformanceSection technicianData={overview?.technicians} />
+            <div className="space-y-6 animate-in fade-in duration-200">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <HardHat className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Registered Technicians</span>
+                  </div>
+                  <div className="text-xl font-extrabold text-slate-900 mt-1 font-mono">
+                    {realActiveTechnicians} Staff
+                  </div>
+                  <div className="text-[11px] text-emerald-600 mt-0.5 font-mono">
+                    Live technician accounts
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <HardHat className="w-3.5 h-3.5 text-primary-600" />
+                    <span>Total Jobs Assigned</span>
+                  </div>
+                  <div className="text-xl font-extrabold text-primary-900 mt-1 font-mono">
+                    {formatNumber(realTotalServices)}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">Service orders assigned</div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <HardHat className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Jobs Resolved</span>
+                  </div>
+                  <div className="text-xl font-extrabold text-emerald-900 mt-1 font-mono">
+                    {formatNumber(realCompletedServices)}
+                  </div>
+                  <div className="text-[11px] text-emerald-600 font-mono mt-0.5">Completed jobs</div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-slate-200/90 shadow-2xs">
+                  <div className="flex items-center gap-2 text-slate-500 text-xs font-medium">
+                    <HardHat className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Pending Work</span>
+                  </div>
+                  <div className="text-xl font-extrabold text-amber-900 mt-1 font-mono">
+                    {formatNumber(realPendingServices)}
+                  </div>
+                  <div className="text-[11px] text-amber-700 mt-0.5 font-mono">In field queue</div>
+                </div>
+              </div>
+
+              <TechnicianPerformanceSection
+                technicianData={overview?.technicians}
+                techniciansList={realTechniciansList}
+              />
+
               <ServicePerformanceSection serviceData={overview?.services} />
+              <BusinessInsightsSection overview={overview} />
             </div>
           )}
         </>
       )}
 
-      {/* 6. Export Modal */}
+      {/* Export Modal */}
       <ExportReportModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}

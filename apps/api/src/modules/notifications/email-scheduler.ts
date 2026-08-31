@@ -6,6 +6,7 @@ import { emailQueueWorker } from './email-queue.worker';
 
 export class EmailScheduler {
   private timer: NodeJS.Timeout | null = null;
+  private initialTimeout: NodeJS.Timeout | null = null;
   private isRunning = false;
 
   /**
@@ -62,41 +63,28 @@ export class EmailScheduler {
 
         for (const inv of dueInvoices) {
           try {
-            const res = await emailService.sendPaymentPendingReminder(inv.id);
-            if (res) paymentRemindersCount++;
+            await emailService.sendPaymentPendingReminder(inv.id);
+            paymentRemindersCount++;
           } catch {}
         }
       } catch {}
 
-      // 3. Warranty Expiry Reminders (Expiring in 30 days, 7 days, or 1 day)
-      const windows = [30, 7, 1];
-      for (const days of windows) {
-        const targetDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
-        const dayStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0);
-        const dayEnd = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59);
+      // 3. Warranty Expiry Notifications (30d, 7d, 1d thresholds)
+      try {
+        const activeWarranties = await db
+          .select({ id: warranties.id })
+          .from(warranties)
+          .where(eq(warranties.status, 'ACTIVE'));
 
-        try {
-          const expiringWars = await db
-            .select({ id: warranties.id })
-            .from(warranties)
-            .where(
-              and(
-                eq(warranties.status, 'ACTIVE'),
-                gte(warranties.endDate, dayStart),
-                lte(warranties.endDate, dayEnd)
-              )
-            );
+        for (const w of activeWarranties) {
+          try {
+            await emailService.sendWarrantyExpiryReminder(w.id, 30);
+            warrantyRemindersCount++;
+          } catch {}
+        }
+      } catch {}
 
-          for (const war of expiringWars) {
-            try {
-              await emailService.sendWarrantyExpiryReminder(war.id, days);
-              warrantyRemindersCount++;
-            } catch {}
-          }
-        } catch {}
-      }
-
-      // 4. Process email queue
+      // 4. Trigger Queue Processing for pending tasks
       const qResult = await emailQueueWorker.processQueue(25);
 
       return {
@@ -117,7 +105,7 @@ export class EmailScheduler {
     if (this.timer) return;
 
     // Run first batch after 10 seconds of startup
-    setTimeout(() => {
+    this.initialTimeout = setTimeout(() => {
       this.runScheduledTasks().catch(() => {});
     }, 10000);
 
@@ -132,6 +120,10 @@ export class EmailScheduler {
    * Stop scheduler gracefully
    */
   public stop(): void {
+    if (this.initialTimeout) {
+      clearTimeout(this.initialTimeout);
+      this.initialTimeout = null;
+    }
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;

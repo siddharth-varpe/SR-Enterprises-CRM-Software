@@ -63,7 +63,7 @@ export const Drawer: React.FC<DrawerProps> = ({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-fast"
+      className="fixed inset-0 z-50 overflow-hidden bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-fast"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
@@ -73,7 +73,7 @@ export const Drawer: React.FC<DrawerProps> = ({
       <div className="fixed inset-y-0 right-0 flex max-w-full pl-10">
         <div
           className={cn(
-            'w-screen bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-normal',
+            'w-screen bg-white shadow-2xl border-l border-slate-200/90 flex flex-col animate-in slide-in-from-right duration-normal',
             sizes[size],
             className
           )}
@@ -81,15 +81,15 @@ export const Drawer: React.FC<DrawerProps> = ({
           {/* Drawer Header */}
           <div className="px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-4">
             <div className="space-y-1">
-              {title && <h2 className="text-lg font-semibold text-slate-900">{title}</h2>}
-              {description && <p className="text-xs text-slate-500">{description}</p>}
+              {title && <h2 className="text-lg font-display font-bold text-slate-900 tracking-tight">{title}</h2>}
+              {description && <p className="text-xs text-slate-500 font-medium">{description}</p>}
             </div>
             <IconButton
               aria-label="Close panel"
               variant="ghost"
               size="sm"
               onClick={onClose}
-              className="text-slate-400 hover:text-slate-700"
+              className="text-slate-400 hover:text-slate-700 cursor-pointer"
             >
               <X className="w-4 h-4" />
             </IconButton>
@@ -100,7 +100,7 @@ export const Drawer: React.FC<DrawerProps> = ({
 
           {/* Drawer Footer */}
           {footer && (
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+            <div className="px-6 py-4 bg-slate-50/80 border-t border-slate-200/80 flex items-center justify-end gap-3">
               {footer}
             </div>
           )}

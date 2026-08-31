@@ -270,7 +270,7 @@ export const SYSTEM_DEFAULTS: Record<SettingsCategory, any> = {
   } as NotificationSettings,
 
   NUMBERING: {
-    customerPrefix: 'CUST',
+    customerPrefix: 'CX',
     invoicePrefix: 'INV',
     salePrefix: 'SALE',
     servicePrefix: 'SRV',

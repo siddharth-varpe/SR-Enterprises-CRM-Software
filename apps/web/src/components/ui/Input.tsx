@@ -35,7 +35,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className={cn('w-full space-y-1.5', containerClassName)}>
         {label && (
-          <label htmlFor={inputId} className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+          <label htmlFor={inputId} className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">
             {label} {required && <span className="text-danger-600">*</span>}
           </label>
         )}
@@ -54,7 +54,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             aria-invalid={!!error}
             aria-describedby={error ? errorId : helperText ? helperId : undefined}
             className={cn(
-              'w-full rounded-btn border bg-white px-3 py-2 text-sm text-slate-900 transition-colors duration-fast placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-500',
+              'w-full rounded-input border bg-white px-3 py-2 text-sm font-medium text-slate-900 transition-colors duration-fast placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-500 shadow-2xs',
               leftIcon ? 'pl-9' : 'pl-3',
               rightIcon ? 'pr-9' : 'pr-3',
               error
@@ -71,13 +71,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         </div>
 
         {error && (
-          <p id={errorId} role="alert" className="text-xs text-danger-600 font-medium">
+          <p id={errorId} role="alert" className="text-xs text-danger-600 font-semibold">
             {error}
           </p>
         )}
 
         {!error && helperText && (
-          <p id={helperId} className="text-xs text-slate-500">
+          <p id={helperId} className="text-xs text-slate-500 font-medium">
             {helperText}
           </p>
         )}

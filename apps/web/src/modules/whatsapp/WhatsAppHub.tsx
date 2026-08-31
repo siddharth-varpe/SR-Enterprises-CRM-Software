@@ -180,12 +180,12 @@ export const WhatsAppHub: React.FC = () => {
       />
 
       {/* Main Hub 3-Pane / 2-Pane Container */}
-      <Card className="border-slate-200 shadow-sm overflow-hidden min-h-[620px] flex flex-col">
-        <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
+      <Card className="border-slate-200/90 shadow-2xs rounded-xl overflow-hidden min-h-[620px] flex flex-col">
+        <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 divide-y lg:divide-y-0 lg:divide-x divide-slate-200/90">
           {/* Left Pane: Conversation Threads (Cols 1-4) */}
           <div className="lg:col-span-4 flex flex-col bg-slate-50/50">
             {/* Search Header */}
-            <div className="p-3 border-b border-slate-200 bg-white">
+            <div className="p-3 border-b border-slate-200/90 bg-white">
               <SearchInput
                 placeholder="Search conversations..."
                 value={searchTerm}
@@ -211,23 +211,23 @@ export const WhatsAppHub: React.FC = () => {
                       onClick={() => handleSelectConversation(conv.id)}
                       className={`w-full p-3.5 text-left transition-colors flex items-start gap-3 cursor-pointer ${
                         isSelected
-                          ? 'bg-primary-50/80 border-l-4 border-primary-600'
+                          ? 'bg-sky-50/80 border-l-4 border-primary-600'
                           : 'hover:bg-slate-100/70 bg-white'
                       }`}
                     >
                       {/* Avatar */}
-                      <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                      <div className="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs font-mono">
                         {displayName.charAt(0).toUpperCase()}
                       </div>
 
                       {/* Thread Details */}
                       <div className="flex-1 min-w-0 space-y-0.5">
                         <div className="flex items-center justify-between">
-                          <span className="font-semibold text-xs text-slate-900 truncate">
+                          <span className="font-bold text-xs text-slate-900 truncate font-display">
                             {displayName}
                           </span>
                           {conv.lastMessageAt && (
-                            <span className="text-[10px] text-slate-400 shrink-0">
+                            <span className="text-[10px] text-slate-400 shrink-0 font-mono">
                               {new Date(conv.lastMessageAt).toLocaleDateString('en-IN', {
                                 month: 'short',
                                 day: 'numeric',
@@ -246,7 +246,7 @@ export const WhatsAppHub: React.FC = () => {
                           </p>
 
                           {conv.unreadCount > 0 && (
-                            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-primary-600 text-white shrink-0">
+                            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-primary-600 text-white shrink-0 font-mono">
                               {conv.unreadCount}
                             </span>
                           )}
@@ -268,14 +268,14 @@ export const WhatsAppHub: React.FC = () => {
             {activeConversation ? (
               <>
                 {/* Chat Top Header */}
-                <div className="p-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+                <div className="p-3.5 border-b border-slate-200/90 bg-slate-50/80 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-[#00152B] text-white flex items-center justify-center text-xs font-bold shadow-xs">
+                    <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center text-xs font-bold shadow-2xs font-mono">
                       {activeConversation.customer?.fullName?.charAt(0) || 'W'}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-xs text-slate-900">
+                        <span className="font-bold text-xs text-slate-900 font-display">
                           {activeConversation.customer?.fullName || activeConversation.contact?.phone}
                         </span>
                         {activeConversation.customer && (

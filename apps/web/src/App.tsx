@@ -18,6 +18,7 @@ import { CustomerProfile } from './modules/customers/CustomerProfile';
 import { SalesDirectory } from './modules/sales/SalesDirectory';
 import { SaleCreatePage } from './modules/sales/SaleCreatePage';
 import { SaleDetailPage } from './modules/sales/SaleDetailPage';
+import { RentalsPage } from './modules/rentals/RentalsPage';
 import { InvoiceDirectory } from './modules/invoices/InvoiceDirectory';
 import { InvoiceDetailPage } from './modules/invoices/InvoiceDetailPage';
 import { AssetsDirectory } from './modules/assets/AssetsDirectory';
@@ -210,6 +211,16 @@ function MainAppShellRouter() {
             element={
               <PermissionGuard permission="sales.view" moduleName="Sale Details">
                 <SaleDetailPage />
+              </PermissionGuard>
+            }
+          />
+
+          {/* Rent & Machine Subscription Management */}
+          <Route
+            path="/rent"
+            element={
+              <PermissionGuard permission="rentals.view" moduleName="Rental Management">
+                <RentalsPage />
               </PermissionGuard>
             }
           />

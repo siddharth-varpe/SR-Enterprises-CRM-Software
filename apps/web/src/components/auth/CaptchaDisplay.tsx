@@ -17,14 +17,14 @@ export const CaptchaDisplay: React.FC<CaptchaDisplayProps> = ({
 }) => {
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
-      <label className="text-sm font-semibold text-slate-700">Captcha</label>
+      <label className="text-xs font-semibold text-slate-700">Captcha Challenge</label>
 
       <div className="flex items-center gap-3">
         {/* Visual Captcha Box */}
-        <div className="flex-1 h-14 bg-white border border-slate-200 rounded-2xl flex items-center justify-center p-1 overflow-hidden shadow-xs select-none">
+        <div className="flex-1 h-14 bg-white border border-slate-200/90 rounded-xl flex items-center justify-center p-1 overflow-hidden shadow-2xs select-none">
           {loading ? (
             <div className="flex items-center gap-2 text-xs text-slate-400 font-medium">
-              <RotateCw className="w-4 h-4 animate-spin text-[#5B3EBB]" />
+              <RotateCw className="w-4 h-4 animate-spin text-primary-600" />
               <span>Generating challenge...</span>
             </div>
           ) : svg ? (
@@ -33,7 +33,7 @@ export const CaptchaDisplay: React.FC<CaptchaDisplayProps> = ({
               dangerouslySetInnerHTML={{ __html: svg }}
             />
           ) : (
-            <div className="text-xs text-slate-400">Loading challenge...</div>
+            <div className="text-xs text-slate-400 font-medium">Loading challenge...</div>
           )}
         </div>
 
@@ -44,7 +44,7 @@ export const CaptchaDisplay: React.FC<CaptchaDisplayProps> = ({
           disabled={loading}
           aria-label="Refresh captcha"
           title="Refresh captcha"
-          className="p-3 text-[#5B3EBB] hover:text-[#4927A8] hover:bg-purple-50 active:scale-95 rounded-xl border border-purple-100 transition-all duration-150 cursor-pointer disabled:opacity-50 shrink-0"
+          className="p-3 text-primary-600 hover:text-primary-700 hover:bg-sky-50 active:scale-95 rounded-xl border border-sky-200/90 transition-all duration-150 cursor-pointer disabled:opacity-50 shrink-0 shadow-2xs"
         >
           <RotateCw className={cn('w-5 h-5', loading && 'animate-spin')} />
         </button>

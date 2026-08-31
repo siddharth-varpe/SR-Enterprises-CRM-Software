@@ -247,6 +247,126 @@ export async function ensureGoogleDriveColumns(targetPg: PGlite | postgres.Sql):
 }
 
 /**
+ * Ensures rentals, rental_payments, and rental_events tables and enums exist
+ */
+export async function ensureRentalTables(targetPg: PGlite | postgres.Sql): Promise<void> {
+  const statements = [
+    `DO $$ BEGIN CREATE TYPE "rental_status" AS ENUM('ACTIVE', 'PAYMENT_DUE', 'OVERDUE', 'SUSPENDED', 'RETURNED', 'COMPLETED', 'CANCELLED', 'TERMINATED'); EXCEPTION WHEN duplicate_object THEN null; END $$;`,
+    `DO $$ BEGIN CREATE TYPE "rental_payment_status" AS ENUM('PAID', 'PARTIALLY_PAID', 'NOT_PAID', 'DUE', 'OVERDUE'); EXCEPTION WHEN duplicate_object THEN null; END $$;`,
+    `DO $$ BEGIN CREATE TYPE "rental_deposit_status" AS ENUM('NOT_COLLECTED', 'COLLECTED', 'PARTIALLY_REFUNDED', 'FULLY_REFUNDED', 'FORFEITED_ADJUSTED'); EXCEPTION WHEN duplicate_object THEN null; END $$;`,
+    `DO $$ BEGIN CREATE TYPE "rental_billing_frequency" AS ENUM('MONTHLY', 'QUARTERLY', 'HALF_YEARLY', 'YEARLY', 'CUSTOM'); EXCEPTION WHEN duplicate_object THEN null; END $$;`,
+    `DO $$ BEGIN CREATE TYPE "rental_duration" AS ENUM('MONTHLY', '3_MONTHS', '6_MONTHS', '12_MONTHS', 'CUSTOM'); EXCEPTION WHEN duplicate_object THEN null; END $$;`,
+    `DO $$ BEGIN CREATE TYPE "rental_installation_status" AS ENUM('PENDING', 'SCHEDULED', 'INSTALLED', 'CANCELLED'); EXCEPTION WHEN duplicate_object THEN null; END $$;`,
+    `DO $$ BEGIN CREATE TYPE "rental_machine_condition" AS ENUM('NEW', 'GOOD', 'USED_GOOD', 'USED_FAIR', 'NEEDS_ATTENTION'); EXCEPTION WHEN duplicate_object THEN null; END $$;`,
+    `DO $$ BEGIN CREATE TYPE "rental_payment_type" AS ENUM('SECURITY_DEPOSIT', 'MONTHLY_RENT', 'ADVANCE_RENT', 'DAMAGE_CHARGE', 'OTHER'); EXCEPTION WHEN duplicate_object THEN null; END $$;`,
+    `CREATE TABLE IF NOT EXISTS "rentals" (
+      "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      "rental_number" text NOT NULL UNIQUE,
+      "customer_id" uuid NOT NULL REFERENCES "customers"("id") ON DELETE RESTRICT,
+      "machine_type" text DEFAULT 'RO' NOT NULL,
+      "machine_model" text NOT NULL,
+      "serial_number" text NOT NULL,
+      "asset_id" uuid,
+      "capacity_lph" text,
+      "installation_location" text,
+      "machine_condition" "rental_machine_condition" DEFAULT 'GOOD' NOT NULL,
+      "accessories" text,
+      "remarks" text,
+      "rental_start_date" timestamp with time zone NOT NULL,
+      "rental_end_date" timestamp with time zone,
+      "rental_duration" "rental_duration" DEFAULT 'MONTHLY' NOT NULL,
+      "minimum_rental_period_months" integer DEFAULT 1 NOT NULL,
+      "billing_frequency" "rental_billing_frequency" DEFAULT 'MONTHLY' NOT NULL,
+      "monthly_rent" numeric(12, 2) NOT NULL,
+      "billing_amount" numeric(12, 2) NOT NULL,
+      "security_deposit" numeric(12, 2) DEFAULT '0.00' NOT NULL,
+      "deposit_status" "rental_deposit_status" DEFAULT 'NOT_COLLECTED' NOT NULL,
+      "initial_payment_amount" numeric(12, 2) DEFAULT '0.00' NOT NULL,
+      "total_paid" numeric(12, 2) DEFAULT '0.00' NOT NULL,
+      "outstanding_amount" numeric(12, 2) DEFAULT '0.00' NOT NULL,
+      "next_due_date" timestamp with time zone NOT NULL,
+      "rental_status" "rental_status" DEFAULT 'ACTIVE' NOT NULL,
+      "payment_status" "rental_payment_status" DEFAULT 'NOT_PAID' NOT NULL,
+      "installation_date" timestamp with time zone,
+      "installation_time" text,
+      "installation_address" text,
+      "technician_id" uuid REFERENCES "technicians"("id") ON DELETE SET NULL,
+      "technician_name" text,
+      "installation_status" "rental_installation_status" DEFAULT 'PENDING' NOT NULL,
+      "installation_notes" text,
+      "return_date" timestamp with time zone,
+      "return_condition" text,
+      "damage_charges" numeric(12, 2) DEFAULT '0.00' NOT NULL,
+      "deposit_adjustment" numeric(12, 2) DEFAULT '0.00' NOT NULL,
+      "refund_amount" numeric(12, 2) DEFAULT '0.00' NOT NULL,
+      "return_notes" text,
+      "last_service_date" timestamp with time zone,
+      "next_service_date" timestamp with time zone,
+      "service_frequency_months" integer DEFAULT 3,
+      "notes" text,
+      "created_by" uuid REFERENCES "users"("id") ON DELETE SET NULL,
+      "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+      "updated_at" timestamp with time zone DEFAULT now() NOT NULL
+    );`,
+    `CREATE INDEX IF NOT EXISTS "rentals_rental_number_idx" ON "rentals" ("rental_number");`,
+    `CREATE INDEX IF NOT EXISTS "rentals_customer_id_idx" ON "rentals" ("customer_id");`,
+    `CREATE INDEX IF NOT EXISTS "rentals_serial_number_idx" ON "rentals" ("serial_number");`,
+    `CREATE INDEX IF NOT EXISTS "rentals_status_idx" ON "rentals" ("rental_status");`,
+    `CREATE INDEX IF NOT EXISTS "rentals_payment_status_idx" ON "rentals" ("payment_status");`,
+    `CREATE INDEX IF NOT EXISTS "rentals_next_due_date_idx" ON "rentals" ("next_due_date");`,
+    `CREATE INDEX IF NOT EXISTS "rentals_created_at_idx" ON "rentals" ("created_at");`,
+    `CREATE TABLE IF NOT EXISTS "rental_payments" (
+      "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      "rental_id" uuid NOT NULL REFERENCES "rentals"("id") ON DELETE CASCADE,
+      "customer_id" uuid NOT NULL REFERENCES "customers"("id") ON DELETE RESTRICT,
+      "amount" numeric(12, 2) NOT NULL,
+      "payment_date" timestamp with time zone DEFAULT now() NOT NULL,
+      "payment_method" text DEFAULT 'UPI' NOT NULL,
+      "payment_type" "rental_payment_type" DEFAULT 'MONTHLY_RENT' NOT NULL,
+      "receipt_number" text,
+      "reference_number" text,
+      "period_start_date" timestamp with time zone,
+      "period_end_date" timestamp with time zone,
+      "notes" text,
+      "recorded_by" uuid REFERENCES "users"("id") ON DELETE SET NULL,
+      "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+      "updated_at" timestamp with time zone DEFAULT now() NOT NULL
+    );`,
+    `ALTER TABLE "rental_payments" ADD COLUMN IF NOT EXISTS "receipt_number" text;`,
+    `CREATE INDEX IF NOT EXISTS "rental_payments_rental_id_idx" ON "rental_payments" ("rental_id");`,
+    `CREATE INDEX IF NOT EXISTS "rental_payments_customer_id_idx" ON "rental_payments" ("customer_id");`,
+    `CREATE INDEX IF NOT EXISTS "rental_payments_date_idx" ON "rental_payments" ("payment_date");`,
+    `CREATE INDEX IF NOT EXISTS "rental_payments_receipt_number_idx" ON "rental_payments" ("receipt_number");`,
+    `CREATE TABLE IF NOT EXISTS "rental_events" (
+      "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      "rental_id" uuid NOT NULL REFERENCES "rentals"("id") ON DELETE CASCADE,
+      "event_type" text NOT NULL,
+      "description" text NOT NULL,
+      "actor_id" text,
+      "actor_name" text,
+      "metadata" text,
+      "created_at" timestamp with time zone DEFAULT now() NOT NULL
+    );`,
+    `CREATE INDEX IF NOT EXISTS "rental_events_rental_id_idx" ON "rental_events" ("rental_id");`,
+    `CREATE INDEX IF NOT EXISTS "rental_events_created_at_idx" ON "rental_events" ("created_at");`,
+  ];
+
+  if ('exec' in targetPg) {
+    for (const stmt of statements) {
+      try {
+        await targetPg.exec(stmt);
+      } catch {}
+    }
+  } else {
+    for (const stmt of statements) {
+      try {
+        await targetPg.unsafe(stmt);
+      } catch {}
+    }
+  }
+}
+
+/**
  * Ensures migrations and initial database initialization is executed once on server startup
  */
 export async function ensureDatabaseInitialized(): Promise<void> {
@@ -254,6 +374,9 @@ export async function ensureDatabaseInitialized(): Promise<void> {
 
   try {
     if (pgliteClient) {
+      // Ensure PGlite WebAssembly instance is completely loaded and ready
+      await pgliteClient.waitReady;
+
       // Test health of persistent storage
       try {
         await pgliteClient.query('SELECT 1;');
@@ -268,16 +391,19 @@ export async function ensureDatabaseInitialized(): Promise<void> {
         }
         fs.mkdirSync(storageDir, { recursive: true });
         pgliteClient = new PGlite(storageDir);
+        await pgliteClient.waitReady;
         dbInstance = drizzlePglite(pgliteClient, { schema });
       }
 
       await applySqlMigrations(pgliteClient);
       await ensureEmailTables(pgliteClient);
       await ensureGoogleDriveColumns(pgliteClient);
+      await ensureRentalTables(pgliteClient);
     } else if (pgClient) {
       await applySqlMigrations(pgClient);
       await ensureEmailTables(pgClient);
       await ensureGoogleDriveColumns(pgClient);
+      await ensureRentalTables(pgClient);
     }
     isInitialized = true;
     console.log('✅ [Database] All database tables, sequences, and indexes verified successfully.');

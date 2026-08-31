@@ -1,35 +1,40 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --color-background: #F8FAFC;
+    --color-background: #F4F6F8;
     --color-surface: #FFFFFF;
-    --color-sidebar: #00152B;
-    --color-sidebar-active: #C1121F;
-    --color-sidebar-hover: rgba(255, 255, 255, 0.06);
-    --color-primary: #4F46E5;
-    --color-primary-hover: #4338CA;
-    --color-secondary: #6366F1;
-    --color-blue: #2563EB;
-    --color-success: #16A34A;
+    --color-sidebar: #0B132B;
+    --color-sidebar-active: #0284C7;
+    --color-sidebar-hover: rgba(255, 255, 255, 0.07);
+    
+    --color-primary: #0284C7;
+    --color-primary-hover: #0369A1;
+    --color-secondary: #0D9488;
+    --color-blue: #0284C7;
+    
+    --color-success: #059669;
     --color-warning: #D97706;
     --color-danger: #DC2626;
+    
     --color-text: #0F172A;
+    --color-text-secondary: #334155;
     --color-text-muted: #64748B;
     --color-border: #E2E8F0;
     
-    --radius-input: 8px;
+    --radius-xs: 4px;
+    --radius-input: 6px;
     --radius-btn: 8px;
     --radius-card: 12px;
     --radius-modal: 16px;
+    --radius-panel: 16px;
     
-    --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06);
-    --shadow-elevated: 0 8px 24px rgba(15, 23, 42, 0.08);
-    --shadow-modal: 0 20px 50px rgba(15, 23, 42, 0.15);
+    --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --shadow-elevated: 0 4px 16px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+    --shadow-dropdown: 0 10px 25px -5px rgba(15, 23, 42, 0.10), 0 8px 10px -6px rgba(15, 23, 42, 0.06);
+    --shadow-modal: 0 20px 40px -8px rgba(15, 23, 42, 0.16), 0 1px 3px rgba(15, 23, 42, 0.08);
   }
 }
 
@@ -43,16 +48,20 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+h1, h2, h3, .font-display {
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+}
+
 /* Accessible focus ring for keyboard navigation */
 *:focus-visible {
-  outline: 2px solid #4F46E5;
+  outline: 2px solid #0284C7;
   outline-offset: 2px;
 }
 
 /* Clean, modern scrollbars for operational dashboard views */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -85,7 +94,7 @@ body {
    ========================================================================== */
 @media print {
   @page {
-    size: A4 portrait;
+    size: letter portrait;
     margin: 8mm 10mm;
   }
 
@@ -139,40 +148,70 @@ body {
     padding-left: 0 !important;
   }
 
-  /* Printable Tax Invoice Paper Document */
+  /* When a modal receipt is open, strictly hide the background invoice & page content */
+  body:has(#printable-receipt) #printable-tax-invoice,
+  body:has(#printable-receipt) #printable-rental-receipt,
+  body:has(#printable-receipt) main > *:not(:has(#printable-receipt)),
+  body:has(#printable-rental-receipt) #printable-tax-invoice,
+  body:has(#printable-rental-receipt) #printable-receipt,
+  body:has(#printable-rental-receipt) main > *:not(:has(#printable-rental-receipt)) {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Printable Paper Document (Single Document per Page) */
   #printable-tax-invoice,
+  #printable-receipt,
+  #printable-rental-receipt,
   .printable-tax-invoice {
     display: block !important;
     position: relative !important;
-    margin: 0 !important;
+    margin: 0 auto !important;
     padding: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
     background: #ffffff !important;
     border: none !important;
     box-shadow: none !important;
-    page-break-after: avoid;
-    page-break-inside: avoid;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    break-after: avoid !important;
   }
 
   /* Sharp table printing */
+  #printable-tax-invoice table,
+  #printable-receipt table,
+  #printable-rental-receipt table,
   .printable-tax-invoice table {
     width: 100% !important;
     border-collapse: collapse !important;
   }
 
+  #printable-tax-invoice tr,
+  #printable-receipt tr,
+  #printable-rental-receipt tr,
   .printable-tax-invoice tr {
     page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
+  #printable-tax-invoice th,
+  #printable-tax-invoice td,
+  #printable-receipt th,
+  #printable-receipt td,
+  #printable-rental-receipt th,
+  #printable-rental-receipt td,
   .printable-tax-invoice th,
   .printable-tax-invoice td {
-    padding: 6px 8px !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
   /* Avoid page break on summary & signatures */
+  #printable-tax-invoice .print-avoid-break,
+  #printable-receipt .print-avoid-break,
+  #printable-rental-receipt .print-avoid-break,
   .printable-tax-invoice .print-avoid-break {
     page-break-inside: avoid !important;
     break-inside: avoid !important;

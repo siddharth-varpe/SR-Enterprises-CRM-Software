@@ -72,7 +72,7 @@ export const Modal: React.FC<ModalProps> = ({
       aria-modal="true"
       aria-labelledby={title ? 'modal-title' : undefined}
       aria-describedby={description ? 'modal-description' : undefined}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-fast"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-fast"
       onClick={(e) => {
         if (closeOnBackdropClick && e.target === e.currentTarget) {
           onClose();
@@ -82,7 +82,7 @@ export const Modal: React.FC<ModalProps> = ({
       <div
         ref={modalRef}
         className={cn(
-          'w-full bg-white rounded-modal shadow-modal border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-fast',
+          'w-full bg-white rounded-modal shadow-modal border border-slate-200/90 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-fast',
           sizes[size],
           className
         )}
@@ -92,12 +92,12 @@ export const Modal: React.FC<ModalProps> = ({
           <div className="px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-4">
             <div className="space-y-1">
               {title && (
-                <h2 id="modal-title" className="text-lg font-semibold text-slate-900">
+                <h2 id="modal-title" className="text-lg font-display font-bold text-slate-900 tracking-tight">
                   {title}
                 </h2>
               )}
               {description && (
-                <p id="modal-description" className="text-xs text-slate-500">
+                <p id="modal-description" className="text-xs text-slate-500 font-medium">
                   {description}
                 </p>
               )}
@@ -107,7 +107,7 @@ export const Modal: React.FC<ModalProps> = ({
               variant="ghost"
               size="sm"
               onClick={onClose}
-              className="text-slate-400 hover:text-slate-700"
+              className="text-slate-400 hover:text-slate-700 cursor-pointer"
             >
               <X className="w-4 h-4" />
             </IconButton>
@@ -119,7 +119,7 @@ export const Modal: React.FC<ModalProps> = ({
 
         {/* Footer */}
         {footer && (
-          <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+          <div className="px-6 py-4 bg-slate-50/80 border-t border-slate-200/80 flex items-center justify-end gap-3">
             {footer}
           </div>
         )}

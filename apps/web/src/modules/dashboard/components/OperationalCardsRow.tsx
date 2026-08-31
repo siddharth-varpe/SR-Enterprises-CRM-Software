@@ -17,9 +17,9 @@ export const OperationalCardsRow: React.FC<OperationalCardsRowProps> = ({ data }
       title: 'SERVICES DUE TODAY',
       count: data.servicesDueToday,
       statusLabel: `${data.servicesUrgent} urgent`,
-      statusColor: 'text-[#E53935] font-bold',
+      statusColor: 'text-red-700 font-bold',
       icon: <Calendar className="w-5 h-5 text-white" />,
-      iconBg: 'bg-[#E53935]',
+      iconBg: 'bg-red-600',
       curveColor: 'red' as const,
       dataPoints: data.history?.servicesDue || [6, 9, 7, 11, 8, 12, data.servicesDueToday],
       route: '/services',
@@ -29,9 +29,9 @@ export const OperationalCardsRow: React.FC<OperationalCardsRowProps> = ({ data }
       title: 'NEW INQUIRIES',
       count: data.newInquiries,
       statusLabel: `${data.inquiriesUnread} unread`,
-      statusColor: 'text-[#E53935] font-bold',
+      statusColor: 'text-sky-700 font-bold',
       icon: <Mail className="w-5 h-5 text-white" />,
-      iconBg: 'bg-[#1E88E5]',
+      iconBg: 'bg-sky-600',
       curveColor: 'blue' as const,
       dataPoints: data.history?.newInquiries || [3, 5, 4, 7, 6, 8, data.newInquiries],
       route: '/inquiries',
@@ -41,9 +41,9 @@ export const OperationalCardsRow: React.FC<OperationalCardsRowProps> = ({ data }
       title: 'WARRANTIES EXPIRING',
       count: data.warrantiesExpiring,
       statusLabel: 'Within threshold',
-      statusColor: 'text-slate-500 font-semibold',
+      statusColor: 'text-slate-600 font-semibold',
       icon: <ShieldCheck className="w-5 h-5 text-white" />,
-      iconBg: 'bg-[#FB8C00]',
+      iconBg: 'bg-amber-600',
       curveColor: 'orange' as const,
       dataPoints: data.history?.warrantiesExpiring || [5, 4, 6, 3, 5, 4, data.warrantiesExpiring],
       route: '/warranty',
@@ -53,9 +53,9 @@ export const OperationalCardsRow: React.FC<OperationalCardsRowProps> = ({ data }
       title: 'PAYMENTS DUE',
       count: data.paymentsDue,
       statusLabel: `${data.paymentsOverdue} overdue`,
-      statusColor: 'text-[#E53935] font-bold',
+      statusColor: 'text-red-700 font-bold',
       icon: <Wallet className="w-5 h-5 text-white" />,
-      iconBg: 'bg-[#10B981]',
+      iconBg: 'bg-emerald-600',
       curveColor: 'green' as const,
       dataPoints: data.history?.paymentsDue || [7, 6, 8, 5, 6, 5, data.paymentsDue],
       route: '/payments',
@@ -65,9 +65,9 @@ export const OperationalCardsRow: React.FC<OperationalCardsRowProps> = ({ data }
       title: 'TECHNICIANS ON DUTY',
       count: data.techniciansOnDuty,
       statusLabel: `Available: ${data.techniciansAvailable}`,
-      statusColor: 'text-[#10B981] font-bold',
+      statusColor: 'text-emerald-700 font-bold',
       icon: <User className="w-5 h-5 text-white" />,
-      iconBg: 'bg-[#7E57C2]',
+      iconBg: 'bg-teal-600',
       curveColor: 'purple' as const,
       dataPoints: data.history?.techniciansOnDuty || [4, 5, 5, 6, 5, 6, data.techniciansOnDuty],
       route: '/technicians',
@@ -83,23 +83,23 @@ export const OperationalCardsRow: React.FC<OperationalCardsRowProps> = ({ data }
           role="button"
           tabIndex={0}
           onKeyDown={(e) => e.key === 'Enter' && navigate(card.route)}
-          className="bg-white rounded-2xl border border-slate-100 p-4 pb-0 shadow-xs hover:shadow-md hover:border-slate-200 transition-all duration-150 cursor-pointer flex flex-col justify-between group overflow-hidden"
+          className="bg-white rounded-xl border border-slate-200/90 p-4 pb-0 shadow-2xs hover:shadow-elevated hover:border-slate-300 transition-all duration-150 cursor-pointer flex flex-col justify-between group overflow-hidden"
         >
           {/* Card Top: Circular Solid Icon on Left + Info on Right */}
           <div className="flex items-start gap-3.5 mb-1">
             <div
-              className={`w-11 h-11 rounded-full flex items-center justify-center ${card.iconBg} shadow-2xs group-hover:scale-105 transition-transform duration-150 shrink-0 mt-0.5`}
+              className={`w-10 h-10 rounded-xl flex items-center justify-center ${card.iconBg} shadow-2xs transition-transform duration-150 shrink-0 mt-0.5`}
             >
               {card.icon}
             </div>
             <div>
-              <h3 className="text-[10px] font-bold text-slate-800 tracking-wider uppercase leading-tight">
+              <h3 className="text-[10px] font-bold text-slate-500 tracking-wider uppercase leading-tight font-mono">
                 {card.title}
               </h3>
-              <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight block leading-tight mt-0.5">
+              <span className="text-2xl sm:text-3xl font-display font-extrabold text-slate-900 tracking-tight block leading-tight mt-0.5">
                 {card.count}
               </span>
-              <span className={`text-[11px] block mt-0.5 leading-none ${card.statusColor}`}>
+              <span className={`text-[11px] block mt-0.5 leading-none font-mono ${card.statusColor}`}>
                 {card.statusLabel}
               </span>
             </div>

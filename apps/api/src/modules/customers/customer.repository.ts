@@ -447,17 +447,27 @@ export class CustomerRepository {
     try {
       console.log('[DEBUG CustomerRepository.create] 1. generating number');
       let customerNumber: string;
-      const year = new Date().getFullYear();
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+
       try {
-        const existingCustomers = await database.query.customers.findMany({
-          columns: { id: true },
-        });
-        const countNum = (existingCustomers?.length || 0) + 1;
-        customerNumber = `CUST-${year}-${String(countNum).padStart(4, '0')}`;
+        const existingWithDate = await database
+          .select({ customerNumber: customers.customerNumber })
+          .from(customers)
+          .where(ilike(customers.customerNumber, `CX-${dateStr}%`));
+
+        if (!existingWithDate || existingWithDate.length === 0) {
+          customerNumber = `CX-${dateStr}`;
+        } else {
+          customerNumber = `CX-${dateStr}-${existingWithDate.length + 1}`;
+        }
       } catch (err1) {
         console.error('[DEBUG CustomerRepository.create] err1:', err1);
-        const rand = Math.floor(1000 + Math.random() * 9000);
-        customerNumber = `CUST-${year}-${rand}`;
+        const rand = Math.floor(100 + Math.random() * 900);
+        customerNumber = `CX-${dateStr}-${rand}`;
       }
       console.log('[DEBUG CustomerRepository.create] 1. number:', customerNumber);
 
@@ -494,9 +504,9 @@ export class CustomerRepository {
         addressLine1: (addr.addressLine1 ? String(addr.addressLine1).trim() : '') || 'Main Service Location',
         addressLine2: addr.addressLine2 && String(addr.addressLine2).trim() ? String(addr.addressLine2).trim() : null,
         landmark: addr.landmark && String(addr.landmark).trim() ? String(addr.landmark).trim() : null,
-        city: (addr.city ? String(addr.city).trim() : '') || 'Raipur',
-        state: (addr.state ? String(addr.state).trim() : '') || 'Chhattisgarh',
-        postalCode: (addr.postalCode || (addr as any).pincode ? String(addr.postalCode || (addr as any).pincode).trim() : '') || '492001',
+        city: addr.city ? String(addr.city).trim() : '',
+        state: addr.state ? String(addr.state).trim() : '',
+        postalCode: addr.postalCode || (addr as any).pincode ? String(addr.postalCode || (addr as any).pincode).trim() : '',
         isDefault: addr.isDefault ?? idx === 0,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -564,9 +574,13 @@ export class CustomerRepository {
       return fallbackCustomer;
     } catch (err: any) {
       console.warn('[CustomerRepository.create] Fallback recovery triggered:', err?.message);
-      const year = new Date().getFullYear();
-      const rand = Math.floor(1000 + Math.random() * 9000);
-      const customerNumber = `CUST-${year}-${rand}`;
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+      const rand = Math.floor(100 + Math.random() * 900);
+      const customerNumber = `CX-${dateStr}-${rand}`;
       const customerId = crypto.randomUUID();
 
       const addressValues = (data.addresses || []).map((addr, idx) => ({
@@ -576,9 +590,9 @@ export class CustomerRepository {
         addressLine1: (addr.addressLine1 ? String(addr.addressLine1).trim() : '') || 'Main Service Location',
         addressLine2: addr.addressLine2 && String(addr.addressLine2).trim() ? String(addr.addressLine2).trim() : null,
         landmark: addr.landmark && String(addr.landmark).trim() ? String(addr.landmark).trim() : null,
-        city: (addr.city ? String(addr.city).trim() : '') || 'Pune',
-        state: (addr.state ? String(addr.state).trim() : '') || 'Maharashtra',
-        postalCode: (addr.postalCode || (addr as any).pincode ? String(addr.postalCode || (addr as any).pincode).trim() : '') || '492001',
+        city: addr.city ? String(addr.city).trim() : '',
+        state: addr.state ? String(addr.state).trim() : '',
+        postalCode: addr.postalCode || (addr as any).pincode ? String(addr.postalCode || (addr as any).pincode).trim() : '',
         isDefault: addr.isDefault ?? idx === 0,
         createdAt: new Date(),
         updatedAt: new Date(),

@@ -103,15 +103,15 @@ export const NotificationCenter: React.FC = () => {
     >
       <div className="flex flex-col h-full">
         {/* Top Filter Bar & Mark All as Read */}
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
           <div className="flex items-center gap-1.5">
             <button
               type="button"
               onClick={() => setFilterType('ALL')}
-              className={`px-2.5 py-1 text-xs font-medium rounded cursor-pointer ${
+              className={`px-2.5 py-1 text-xs font-semibold rounded-md cursor-pointer transition-colors ${
                 filterType === 'ALL'
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  ? 'bg-primary-600 text-white shadow-2xs'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200/90'
               }`}
             >
               All
@@ -119,15 +119,15 @@ export const NotificationCenter: React.FC = () => {
             <button
               type="button"
               onClick={() => setFilterType('UNREAD')}
-              className={`px-2.5 py-1 text-xs font-medium rounded cursor-pointer flex items-center gap-1 ${
+              className={`px-2.5 py-1 text-xs font-semibold rounded-md cursor-pointer flex items-center gap-1.5 transition-colors ${
                 filterType === 'UNREAD'
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  ? 'bg-primary-600 text-white shadow-2xs'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200/90'
               }`}
             >
               <span>Unread</span>
               {unreadCount > 0 && (
-                <span className="w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] flex items-center justify-center">
+                <span className="w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center font-mono">
                   {unreadCount}
                 </span>
               )}
@@ -135,10 +135,10 @@ export const NotificationCenter: React.FC = () => {
             <button
               type="button"
               onClick={() => setFilterType('CRITICAL')}
-              className={`px-2.5 py-1 text-xs font-medium rounded cursor-pointer ${
+              className={`px-2.5 py-1 text-xs font-semibold rounded-md cursor-pointer transition-colors ${
                 filterType === 'CRITICAL'
-                  ? 'bg-rose-600 text-white'
-                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  ? 'bg-red-600 text-white shadow-2xs'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200/90'
               }`}
             >
               Critical Alerts
@@ -150,7 +150,7 @@ export const NotificationCenter: React.FC = () => {
               variant="ghost"
               size="sm"
               onClick={() => markAllReadMutation.mutate()}
-              className="text-xs text-primary-600 hover:text-primary-700 gap-1"
+              className="text-xs text-primary-600 hover:text-primary-700 gap-1 font-semibold"
               disabled={markAllReadMutation.isPending}
             >
               <CheckCheck className="w-3.5 h-3.5" />
@@ -162,56 +162,56 @@ export const NotificationCenter: React.FC = () => {
         {/* Notifications Stream */}
         <div className="flex-1 overflow-y-auto divide-y divide-slate-100 p-2 space-y-1">
           {isLoading ? (
-            <div className="p-8 text-center text-xs text-slate-400">Loading alerts...</div>
+            <div className="p-8 text-center text-xs text-slate-400 font-medium">Loading alerts...</div>
           ) : notifications.length === 0 ? (
             <div className="p-12 text-center space-y-3">
-              <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+              <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto border border-slate-200">
                 <Bell className="w-6 h-6" />
               </div>
-              <p className="text-sm font-semibold text-slate-700">All caught up!</p>
-              <p className="text-xs text-slate-400">No unread operational notifications</p>
+              <p className="text-sm font-bold text-slate-800">All caught up!</p>
+              <p className="text-xs text-slate-500 font-medium">No unread operational notifications</p>
             </div>
           ) : (
             notifications.map((notif) => (
               <div
                 key={notif.id}
                 onClick={() => handleNotificationClick(notif)}
-                className={`p-3.5 rounded-lg transition-all cursor-pointer border ${
+                className={`p-3.5 rounded-xl transition-all cursor-pointer border ${
                   notif.isRead
-                    ? 'bg-white border-transparent hover:bg-slate-50 hover:border-slate-100'
-                    : 'bg-blue-50/40 border-blue-100 hover:bg-blue-50/70 shadow-xs'
+                    ? 'bg-white border-transparent hover:bg-slate-50 hover:border-slate-200/80'
+                    : 'bg-sky-50/60 border-sky-200/80 hover:bg-sky-50/90 shadow-2xs'
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-white border border-slate-100 shadow-xs flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-white border border-slate-200/80 shadow-2xs flex items-center justify-center shrink-0">
                     {getSeverityIcon(notif.severity)}
                   </div>
 
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-start justify-between gap-2">
-                      <h4 className={`text-xs font-semibold ${notif.isRead ? 'text-slate-800' : 'text-blue-950 font-bold'}`}>
+                      <h4 className={`text-xs font-semibold ${notif.isRead ? 'text-slate-800' : 'text-slate-950 font-bold'}`}>
                         {notif.title}
                       </h4>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {getSeverityBadge(notif.severity)}
                         {!notif.isRead && (
-                          <span className="w-2 h-2 rounded-full bg-blue-600" />
+                          <span className="w-2 h-2 rounded-full bg-primary-600" />
                         )}
                       </div>
                     </div>
 
-                    <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
+                    <p className="text-xs text-slate-600 leading-relaxed line-clamp-2 font-medium">
                       {notif.message}
                     </p>
 
-                    <div className="flex items-center justify-between pt-1 text-[11px] text-slate-400">
+                    <div className="flex items-center justify-between pt-1 text-[11px] text-slate-500 font-mono">
                       <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
+                        <Clock className="w-3 h-3 text-slate-400" />
                         {formatTimestamp(notif.createdAt)}
                       </span>
 
                       {notif.actionUrl && (
-                        <span className="text-primary-600 hover:underline flex items-center gap-0.5 font-medium">
+                        <span className="text-primary-600 hover:underline flex items-center gap-0.5 font-bold font-sans">
                           View details <ChevronRight className="w-3 h-3" />
                         </span>
                       )}
@@ -224,14 +224,14 @@ export const NotificationCenter: React.FC = () => {
         </div>
 
         {/* Footer Link to Full Notifications Center */}
-        <div className="p-3 border-t border-slate-100 bg-slate-50 text-center">
+        <div className="p-3 border-t border-slate-200/80 bg-slate-50/70 text-center">
           <button
             type="button"
             onClick={() => {
               setNotificationCenterOpen(false);
               navigate('/notifications');
             }}
-            className="text-xs text-primary-600 hover:text-primary-700 font-semibold inline-flex items-center gap-1 cursor-pointer"
+            className="text-xs text-primary-600 hover:text-primary-700 font-bold inline-flex items-center gap-1 cursor-pointer"
           >
             <span>Open Full Notifications Directory</span>
             <ExternalLink className="w-3.5 h-3.5" />

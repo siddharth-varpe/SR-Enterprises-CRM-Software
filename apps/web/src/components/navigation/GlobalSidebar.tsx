@@ -10,18 +10,20 @@ import {
   ClipboardCheck,
   Settings,
   LogOut,
-  Droplets,
+  Repeat,
 } from 'lucide-react';
 import { NAVIGATION_ITEMS } from '@crm/shared';
 import { useAuth } from '../../providers/AuthBoundary';
 import { useUIStore } from '../../stores/ui-store';
 import { Tooltip } from '../ui/Tooltip';
 import { cn } from '../../lib/utils';
+import { SR_ENTERPRISES_LOGO_B64 } from '../../assets/invoiceAssets';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   LayoutDashboard,
   UsersRound,
   BarChart3,
+  Repeat,
   FileText,
   Wrench,
   WalletCards,
@@ -33,6 +35,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
 const MODULE_PERMISSIONS: Record<string, string> = {
   '/customers': 'customers.view',
   '/sales': 'sales.view',
+  '/rent': 'rentals.view',
   '/invoices': 'invoices.view',
   '/services': 'services.view',
   '/payments': 'payments.view',
@@ -115,33 +118,37 @@ export const GlobalSidebar: React.FC<GlobalSidebarProps> = ({
       {/* Top Branding Section */}
       <div className="flex flex-col items-center px-2 shrink-0">
         {/* Centered Brand Logo */}
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-600 via-blue-600 to-sky-500 flex items-center justify-center text-white shadow-md mb-1.5 shrink-0">
-          <Droplets className="w-5 h-5" />
+        <div className="w-11 h-11 rounded-xl bg-white/10 backdrop-blur-xs flex items-center justify-center p-1 shadow-md mb-1.5 shrink-0 border border-white/20">
+          <img
+            src={SR_ENTERPRISES_LOGO_B64}
+            alt="SR Enterprises Logo"
+            className="w-full h-full object-contain select-none drop-shadow"
+          />
         </div>
 
         {/* Brand Text Hierarchy */}
         {isExpandedView ? (
           <div className="text-center px-1 animate-in fade-in duration-150 overflow-hidden w-full">
-            <span className="block text-[10px] font-black tracking-wider text-white uppercase truncate">
+            <span className="block text-[10px] font-display font-extrabold tracking-wider text-white uppercase truncate">
               SR ENTERPRISES
             </span>
-            <span className="block text-[9px] font-semibold text-slate-400 tracking-widest uppercase mt-0.5">
+            <span className="block text-[9px] font-bold text-sky-400 tracking-widest uppercase mt-0.5 font-mono">
               CRM
             </span>
           </div>
         ) : (
-          <span className="block text-[9px] font-bold text-slate-400 tracking-widest uppercase">
+          <span className="block text-[9px] font-bold text-sky-400 tracking-widest uppercase font-mono">
             CRM
           </span>
         )}
 
         {/* Low-contrast Subtle Separator */}
-        <div className="w-8 h-[1px] bg-slate-700/60 my-2 shrink-0" />
+        <div className="w-8 h-[1px] bg-slate-800 my-2 shrink-0" />
       </div>
 
       {/* Primary Navigation List (9 Core Modules) */}
       <nav
-        className="flex-1 px-2 py-1 space-y-1 overflow-y-auto overflow-x-hidden flex flex-col items-center w-full"
+        className="flex-1 px-2 py-1 space-y-1.5 overflow-y-auto overflow-x-hidden flex flex-col items-center w-full"
         aria-label="Main Navigation"
       >
         {accessibleNavItems.map((item) => {
@@ -156,11 +163,13 @@ export const GlobalSidebar: React.FC<GlobalSidebarProps> = ({
               aria-label={item.label}
               aria-current={isActive ? 'page' : undefined}
               className={cn(
-                'w-full h-11 flex items-center rounded-xl text-xs transition-all duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none shrink-0',
+                'flex items-center text-xs transition-all duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none shrink-0',
+                isExpandedView
+                  ? 'w-full h-10 rounded-xl px-3 justify-start gap-2.5'
+                  : 'w-10 h-10 rounded-full aspect-square justify-center p-0 mx-auto',
                 isActive
                   ? 'bg-[#C1121F] text-white font-bold shadow-md'
-                  : 'text-slate-200 hover:bg-white/[0.06] hover:text-white',
-                isExpandedView ? 'px-3 justify-start gap-2.5' : 'justify-center px-0'
+                  : 'text-slate-200 hover:bg-white/[0.06] hover:text-white'
               )}
             >
               <Icon
@@ -170,7 +179,7 @@ export const GlobalSidebar: React.FC<GlobalSidebarProps> = ({
                 )}
               />
               {isExpandedView && (
-                <span className="text-[12px] font-medium tracking-tight truncate leading-none text-left">
+                <span className="text-[12px] font-semibold tracking-tight truncate leading-none text-left">
                   {item.label}
                 </span>
               )}
@@ -198,8 +207,10 @@ export const GlobalSidebar: React.FC<GlobalSidebarProps> = ({
               onClick={handleLogout}
               aria-label="Logout"
               className={cn(
-                'w-full h-11 flex items-center rounded-xl text-xs text-slate-300 hover:text-red-300 hover:bg-red-950/40 transition-all duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none shrink-0',
-                isExpandedView ? 'px-3 justify-start gap-2.5' : 'justify-center px-0'
+                'flex items-center text-xs text-slate-300 hover:text-red-300 hover:bg-red-950/40 transition-all duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none shrink-0',
+                isExpandedView
+                  ? 'w-full h-10 rounded-xl px-3 justify-start gap-2.5'
+                  : 'w-10 h-10 rounded-full aspect-square justify-center p-0 mx-auto'
               )}
             >
               <LogOut className="w-5 h-5 shrink-0 text-slate-400 group-hover:text-red-300" />

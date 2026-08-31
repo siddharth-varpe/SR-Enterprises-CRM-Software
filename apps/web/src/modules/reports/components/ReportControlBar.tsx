@@ -42,7 +42,7 @@ export const ReportControlBar: React.FC<ReportControlBarProps> = ({
   isRefreshing = false,
 }) => {
   return (
-    <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-3 space-y-3">
+    <div className="bg-white rounded-xl border border-slate-200/90 shadow-2xs p-3 space-y-3">
       {/* Top Row: Report Type Tabs */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none border-b border-slate-100">
         {REPORT_TABS.map((tab) => {
@@ -53,13 +53,13 @@ export const ReportControlBar: React.FC<ReportControlBarProps> = ({
               key={tab.id}
               type="button"
               onClick={() => onFilterChange({ reportType: tab.id })}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all cursor-pointer font-sans ${
                 isActive
-                  ? 'bg-blue-50 text-blue-700 border border-blue-200/80 shadow-2xs'
+                  ? 'bg-sky-50 text-sky-800 border border-sky-200/80 shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-transparent'
               }`}
             >
-              <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
+              <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-primary-600' : 'text-slate-400'}`} />
               <span>{tab.label}</span>
             </button>
           );
@@ -72,12 +72,12 @@ export const ReportControlBar: React.FC<ReportControlBarProps> = ({
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Date Preset Dropdown */}
           <div className="relative">
-            <div className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 font-medium text-xs rounded-lg px-2.5 py-1.5 border border-slate-200">
+            <div className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold text-xs rounded-xl px-3 py-1.5 border border-slate-200 shadow-2xs">
               <Calendar className="w-3.5 h-3.5 text-slate-500 shrink-0" />
               <select
                 value={filters.datePreset}
                 onChange={(e) => onFilterChange({ datePreset: e.target.value as any })}
-                className="appearance-none bg-transparent font-medium text-xs text-slate-700 pr-5 focus:outline-none cursor-pointer"
+                className="appearance-none bg-transparent font-mono text-xs text-slate-800 pr-5 focus:outline-none cursor-pointer"
               >
                 <option value="today">Today</option>
                 <option value="yesterday">Yesterday</option>
@@ -89,44 +89,44 @@ export const ReportControlBar: React.FC<ReportControlBarProps> = ({
                 <option value="this_year">This Year</option>
                 <option value="custom">Custom Range</option>
               </select>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
 
           {/* Custom Date Range Inputs if "custom" selected */}
           {filters.datePreset === 'custom' && (
-            <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-lg border border-slate-200 text-xs animate-in fade-in">
+            <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-200 text-xs shadow-2xs animate-in fade-in">
               <input
                 type="date"
                 value={filters.customStartDate || ''}
                 onChange={(e) => onFilterChange({ customStartDate: e.target.value })}
-                className="bg-white text-slate-800 text-xs px-2 py-1 rounded border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="bg-white text-slate-800 font-mono text-xs px-2.5 py-1 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-primary-500"
               />
-              <span className="text-slate-400 text-xs">to</span>
+              <span className="text-slate-400 text-xs font-mono">to</span>
               <input
                 type="date"
                 value={filters.customEndDate || ''}
                 onChange={(e) => onFilterChange({ customEndDate: e.target.value })}
-                className="bg-white text-slate-800 text-xs px-2 py-1 rounded border border-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="bg-white text-slate-800 font-mono text-xs px-2.5 py-1 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-primary-500"
               />
             </div>
           )}
 
           {/* Compare With Dropdown */}
           <div className="relative">
-            <div className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 font-medium text-xs rounded-lg px-2.5 py-1.5 border border-slate-200">
-              <span className="text-[11px] text-slate-400 font-normal">Compare:</span>
+            <div className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 font-medium text-xs rounded-xl px-3 py-1.5 border border-slate-200 shadow-2xs">
+              <span className="text-[11px] text-slate-400 font-sans">Compare:</span>
               <select
                 value={filters.compareWith}
                 onChange={(e) => onFilterChange({ compareWith: e.target.value as CompareOption })}
-                className="appearance-none bg-transparent font-medium text-xs text-slate-700 pr-5 focus:outline-none cursor-pointer"
+                className="appearance-none bg-transparent font-medium text-xs text-slate-700 pr-5 focus:outline-none cursor-pointer font-sans"
               >
                 <option value="previous_period">Previous Period</option>
                 <option value="previous_month">Previous Month</option>
                 <option value="previous_year">Previous Year</option>
                 <option value="none">None</option>
               </select>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
         </div>
@@ -137,16 +137,16 @@ export const ReportControlBar: React.FC<ReportControlBarProps> = ({
             type="button"
             onClick={onRefresh}
             title="Refresh analytics data"
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 font-medium text-xs rounded-lg border border-slate-200 transition-colors shadow-2xs cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold text-xs rounded-xl border border-slate-200 transition-colors shadow-2xs cursor-pointer font-sans"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-slate-600 ${isRefreshing ? 'animate-spin text-blue-600' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 text-slate-600 ${isRefreshing ? 'animate-spin text-primary-600' : ''}`} />
             <span className="hidden sm:inline">Refresh</span>
           </button>
 
           <button
             type="button"
             onClick={onExport}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 font-medium text-xs rounded-lg border border-slate-200 transition-colors shadow-2xs cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold text-xs rounded-xl border border-slate-200 transition-colors shadow-2xs cursor-pointer font-sans"
           >
             <Download className="w-3.5 h-3.5 text-slate-600" />
             <span>Export</span>

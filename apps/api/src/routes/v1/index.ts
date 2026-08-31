@@ -21,6 +21,7 @@ import { analyticsRoutes } from '../../modules/analytics/analytics.routes';
 import { notificationsRoutes } from '../../modules/notifications/notifications.routes';
 import { systemRoutes } from '../../modules/system/system.routes';
 import { searchRoutes } from '../../modules/search/search.routes';
+import { rentalRoutes } from '../../modules/rentals/rental.routes';
 
 /**
  * Root /api/v1 Router
@@ -71,6 +72,9 @@ export const v1Routes: FastifyPluginAsync = async (fastify) => {
 
   // Sales & Commercial Transactions
   await fastify.register(salesRoutes, { prefix: '/sales' });
+
+  // Rental Agreements & RO Machine Subscriptions
+  await fastify.register(rentalRoutes, { prefix: '/rentals' });
 
   // Invoices & Billing
   await fastify.register(invoicesRoutes, { prefix: '/invoices' });
