@@ -76,6 +76,10 @@ vi.mock('../invoices/invoices.api', () => ({
     },
     isLoading: false,
   }),
+  useInvoiceQuery: () => ({
+    data: null,
+    isLoading: false,
+  }),
 }));
 
 describe('PaymentsDirectory Component (Phase 8)', () => {
