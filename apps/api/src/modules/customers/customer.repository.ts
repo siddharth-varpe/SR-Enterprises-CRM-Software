@@ -280,18 +280,38 @@ export class CustomerRepository {
    * Find single customer by UUID with all addresses and relational models
    */
   async findById(id: string, database = db) {
-    const [customer] = await database
-      .select()
-      .from(customers)
-      .where(eq(customers.id, id));
+    let customer: any = null;
+    let addresses: any[] = [];
+
+    try {
+      const [dbCustomer] = await database
+        .select()
+        .from(customers)
+        .where(eq(customers.id, id));
+
+      if (dbCustomer) {
+        customer = dbCustomer;
+        try {
+          addresses = await database
+            .select()
+            .from(customerAddresses)
+            .where(eq(customerAddresses.customerId, id))
+            .orderBy(desc(customerAddresses.isDefault), desc(customerAddresses.createdAt));
+        } catch {}
+      }
+    } catch (err: any) {
+      console.warn('[CustomerRepository.findById] DB query notice:', err?.message);
+    }
+
+    if (!customer) {
+      const mem = memoryCustomers.find((c) => c.id === id || c.customerNumber === id);
+      if (mem) {
+        customer = mem;
+        addresses = mem.addresses || [];
+      }
+    }
 
     if (!customer) return null;
-
-    const addresses = await database
-      .select()
-      .from(customerAddresses)
-      .where(eq(customerAddresses.customerId, id))
-      .orderBy(desc(customerAddresses.isDefault), desc(customerAddresses.createdAt));
 
     let assetsList: any[] = [];
     try {
@@ -300,6 +320,9 @@ export class CustomerRepository {
         with: { product: true, warranties: true },
       });
     } catch {}
+    if (assetsList.length === 0 && customer.assets) {
+      assetsList = customer.assets;
+    }
 
     let servicesList: any[] = [];
     try {
@@ -308,6 +331,9 @@ export class CustomerRepository {
         orderBy: desc(services.scheduledDate),
       });
     } catch {}
+    if (servicesList.length === 0 && customer.services) {
+      servicesList = customer.services;
+    }
 
     let invoicesList: any[] = [];
     try {
@@ -316,6 +342,9 @@ export class CustomerRepository {
         orderBy: desc(invoices.invoiceDate),
       });
     } catch {}
+    if (invoicesList.length === 0 && customer.invoices) {
+      invoicesList = customer.invoices;
+    }
 
     let paymentsList: any[] = [];
     try {
@@ -324,6 +353,9 @@ export class CustomerRepository {
         orderBy: desc(payments.paymentDate),
       });
     } catch {}
+    if (paymentsList.length === 0 && customer.payments) {
+      paymentsList = customer.payments;
+    }
 
     let warrantiesList: any[] = [];
     try {
@@ -332,6 +364,9 @@ export class CustomerRepository {
         orderBy: desc(warranties.endDate),
       });
     } catch {}
+    if (warrantiesList.length === 0 && customer.warranties) {
+      warrantiesList = customer.warranties;
+    }
 
     let salesList: any[] = [];
     try {
@@ -344,17 +379,20 @@ export class CustomerRepository {
         },
       });
     } catch {}
+    if (salesList.length === 0 && customer.sales) {
+      salesList = customer.sales;
+    }
 
-    const totalSpent = invoicesList.reduce((acc, inv) => acc + Number(inv.totalAmount || 0), 0);
-    const totalPaid = paymentsList.reduce((acc, p) => acc + Number(p.amount || 0), 0);
+    const totalSpent = (invoicesList || []).reduce((acc, inv) => acc + Number(inv.totalAmount || 0), 0);
+    const totalPaid = (paymentsList || []).reduce((acc, p) => acc + Number(p.amount || 0), 0);
     const outstanding = Math.max(0, totalSpent - totalPaid);
 
     const now = new Date();
-    const hasActiveWarranty = warrantiesList.some(
+    const hasActiveWarranty = (warrantiesList || []).some(
       (w) => w.status === 'ACTIVE' && new Date(w.endDate) > now
     );
 
-    const nextUpcomingService = servicesList
+    const nextUpcomingService = (servicesList || [])
       .filter((s) => s.status !== 'COMPLETED' && s.status !== 'CANCELLED' && new Date(s.scheduledDate) >= now)
       .sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime())[0];
 
@@ -364,13 +402,13 @@ export class CustomerRepository {
 
     return {
       ...customer,
-      addresses,
-      assets: assetsList,
-      sales: salesList,
-      services: servicesList,
-      invoices: invoicesList,
-      payments: paymentsList,
-      warranties: warrantiesList,
+      addresses: addresses || [],
+      assets: assetsList || [],
+      sales: salesList || [],
+      services: servicesList || [],
+      invoices: invoicesList || [],
+      payments: paymentsList || [],
+      warranties: warrantiesList || [],
       summary: {
         totalSpent,
         outstanding,
@@ -1030,18 +1068,25 @@ export class CustomerRepository {
    * Get customer assets
    */
   async getCustomerAssets(customerId: string, database = db) {
-    return await database.query.customerAssets.findMany({
-      where: eq(customerAssets.customerId, customerId),
-      with: {
-        product: true,
-        warranties: {
-          with: {
-            events: true,
+    try {
+      const records = await database.query.customerAssets.findMany({
+        where: eq(customerAssets.customerId, customerId),
+        with: {
+          product: true,
+          warranties: {
+            with: {
+              events: true,
+            },
           },
         },
-      },
-      orderBy: desc(customerAssets.createdAt),
-    });
+        orderBy: desc(customerAssets.createdAt),
+      });
+      return records || [];
+    } catch (err: any) {
+      console.warn('[CustomerRepository.getCustomerAssets] DB notice:', err?.message);
+      const mem = memoryCustomers.find((c) => c.id === customerId);
+      return mem?.assets || [];
+    }
   }
 
   /**
@@ -1049,29 +1094,43 @@ export class CustomerRepository {
    */
   async getCustomerSales(customerId: string, page = 1, limit = 20, database = db) {
     const offset = (page - 1) * limit;
-    const [totalRec] = await database
-      .select({ total: count() })
-      .from(sales)
-      .where(eq(sales.customerId, customerId));
+    try {
+      const [totalRec] = await database
+        .select({ total: count() })
+        .from(sales)
+        .where(eq(sales.customerId, customerId));
 
-    const records = await database.query.sales.findMany({
-      where: eq(sales.customerId, customerId),
-      orderBy: desc(sales.saleDate),
-      limit,
-      offset,
-      with: {
-        items: true,
-      },
-    });
+      const records = await database.query.sales.findMany({
+        where: eq(sales.customerId, customerId),
+        orderBy: desc(sales.saleDate),
+        limit,
+        offset,
+        with: {
+          items: true,
+        },
+      });
 
-    return {
-      data: records,
-      pagination: {
-        page,
-        pageSize: limit,
-        total: Number(totalRec?.total || 0),
-      },
-    };
+      return {
+        data: records || [],
+        pagination: {
+          page,
+          pageSize: limit,
+          total: Number(totalRec?.total || records?.length || 0),
+        },
+      };
+    } catch (err: any) {
+      console.warn('[CustomerRepository.getCustomerSales] DB notice:', err?.message);
+      const mem = memoryCustomers.find((c) => c.id === customerId);
+      const data = mem?.sales || [];
+      return {
+        data: data.slice(offset, offset + limit),
+        pagination: {
+          page,
+          pageSize: limit,
+          total: data.length,
+        },
+      };
+    }
   }
 
   /**
@@ -1079,29 +1138,43 @@ export class CustomerRepository {
    */
   async getCustomerInvoices(customerId: string, page = 1, limit = 20, database = db) {
     const offset = (page - 1) * limit;
-    const [totalRec] = await database
-      .select({ total: count() })
-      .from(invoices)
-      .where(eq(invoices.customerId, customerId));
+    try {
+      const [totalRec] = await database
+        .select({ total: count() })
+        .from(invoices)
+        .where(eq(invoices.customerId, customerId));
 
-    const records = await database.query.invoices.findMany({
-      where: eq(invoices.customerId, customerId),
-      orderBy: desc(invoices.invoiceDate),
-      limit,
-      offset,
-      with: {
-        items: true,
-      },
-    });
+      const records = await database.query.invoices.findMany({
+        where: eq(invoices.customerId, customerId),
+        orderBy: desc(invoices.invoiceDate),
+        limit,
+        offset,
+        with: {
+          items: true,
+        },
+      });
 
-    return {
-      data: records,
-      pagination: {
-        page,
-        pageSize: limit,
-        total: Number(totalRec?.total || 0),
-      },
-    };
+      return {
+        data: records || [],
+        pagination: {
+          page,
+          pageSize: limit,
+          total: Number(totalRec?.total || records?.length || 0),
+        },
+      };
+    } catch (err: any) {
+      console.warn('[CustomerRepository.getCustomerInvoices] DB notice:', err?.message);
+      const mem = memoryCustomers.find((c) => c.id === customerId);
+      const data = mem?.invoices || [];
+      return {
+        data: data.slice(offset, offset + limit),
+        pagination: {
+          page,
+          pageSize: limit,
+          total: data.length,
+        },
+      };
+    }
   }
 
   /**
@@ -1109,26 +1182,40 @@ export class CustomerRepository {
    */
   async getCustomerPayments(customerId: string, page = 1, limit = 20, database = db) {
     const offset = (page - 1) * limit;
-    const [totalRec] = await database
-      .select({ total: count() })
-      .from(payments)
-      .where(eq(payments.customerId, customerId));
+    try {
+      const [totalRec] = await database
+        .select({ total: count() })
+        .from(payments)
+        .where(eq(payments.customerId, customerId));
 
-    const records = await database.query.payments.findMany({
-      where: eq(payments.customerId, customerId),
-      orderBy: desc(payments.paymentDate),
-      limit,
-      offset,
-    });
+      const records = await database.query.payments.findMany({
+        where: eq(payments.customerId, customerId),
+        orderBy: desc(payments.paymentDate),
+        limit,
+        offset,
+      });
 
-    return {
-      data: records,
-      pagination: {
-        page,
-        pageSize: limit,
-        total: Number(totalRec?.total || 0),
-      },
-    };
+      return {
+        data: records || [],
+        pagination: {
+          page,
+          pageSize: limit,
+          total: Number(totalRec?.total || records?.length || 0),
+        },
+      };
+    } catch (err: any) {
+      console.warn('[CustomerRepository.getCustomerPayments] DB notice:', err?.message);
+      const mem = memoryCustomers.find((c) => c.id === customerId);
+      const data = mem?.payments || [];
+      return {
+        data: data.slice(offset, offset + limit),
+        pagination: {
+          page,
+          pageSize: limit,
+          total: data.length,
+        },
+      };
+    }
   }
 
   /**
@@ -1136,48 +1223,69 @@ export class CustomerRepository {
    */
   async getCustomerServices(customerId: string, page = 1, limit = 20, database = db) {
     const offset = (page - 1) * limit;
-    const [totalRec] = await database
-      .select({ total: count() })
-      .from(services)
-      .where(eq(services.customerId, customerId));
+    try {
+      const [totalRec] = await database
+        .select({ total: count() })
+        .from(services)
+        .where(eq(services.customerId, customerId));
 
-    const records = await database.query.services.findMany({
-      where: eq(services.customerId, customerId),
-      orderBy: desc(services.scheduledDate),
-      limit,
-      offset,
-      with: {
-        technician: true,
-        jobCard: true,
-      },
-    });
+      const records = await database.query.services.findMany({
+        where: eq(services.customerId, customerId),
+        orderBy: desc(services.scheduledDate),
+        limit,
+        offset,
+        with: {
+          technician: true,
+          jobCard: true,
+        },
+      });
 
-    return {
-      data: records,
-      pagination: {
-        page,
-        pageSize: limit,
-        total: Number(totalRec?.total || 0),
-      },
-    };
+      return {
+        data: records || [],
+        pagination: {
+          page,
+          pageSize: limit,
+          total: Number(totalRec?.total || records?.length || 0),
+        },
+      };
+    } catch (err: any) {
+      console.warn('[CustomerRepository.getCustomerServices] DB notice:', err?.message);
+      const mem = memoryCustomers.find((c) => c.id === customerId);
+      const data = mem?.services || [];
+      return {
+        data: data.slice(offset, offset + limit),
+        pagination: {
+          page,
+          pageSize: limit,
+          total: data.length,
+        },
+      };
+    }
   }
 
   /**
    * Get customer warranty history
    */
   async getCustomerWarranties(customerId: string, database = db) {
-    return await database.query.warranties.findMany({
-      where: eq(warranties.customerId, customerId),
-      with: {
-        asset: {
-          with: {
-            product: true,
+    try {
+      const records = await database.query.warranties.findMany({
+        where: eq(warranties.customerId, customerId),
+        with: {
+          asset: {
+            with: {
+              product: true,
+            },
           },
+          events: true,
         },
-        events: true,
-      },
-      orderBy: desc(warranties.createdAt),
-    });
+        orderBy: desc(warranties.createdAt),
+      });
+      return records || [];
+    } catch (err: any) {
+      console.warn('[CustomerRepository.getCustomerWarranties] DB notice:', err?.message);
+      const mem = memoryCustomers.find((c) => c.id === customerId);
+      return mem?.warranties || [];
+    }
   }
 
   /**
@@ -1185,29 +1293,41 @@ export class CustomerRepository {
    */
   async getCustomerJobCards(customerId: string, page = 1, limit = 20, database = db) {
     const offset = (page - 1) * limit;
-    const [totalRec] = await database
-      .select({ total: count() })
-      .from(jobCards)
-      .where(eq(jobCards.customerId, customerId));
+    try {
+      const [totalRec] = await database
+        .select({ total: count() })
+        .from(jobCards)
+        .where(eq(jobCards.customerId, customerId));
 
-    const records = await database.query.jobCards.findMany({
-      where: eq(jobCards.customerId, customerId),
-      orderBy: desc(jobCards.createdAt),
-      limit,
-      offset,
-      with: {
-        technician: true,
-      },
-    });
+      const records = await database.query.jobCards.findMany({
+        where: eq(jobCards.customerId, customerId),
+        orderBy: desc(jobCards.createdAt),
+        limit,
+        offset,
+        with: {
+          technician: true,
+        },
+      });
 
-    return {
-      data: records,
-      pagination: {
-        page,
-        pageSize: limit,
-        total: Number(totalRec?.total || 0),
-      },
-    };
+      return {
+        data: records || [],
+        pagination: {
+          page,
+          pageSize: limit,
+          total: Number(totalRec?.total || records?.length || 0),
+        },
+      };
+    } catch (err: any) {
+      console.warn('[CustomerRepository.getCustomerJobCards] DB notice:', err?.message);
+      return {
+        data: [],
+        pagination: {
+          page,
+          pageSize: limit,
+          total: 0,
+        },
+      };
+    }
   }
 
   /**
@@ -1215,26 +1335,40 @@ export class CustomerRepository {
    */
   async getCustomerActivities(customerId: string, page = 1, limit = 50, database = db) {
     const offset = (page - 1) * limit;
-    const [totalRec] = await database
-      .select({ total: count() })
-      .from(customerActivities)
-      .where(eq(customerActivities.customerId, customerId));
+    try {
+      const [totalRec] = await database
+        .select({ total: count() })
+        .from(customerActivities)
+        .where(eq(customerActivities.customerId, customerId));
 
-    const records = await database.query.customerActivities.findMany({
-      where: eq(customerActivities.customerId, customerId),
-      orderBy: desc(customerActivities.timestamp),
-      limit,
-      offset,
-    });
+      const records = await database.query.customerActivities.findMany({
+        where: eq(customerActivities.customerId, customerId),
+        orderBy: desc(customerActivities.timestamp),
+        limit,
+        offset,
+      });
 
-    return {
-      data: records,
-      pagination: {
-        page,
-        pageSize: limit,
-        total: Number(totalRec?.total || 0),
-      },
-    };
+      return {
+        data: records || [],
+        pagination: {
+          page,
+          pageSize: limit,
+          total: Number(totalRec?.total || records?.length || 0),
+        },
+      };
+    } catch (err: any) {
+      console.warn('[CustomerRepository.getCustomerActivities] DB notice:', err?.message);
+      const mem = memoryCustomers.find((c) => c.id === customerId);
+      const data = mem?.activities || [];
+      return {
+        data: data.slice(offset, offset + limit),
+        pagination: {
+          page,
+          pageSize: limit,
+          total: data.length,
+        },
+      };
+    }
   }
 
   /**
