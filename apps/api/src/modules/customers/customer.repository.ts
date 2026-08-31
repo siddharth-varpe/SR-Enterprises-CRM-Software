@@ -104,26 +104,28 @@ export class CustomerRepository {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    // Sorting resolution: Default to created_at DESC, id DESC
+    // Sorting resolution: Default to customerNumber ASC, id ASC
     let orderByClauses;
-    const direction = filters.sortOrder === 'asc' ? asc : desc;
+    const direction = filters.sortOrder === 'desc' ? desc : asc;
     switch (filters.sortBy) {
       case 'fullName':
       case 'name':
-        orderByClauses = [direction(customers.fullName), desc(customers.createdAt)];
-        break;
-      case 'customerNumber':
-        orderByClauses = [direction(customers.customerNumber), desc(customers.createdAt)];
+        orderByClauses = [direction(customers.fullName), asc(customers.customerNumber)];
         break;
       case 'phone':
-        orderByClauses = [direction(customers.phone), desc(customers.createdAt)];
+        orderByClauses = [direction(customers.phone), asc(customers.customerNumber)];
         break;
       case 'updatedAt':
-        orderByClauses = [direction(customers.updatedAt), desc(customers.id)];
+        orderByClauses = [direction(customers.updatedAt), asc(customers.customerNumber)];
         break;
       case 'createdAt':
+        orderByClauses = [direction(customers.createdAt), asc(customers.customerNumber)];
+        break;
+      case 'customerNumber':
+      case 'customerId':
+      case 'id':
       default:
-        orderByClauses = [direction(customers.createdAt), desc(customers.id)];
+        orderByClauses = [direction(customers.customerNumber), asc(customers.id)];
         break;
     }
 

@@ -166,6 +166,8 @@ export const UpdateCustomerSchema = z
 export type UpdateCustomerInput = z.infer<typeof UpdateCustomerSchema>;
 
 export const CustomerQueryFilterSchema = PaginationQuerySchema.extend({
+  sortBy: z.string().default('customerNumber').optional(),
+  sortOrder: z.enum(['asc', 'desc']).default('asc').optional(),
   customerType: z
     .enum(['INDIVIDUAL', 'COMMERCIAL', 'ALL'])
     .optional()

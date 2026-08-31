@@ -111,8 +111,8 @@ export const CUSTOMER_QUERY_KEYS = {
  */
 export function useCustomersQuery(filters: CustomerQueryFilterInput) {
   const effectiveFilters: CustomerQueryFilterInput = {
-    sortBy: 'createdAt',
-    sortOrder: 'desc',
+    sortBy: 'customerNumber',
+    sortOrder: 'asc',
     ...filters,
   };
 

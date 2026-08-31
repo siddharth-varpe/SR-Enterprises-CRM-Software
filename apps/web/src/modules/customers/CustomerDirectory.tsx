@@ -43,8 +43,8 @@ export const CustomerDirectory: React.FC = () => {
     status: (statusFilter as any) || 'ALL',
     customerType: customerTypeFilter !== 'ALL' ? (customerTypeFilter as any) : undefined,
     city: cityFilter !== 'ALL' ? cityFilter : undefined,
-    sortBy: 'createdAt',
-    sortOrder: 'desc',
+    sortBy: 'customerNumber',
+    sortOrder: 'asc',
   });
 
   const totalCustomers = response?.pagination?.total || 0;
