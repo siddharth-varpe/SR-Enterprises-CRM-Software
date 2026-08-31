@@ -23,6 +23,7 @@ import { productRepository } from '../products/product.repository';
 import { customerRepository } from '../customers/customer.repository';
 import { assetsRepository } from '../assets/assets.repository';
 import { invoicesRepository, memoryInvoices } from '../invoices/invoices.repository';
+import { memoryPayments } from '../payments/payments.repository';
 import { randomUUID } from 'crypto';
 import type {
   CreateSaleInput,
@@ -665,10 +666,18 @@ export class SalesRepository {
         const memSale = memorySales.find((s) => s.id === id);
         if (!memSale) return null;
         const memItems = memorySaleItems.filter((i) => i.saleId === id);
+        const memInv =
+          memoryInvoices.find((i) => i.saleId === id || i.id === memSale.invoice?.id) ||
+          memSale.invoice ||
+          null;
+        const memPayments = memInv
+          ? memoryPayments.filter((p) => p.invoiceId === memInv.id)
+          : [];
         return {
           ...memSale,
           items: memItems,
-          invoice: memSale.invoice ?? null,
+          invoice: memInv ? { ...memInv, payments: memPayments } : null,
+          payments: memPayments,
           assets: [],
         };
       }
@@ -733,10 +742,18 @@ export class SalesRepository {
       const memSale = memorySales.find((s) => s.id === id);
       if (!memSale) return null;
       const memItems = memorySaleItems.filter((i) => i.saleId === id);
+      const memInv =
+        memoryInvoices.find((i) => i.saleId === id || i.id === memSale.invoice?.id) ||
+        memSale.invoice ||
+        null;
+      const memPayments = memInv
+        ? memoryPayments.filter((p) => p.invoiceId === memInv.id)
+        : [];
       return {
         ...memSale,
         items: memItems,
-        invoice: memSale.invoice ?? null,
+        invoice: memInv ? { ...memInv, payments: memPayments } : null,
+        payments: memPayments,
         assets: [],
       };
     }

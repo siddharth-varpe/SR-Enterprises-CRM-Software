@@ -22,7 +22,7 @@ import type {
 } from '@crm/validation';
 
 // Resilient memory store for offline desktop and local development
-const memoryPayments: any[] = [];
+export const memoryPayments: any[] = [];
 
 export class PaymentsRepository {
   private buildFilterConditions(filters: PaymentQueryFilter, _database = db) {
@@ -567,22 +567,29 @@ export class PaymentsRepository {
   private async executeRecordPayment(executor: any, input: CreatePaymentInput, actorId?: string, actorName = 'System') {
     const safeActorId = await this.resolveActorUserId(executor, actorId);
     // 1. Fetch invoice by ID or invoiceNumber
-    let [invoice] = await executor
-      .select()
-      .from(invoices)
-      .where(eq(invoices.id, input.invoiceId));
-
-    if (!invoice && typeof input.invoiceId === 'string' && input.invoiceId.startsWith('INV-')) {
-      const [byNumber] = await executor
+    let invoice: any = null;
+    try {
+      const [byUuid] = await executor
         .select()
         .from(invoices)
-        .where(eq(invoices.invoiceNumber, input.invoiceId));
-      if (byNumber) invoice = byNumber;
-    }
+        .where(eq(invoices.id, input.invoiceId));
+      if (byUuid) invoice = byUuid;
+
+      if (!invoice && typeof input.invoiceId === 'string') {
+        const [byNumber] = await executor
+          .select()
+          .from(invoices)
+          .where(eq(invoices.invoiceNumber, input.invoiceId));
+        if (byNumber) invoice = byNumber;
+      }
+    } catch {}
 
     if (!invoice) {
       const memInv = memoryInvoices.find(
-        (i) => i.id === input.invoiceId || i.invoiceNumber === input.invoiceId
+        (i) =>
+          i.id === input.invoiceId ||
+          i.invoiceNumber === input.invoiceId ||
+          i.saleId === input.invoiceId
       );
       if (memInv) {
         invoice = memInv as any;
