@@ -29,7 +29,7 @@ export const ServicesDirectory: React.FC = () => {
     priority: 'ALL',
     targetDate: undefined,
     sortBy: 'serviceNumber',
-    sortOrder: 'desc',
+    sortOrder: 'asc',
   });
 
   // Heatmap Controls
@@ -66,7 +66,7 @@ export const ServicesDirectory: React.FC = () => {
       priority: 'ALL',
       targetDate: undefined,
       sortBy: 'serviceNumber',
-      sortOrder: 'desc',
+      sortOrder: 'asc',
     });
   };
 
