@@ -25,8 +25,9 @@ export function resolveDatabaseStorageDir(): string {
     return path.join(process.env.CRM_STORAGE_DIR, 'database', 'pgdata');
   }
 
-  // Persistent database in workspace root
-  return path.resolve(process.cwd(), '.crm-data', 'pgdata');
+  // Anchor persistent database deterministically to apps/api/.crm-data/pgdata
+  const apiRoot = path.resolve(__dirname, '../../');
+  return path.resolve(apiRoot, '.crm-data', 'pgdata');
 }
 
 /**
@@ -41,7 +42,6 @@ export async function applySqlMigrations(targetPg: PGlite | postgres.Sql): Promi
   }
 
   // Run idempotent migrations to ensure newly added tables exist
-
   const sqlContent = fs.readFileSync(sqlFilePath, 'utf8');
   const rawStatements = sqlContent
     .split('--> statement-breakpoint')
@@ -89,11 +89,10 @@ export async function applySqlMigrations(targetPg: PGlite | postgres.Sql): Promi
  * Initialize or get database client with persistent storage
  */
 export function getDatabaseClient() {
-  if (dbInstance) {
+  if (dbInstance && (pgClient || pgliteClient)) {
     return { sql: pgClient || pgliteClient, db: dbInstance };
   }
 
-  // Check if PostgreSQL server is explicitly configured and not default unconfigured
   const storageDir = resolveDatabaseStorageDir();
   fs.mkdirSync(storageDir, { recursive: true });
 
@@ -134,7 +133,38 @@ export function getDatabaseClient() {
   return { sql: pgClient || pgliteClient, db: dbInstance! };
 }
 
-export const { sql, db } = getDatabaseClient();
+// Export dynamic proxies to ensure all modules always interact with the active database instance
+export const db: any = new Proxy(
+  {},
+  {
+    get(_target, prop) {
+      if (!dbInstance) {
+        getDatabaseClient();
+      }
+      return dbInstance ? (dbInstance as any)[prop] : undefined;
+    },
+  }
+);
+
+export const sql: any = new Proxy(
+  function () {},
+  {
+    get(_target, prop) {
+      if (!pgClient && !pgliteClient) {
+        getDatabaseClient();
+      }
+      const active = pgClient || pgliteClient;
+      return active ? (active as any)[prop] : undefined;
+    },
+    apply(_target, thisArg, argArray) {
+      if (!pgClient && !pgliteClient) {
+        getDatabaseClient();
+      }
+      const active = pgClient || pgliteClient;
+      return Reflect.apply(active as any, thisArg, argArray);
+    },
+  }
+);
 
 /**
  * Ensures email_notifications and email_queue tables and enums exist
@@ -375,13 +405,16 @@ export async function ensureDatabaseInitialized(): Promise<void> {
   try {
     if (pgliteClient) {
       // Ensure PGlite WebAssembly instance is completely loaded and ready
-      await pgliteClient.waitReady;
-
-      // Test health of persistent storage
+      let isHealthy = false;
       try {
+        await pgliteClient.waitReady;
         await pgliteClient.query('SELECT 1;');
+        isHealthy = true;
       } catch (healthErr: any) {
         console.warn('⚠️ [Database] Persistent storage check failed, recovering clean database state...', healthErr?.message);
+      }
+
+      if (!isHealthy) {
         try {
           await pgliteClient.close();
         } catch {}
@@ -390,6 +423,14 @@ export async function ensureDatabaseInitialized(): Promise<void> {
           fs.rmSync(storageDir, { recursive: true, force: true });
         }
         fs.mkdirSync(storageDir, { recursive: true });
+        ['postmaster.pid', 'postmaster.opts', '.lock'].forEach((f) => {
+          const p = path.join(storageDir, f);
+          if (fs.existsSync(p)) {
+            try {
+              fs.unlinkSync(p);
+            } catch {}
+          }
+        });
         pgliteClient = new PGlite(storageDir);
         await pgliteClient.waitReady;
         dbInstance = drizzlePglite(pgliteClient, { schema });

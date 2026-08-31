@@ -1,6 +1,7 @@
 import { db } from '../client';
 import { roles, permissions, rolePermissions, products, users } from '../schema/index';
 import { hashPassword } from '../../security/argon2';
+import { eq } from 'drizzle-orm';
 
 export interface SystemPermissionDef {
   key: string;

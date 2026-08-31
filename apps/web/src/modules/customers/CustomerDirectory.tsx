@@ -64,15 +64,17 @@ export const CustomerDirectory: React.FC = () => {
         .join('')
         .toUpperCase() || 'CU';
 
-      const cityDisplay = defaultAddr
-        ? defaultAddr.state
-          ? `${defaultAddr.city}, ${defaultAddr.state}`
-          : defaultAddr.city
-        : 'Pune, Maharashtra';
+      const cityParts = [defaultAddr?.city, defaultAddr?.state].filter(Boolean);
+      const cityDisplay = cityParts.length > 0 ? cityParts.join(', ') : (defaultAddr?.addressLine1 || '—');
 
-      const fullAddress = defaultAddr
-        ? `${defaultAddr.addressLine1}${defaultAddr.addressLine2 ? `, ${defaultAddr.addressLine2}` : ''}, ${defaultAddr.city}, ${defaultAddr.state} - ${defaultAddr.postalCode}`
-        : 'Pune, Maharashtra';
+      const addrParts = [
+        defaultAddr?.addressLine1,
+        defaultAddr?.addressLine2,
+        defaultAddr?.city,
+        defaultAddr?.state,
+        defaultAddr?.postalCode,
+      ].filter(Boolean);
+      const fullAddress = addrParts.length > 0 ? addrParts.join(', ') : '—';
 
       const customerSinceFormatted = item.createdAt
         ? new Date(item.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })

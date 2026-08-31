@@ -127,33 +127,41 @@ export class CustomerRepository {
         break;
     }
 
-    // Execute count query
-    const [totalRecord] = await database
-      .select({ total: count() })
-      .from(customers)
-      .where(whereClause);
+    // Execute count and paginated query
+    let total = 0;
+    let records: any[] = [];
 
-    const total = Number(totalRecord?.total || 0);
+    try {
+      const [totalRecord] = await database
+        .select({ total: count() })
+        .from(customers)
+        .where(whereClause);
 
-    // Execute paginated records query
-    const records = await database.query.customers.findMany({
-      where: whereClause,
-      orderBy: orderByClauses,
-      limit,
-      offset,
-      with: {
-        addresses: {
-          orderBy: [desc(customerAddresses.isDefault), desc(customerAddresses.createdAt)],
-        },
-        assets: {
-          limit: 10,
-          with: {
-            product: true,
-            warranties: true,
+      total = Number(totalRecord?.total || 0);
+
+      records = await database.query.customers.findMany({
+        where: whereClause,
+        orderBy: orderByClauses,
+        limit,
+        offset,
+        with: {
+          addresses: {
+            orderBy: [desc(customerAddresses.isDefault), desc(customerAddresses.createdAt)],
+          },
+          assets: {
+            limit: 10,
+            with: {
+              product: true,
+              warranties: true,
+            },
           },
         },
-      },
-    });
+      });
+    } catch (dbErr: any) {
+      console.warn('[CustomerRepository.findPaginated] Database query fallback:', dbErr?.message);
+      records = memoryCustomers;
+      total = memoryCustomers.length;
+    }
 
     const customerIds = records.map((r) => r.id);
 
