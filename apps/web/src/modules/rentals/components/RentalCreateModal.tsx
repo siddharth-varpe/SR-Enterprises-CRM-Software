@@ -26,6 +26,15 @@ export interface RentalCreateModalProps {
   preselectedCustomerId?: string;
 }
 
+function generateMachineSerialNumber(): string {
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year2 = String(now.getFullYear()).slice(-2);
+  const rand = Math.floor(1000 + Math.random() * 9000);
+  return `SN-RO-${day}${month}${year2}-${rand}`;
+}
+
 export const RentalCreateModal: React.FC<RentalCreateModalProps> = ({
   isOpen,
   onClose,
@@ -48,7 +57,7 @@ export const RentalCreateModal: React.FC<RentalCreateModalProps> = ({
     // Machine Details
     machineType: 'RO',
     machineModel: 'SR Aqua Pure Pro RO',
-    serialNumber: '',
+    serialNumber: generateMachineSerialNumber(),
     capacityLph: '15 LPH',
     installationLocation: 'Kitchen Counter',
     machineCondition: 'GOOD' as const,
@@ -134,11 +143,9 @@ export const RentalCreateModal: React.FC<RentalCreateModalProps> = ({
     if (!selectedCustomerId) {
       errors.customer = 'Please select a customer from the customer database';
     }
+    const serialNumber = formData.serialNumber.trim() || generateMachineSerialNumber();
     if (!formData.machineModel.trim()) {
       errors.machineModel = 'Machine model is required';
-    }
-    if (!formData.serialNumber.trim()) {
-      errors.serialNumber = 'Serial number is required';
     }
     if (!formData.monthlyRent || formData.monthlyRent <= 0) {
       errors.monthlyRent = 'Monthly rent must be greater than 0';
@@ -158,7 +165,7 @@ export const RentalCreateModal: React.FC<RentalCreateModalProps> = ({
         customerId: selectedCustomerId,
         machineType: formData.machineType,
         machineModel: formData.machineModel.trim(),
-        serialNumber: formData.serialNumber.trim(),
+        serialNumber,
         capacityLph: formData.capacityLph,
         installationLocation: formData.installationLocation,
         machineCondition: formData.machineCondition,
@@ -338,15 +345,25 @@ export const RentalCreateModal: React.FC<RentalCreateModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                Machine Serial Number <span className="text-rose-500">*</span>
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-bold text-slate-700">
+                  Machine Serial Number <span className="text-rose-500">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setFormData((prev) => ({ ...prev, serialNumber: generateMachineSerialNumber() }))}
+                  className="text-[10px] text-primary-600 hover:text-primary-700 font-semibold cursor-pointer"
+                  title="Generate new serial number"
+                >
+                  ⚡ Auto Generate
+                </button>
+              </div>
               <input
                 type="text"
-                placeholder="e.g. RO-2026-98124"
+                placeholder="e.g. SN-RO-310826-1024"
                 value={formData.serialNumber}
                 onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
-                className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none font-mono"
+                className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none"
               />
               {formErrors.serialNumber && (
                 <p className="text-[10px] text-rose-600 mt-0.5">{formErrors.serialNumber}</p>
