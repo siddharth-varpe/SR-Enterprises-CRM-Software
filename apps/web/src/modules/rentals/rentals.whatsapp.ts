@@ -17,6 +17,9 @@ export function normalizeWhatsAppPhone(phone?: string | null): string | null {
   if (digits.length === 10) {
     return `91${digits}`;
   }
+  if (digits.length === 11 && digits.startsWith('0')) {
+    return `91${digits.slice(1)}`;
+  }
   return digits;
 }
 
@@ -125,13 +128,18 @@ export function sendRentalWhatsAppReminder(
   rental: RentalItem,
   overridePhone?: string
 ): SendRentalWhatsAppResult {
-  const phoneToUse = overridePhone || rental.customer?.phone;
+  const phoneToUse =
+    overridePhone ||
+    rental.customer?.phone ||
+    (rental as any).phone ||
+    (rental as any).customerPhone ||
+    (rental as any).mobile;
   const normalizedPhone = normalizeWhatsAppPhone(phoneToUse);
 
   if (!normalizedPhone) {
     return {
       success: false,
-      error: 'Customer phone number is not available.',
+      error: 'Customer phone number is not available. Please ensure the customer has a mobile number registered.',
     };
   }
 

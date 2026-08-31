@@ -336,9 +336,12 @@ export const RentalsPage: React.FC = () => {
 
                     {/* Customer Info */}
                     <td className="py-3 px-4">
-                      <div className="font-bold text-slate-900">{rental.customer?.fullName}</div>
-                      <div className="text-[11px] text-slate-500 font-mono">
-                        📞 {rental.customer?.phone}
+                      <div className="font-bold text-slate-900">
+                        {rental.customer?.fullName || 'Customer'}
+                      </div>
+                      <div className="text-[11px] text-slate-500 font-mono flex items-center gap-1">
+                        <span>📞</span>
+                        <span>{rental.customer?.phone || 'No phone registered'}</span>
                       </div>
                     </td>
 

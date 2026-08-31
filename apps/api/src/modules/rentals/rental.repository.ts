@@ -9,6 +9,7 @@ import {
 } from '../../database/schema/index';
 import { eq, desc, asc, and, or, ilike, sql, inArray, gte, lte, count } from 'drizzle-orm';
 import { generateBusinessNumber } from '../../database/sequences';
+import { memoryCustomers } from '../customers/customer.repository';
 
 export interface RentalListFilter {
   tab?: 'active' | 'due' | 'overdue' | 'returned' | 'all';
@@ -88,6 +89,60 @@ export interface RecordRentalReturnInput {
 }
 
 const memoryRentals: any[] = [];
+
+async function attachCustomerDetails(rental: any, database = db) {
+  if (!rental) return rental;
+  if (rental.customer && rental.customer.fullName && rental.customer.phone) {
+    return rental;
+  }
+
+  let cust: any = rental.customer || null;
+  const customerId = rental.customerId;
+
+  if (customerId) {
+    // 1. Try memory customers first
+    const memCust = memoryCustomers.find(
+      (c) => c.id === customerId || c.customerNumber === customerId
+    );
+    if (memCust) {
+      cust = {
+        id: memCust.id,
+        customerNumber: memCust.customerNumber,
+        fullName: memCust.fullName,
+        phone: memCust.phone,
+        email: memCust.email,
+        addresses: memCust.addresses || [],
+      };
+    } else {
+      try {
+        const [dbCust] = await database
+          .select({
+            id: customers.id,
+            customerNumber: customers.customerNumber,
+            fullName: customers.fullName,
+            phone: customers.phone,
+            email: customers.email,
+          })
+          .from(customers)
+          .where(eq(customers.id, customerId));
+        if (dbCust) {
+          cust = dbCust;
+        }
+      } catch {}
+    }
+  }
+
+  return {
+    ...rental,
+    customer: cust || {
+      id: customerId || '',
+      customerNumber: '',
+      fullName: 'Customer',
+      phone: '',
+      email: '',
+    },
+  };
+}
 
 export class RentalRepository {
   /**
@@ -227,11 +282,18 @@ export class RentalRepository {
       // Summary Statistics for KPI Cards
       const summaryStats = await this.getSummaryStats(database);
 
-      const dbData = rows.map((r) => ({
-        ...r.rental,
-        customer: r.customer,
-        technician: r.technician,
-      }));
+      const dbData = await Promise.all(
+        rows.map((r) =>
+          attachCustomerDetails(
+            {
+              ...r.rental,
+              customer: r.customer,
+              technician: r.technician,
+            },
+            database
+          )
+        )
+      );
 
       // If DB returned rows, return them
       if (dbData.length > 0) {
@@ -267,7 +329,8 @@ export class RentalRepository {
     }
 
     const total = filtered.length;
-    const pagedData = filtered.slice(offset, offset + limit);
+    const rawPaged = filtered.slice(offset, offset + limit);
+    const pagedData = await Promise.all(rawPaged.map((r) => attachCustomerDetails(r, database)));
 
     return {
       data: pagedData,
@@ -339,20 +402,26 @@ export class RentalRepository {
           .where(eq(rentalEvents.rentalId, id))
           .orderBy(desc(rentalEvents.createdAt));
 
-        return {
-          ...rentalRecord.rental,
-          customer: rentalRecord.customer,
-          technician: rentalRecord.technician,
-          payments: paymentsList,
-          events: eventsList,
-        };
+        return await attachCustomerDetails(
+          {
+            ...rentalRecord.rental,
+            customer: rentalRecord.customer,
+            technician: rentalRecord.technician,
+            payments: paymentsList,
+            events: eventsList,
+          },
+          database
+        );
       }
     } catch (err: any) {
       console.warn('[RentalRepository.findById] DB notice:', err?.message);
     }
 
     const mem = memoryRentals.find((r) => r.id === id);
-    return mem || null;
+    if (mem) {
+      return await attachCustomerDetails(mem, database);
+    }
+    return null;
   }
 
   /**
@@ -377,16 +446,27 @@ export class RentalRepository {
         .orderBy(desc(rentals.createdAt));
 
       if (rows && rows.length > 0) {
-        return rows.map((r) => ({
-          ...r.rental,
-          customer: r.customer,
-        }));
+        return await Promise.all(
+          rows.map((r) =>
+            attachCustomerDetails(
+              {
+                ...r.rental,
+                customer: r.customer,
+              },
+              database
+            )
+          )
+        );
       }
     } catch (err: any) {
       console.warn('[RentalRepository.findByCustomerId] DB notice:', err?.message);
     }
 
-    return memoryRentals.filter((r) => r.customerId === customerId);
+    return await Promise.all(
+      memoryRentals
+        .filter((r) => r.customerId === customerId)
+        .map((r) => attachCustomerDetails(r, database))
+    );
   }
 
   /**
@@ -531,15 +611,17 @@ export class RentalRepository {
           });
         } catch {}
 
-        memoryRentals.unshift(inserted);
-        return inserted;
+        const withCust = await attachCustomerDetails(inserted, database);
+        memoryRentals.unshift(withCust);
+        return withCust;
       }
     } catch (insertErr: any) {
       console.warn('[RentalRepository.create] DB insert notice, using memory fallback:', insertErr?.message);
     }
 
-    memoryRentals.unshift(newRentalPayload);
-    return newRentalPayload;
+    const memWithCust = await attachCustomerDetails(newRentalPayload, database);
+    memoryRentals.unshift(memWithCust);
+    return memWithCust;
   }
 
   /**
