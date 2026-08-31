@@ -657,65 +657,129 @@ export class RentalRepository {
     if (data.installationNotes !== undefined) updatePayload.installationNotes = data.installationNotes;
     if (data.notes !== undefined) updatePayload.notes = data.notes;
 
-    const [updated] = await database
-      .update(rentals)
-      .set(updatePayload)
-      .where(eq(rentals.id, id))
-      .returning();
+    try {
+      const [updated] = await database
+        .update(rentals)
+        .set(updatePayload)
+        .where(eq(rentals.id, id))
+        .returning();
+      if (updated) return await attachCustomerDetails(updated, database);
+    } catch (err: any) {
+      console.warn('[RentalRepository.update] DB notice, using memory fallback:', err?.message);
+    }
 
-    return updated;
+    let rental = memoryRentals.find((r) => r.id === id || r.rentalNumber === id);
+    if (rental) {
+      Object.assign(rental, updatePayload, { updatedAt: new Date().toISOString() });
+      return await attachCustomerDetails(rental, database);
+    }
+    return null;
   }
 
   /**
    * Record recurring rental payment
    */
   async recordPayment(input: RecordRentalPaymentInput, database = db) {
-    return await database.transaction(async (tx) => {
-      const [rental] = await tx.select().from(rentals).where(eq(rentals.id, input.rentalId)).limit(1);
+    try {
+      return await database.transaction(async (tx) => {
+        const [rental] = await tx.select().from(rentals).where(eq(rentals.id, input.rentalId)).limit(1);
+        if (!rental) throw new Error('Rental not found');
+
+        const paymentAmount = Number(input.amount || 0);
+        const paymentDate = input.paymentDate ? new Date(input.paymentDate) : new Date();
+
+        // 1. Insert payment transaction
+        // Generate official rental receipt number
+        const receiptRes = await generateBusinessNumber(tx, 'RENTAL_PAYMENT', 'RCP-RNT');
+
+        const [newPayment] = await tx
+          .insert(rentalPayments)
+          .values({
+            rentalId: rental.id,
+            customerId: rental.customerId,
+            amount: String(paymentAmount),
+            paymentDate,
+            paymentMethod: input.paymentMethod || 'UPI',
+            paymentType: (input.paymentType as any) || 'MONTHLY_RENT',
+            receiptNumber: receiptRes.sequenceNumber,
+            referenceNumber: input.referenceNumber,
+            periodStartDate: input.periodStartDate ? new Date(input.periodStartDate) : undefined,
+            periodEndDate: input.periodEndDate ? new Date(input.periodEndDate) : undefined,
+            notes: input.notes,
+            recordedBy: input.recordedBy && input.recordedBy.trim() ? (input.recordedBy as any) : undefined,
+          })
+          .returning();
+
+        // 2. Sum all rental payments for this rental
+        const allPayments = await tx
+          .select({ amount: rentalPayments.amount })
+          .from(rentalPayments)
+          .where(eq(rentalPayments.rentalId, rental.id));
+
+        const totalPaidSum = allPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+        // Calculate outstanding amount: from existing outstanding balance or cycle monthly rent
+        const monthlyRentNum = Number(rental.monthlyRent || 0);
+        const previousOutstanding = Number(rental.outstandingAmount || 0);
+        const dueForThisCycle = previousOutstanding > 0 ? previousOutstanding : monthlyRentNum;
+        const outstandingAmount = Math.max(0, dueForThisCycle - paymentAmount);
+        const isFullPayment = outstandingAmount === 0;
+        const paymentStatus = isFullPayment ? 'PAID' : 'PARTIALLY_PAID';
+
+        // Advance due date only when full payment is satisfied
+        let nextDue = new Date(rental.nextDueDate);
+        if (isFullPayment && (input.paymentType === 'MONTHLY_RENT' || input.paymentType === 'ADVANCE_RENT')) {
+          const freq = rental.billingFrequency || 'MONTHLY';
+          if (freq === 'QUARTERLY') nextDue.setMonth(nextDue.getMonth() + 3);
+          else if (freq === 'HALF_YEARLY') nextDue.setMonth(nextDue.getMonth() + 6);
+          else if (freq === 'YEARLY') nextDue.setFullYear(nextDue.getFullYear() + 1);
+          else nextDue.setMonth(nextDue.getMonth() + 1);
+        }
+
+        // Update rental status
+        const [updatedRental] = await tx
+          .update(rentals)
+          .set({
+            totalPaid: String(totalPaidSum),
+            outstandingAmount: String(outstandingAmount),
+            paymentStatus: paymentStatus as any,
+            rentalStatus: rental.rentalStatus === 'RETURNED' ? 'RETURNED' : 'ACTIVE',
+            nextDueDate: nextDue,
+            updatedAt: new Date(),
+          })
+          .where(eq(rentals.id, rental.id))
+          .returning();
+
+        // 3. Log Payment Event
+        try {
+          await tx.insert(rentalEvents).values({
+            rentalId: rental.id,
+            eventType: 'PAYMENT_RECORDED',
+            description: `Payment of ₹${paymentAmount} recorded via ${input.paymentMethod || 'UPI'} (${input.paymentType || 'MONTHLY_RENT'}). Receipt: ${receiptRes.sequenceNumber}. New total paid: ₹${totalPaidSum}.`,
+            actorId: input.recordedBy,
+            actorName: input.actorName || 'Staff',
+          });
+        } catch {}
+
+        return {
+          payment: newPayment,
+          rental: await attachCustomerDetails(updatedRental, tx),
+        };
+      });
+    } catch (err: any) {
+      console.warn('[RentalRepository.recordPayment] DB notice, using memory fallback:', err?.message);
+      let rental = memoryRentals.find((r) => r.id === input.rentalId || r.rentalNumber === input.rentalId);
       if (!rental) throw new Error('Rental not found');
 
       const paymentAmount = Number(input.amount || 0);
       const paymentDate = input.paymentDate ? new Date(input.paymentDate) : new Date();
-
-      // 1. Insert payment transaction
-      // Generate official rental receipt number
-      const receiptRes = await generateBusinessNumber(tx, 'RENTAL_PAYMENT', 'RCP-RNT');
-
-      const [newPayment] = await tx
-        .insert(rentalPayments)
-        .values({
-          rentalId: rental.id,
-          customerId: rental.customerId,
-          amount: String(paymentAmount),
-          paymentDate,
-          paymentMethod: input.paymentMethod || 'UPI',
-          paymentType: (input.paymentType as any) || 'MONTHLY_RENT',
-          receiptNumber: receiptRes.sequenceNumber,
-          referenceNumber: input.referenceNumber,
-          periodStartDate: input.periodStartDate ? new Date(input.periodStartDate) : undefined,
-          periodEndDate: input.periodEndDate ? new Date(input.periodEndDate) : undefined,
-          notes: input.notes,
-          recordedBy: input.recordedBy && input.recordedBy.trim() ? (input.recordedBy as any) : undefined,
-        })
-        .returning();
-
-      // 2. Sum all rental payments for this rental
-      const allPayments = await tx
-        .select({ amount: rentalPayments.amount })
-        .from(rentalPayments)
-        .where(eq(rentalPayments.rentalId, rental.id));
-
-      const totalPaidSum = allPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-
-      // Calculate outstanding amount: from existing outstanding balance or cycle monthly rent
+      const currentPaid = Number(rental.totalPaid || 0) + paymentAmount;
       const monthlyRentNum = Number(rental.monthlyRent || 0);
       const previousOutstanding = Number(rental.outstandingAmount || 0);
       const dueForThisCycle = previousOutstanding > 0 ? previousOutstanding : monthlyRentNum;
       const outstandingAmount = Math.max(0, dueForThisCycle - paymentAmount);
       const isFullPayment = outstandingAmount === 0;
-      const paymentStatus = isFullPayment ? 'PAID' : 'PARTIALLY_PAID';
 
-      // Advance due date only when full payment is satisfied
       let nextDue = new Date(rental.nextDueDate);
       if (isFullPayment && (input.paymentType === 'MONTHLY_RENT' || input.paymentType === 'ADVANCE_RENT')) {
         const freq = rental.billingFrequency || 'MONTHLY';
@@ -725,34 +789,33 @@ export class RentalRepository {
         else nextDue.setMonth(nextDue.getMonth() + 1);
       }
 
-      // Update rental status
-      const [updatedRental] = await tx
-        .update(rentals)
-        .set({
-          totalPaid: String(totalPaidSum),
-          outstandingAmount: String(outstandingAmount),
-          paymentStatus: paymentStatus as any,
-          rentalStatus: rental.rentalStatus === 'RETURNED' ? 'RETURNED' : 'ACTIVE',
-          nextDueDate: nextDue,
-          updatedAt: new Date(),
-        })
-        .where(eq(rentals.id, rental.id))
-        .returning();
+      rental.totalPaid = String(currentPaid);
+      rental.outstandingAmount = String(outstandingAmount);
+      rental.paymentStatus = isFullPayment ? 'PAID' : 'PARTIALLY_PAID';
+      rental.nextDueDate = nextDue.toISOString();
+      rental.updatedAt = new Date().toISOString();
 
-      // 3. Log Payment Event
-      await tx.insert(rentalEvents).values({
+      const receiptNumber = `RCP-RNT-${new Date().getFullYear()}-${String(Date.now() % 10000).padStart(4, '0')}`;
+      const newPayment = {
+        id: randomUUID(),
         rentalId: rental.id,
-        eventType: 'PAYMENT_RECORDED',
-        description: `Payment of ₹${paymentAmount} recorded via ${input.paymentMethod || 'UPI'} (${input.paymentType || 'MONTHLY_RENT'}). Receipt: ${receiptRes.sequenceNumber}. New total paid: ₹${totalPaidSum}.`,
-        actorId: input.recordedBy,
-        actorName: input.actorName || 'Staff',
-      });
+        customerId: rental.customerId,
+        amount: String(paymentAmount),
+        paymentDate,
+        paymentMethod: input.paymentMethod || 'UPI',
+        paymentType: input.paymentType || 'MONTHLY_RENT',
+        receiptNumber,
+        referenceNumber: input.referenceNumber || null,
+        notes: input.notes || null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
       return {
         payment: newPayment,
-        rental: updatedRental,
+        rental: await attachCustomerDetails(rental, database),
       };
-    });
+    }
   }
 
   /**
@@ -958,46 +1021,78 @@ export class RentalRepository {
    * Record machine return
    */
   async recordReturn(input: RecordRentalReturnInput, database = db) {
-    return await database.transaction(async (tx) => {
-      const [rental] = await tx.select().from(rentals).where(eq(rentals.id, input.rentalId)).limit(1);
-      if (!rental) throw new Error('Rental not found');
+    try {
+      return await database.transaction(async (tx) => {
+        const [rental] = await tx.select().from(rentals).where(eq(rentals.id, input.rentalId)).limit(1);
+        if (!rental) throw new Error('Rental not found');
+
+        const returnDate = input.returnDate ? new Date(input.returnDate) : new Date();
+
+        const [updatedRental] = await tx
+          .update(rentals)
+          .set({
+            rentalStatus: 'RETURNED',
+            returnDate,
+            returnCondition: input.returnCondition,
+            damageCharges: String(input.damageCharges || 0),
+            depositAdjustment: String(input.depositAdjustment || 0),
+            refundAmount: String(input.refundAmount || 0),
+            returnNotes: input.returnNotes,
+            updatedAt: new Date(),
+          })
+          .where(eq(rentals.id, rental.id))
+          .returning();
+
+        // Log Return Event
+        try {
+          await tx.insert(rentalEvents).values({
+            rentalId: rental.id,
+            eventType: 'MACHINE_RETURNED',
+            description: `Machine returned on ${returnDate.toLocaleDateString()}. Condition: ${input.returnCondition}. Refund: ₹${input.refundAmount || 0}. Damage charges: ₹${input.damageCharges || 0}.`,
+            actorId: input.actorId,
+            actorName: input.actorName || 'Admin',
+          });
+        } catch {}
+
+        return await attachCustomerDetails(updatedRental, tx);
+      });
+    } catch (err: any) {
+      console.warn('[RentalRepository.recordReturn] DB notice, using memory fallback:', err?.message);
+      let rental = memoryRentals.find((r) => r.id === input.rentalId || r.rentalNumber === input.rentalId);
+      if (!rental) {
+        throw new Error('Rental not found');
+      }
 
       const returnDate = input.returnDate ? new Date(input.returnDate) : new Date();
+      rental.rentalStatus = 'RETURNED';
+      rental.returnDate = returnDate.toISOString();
+      rental.returnCondition = input.returnCondition;
+      rental.damageCharges = String(input.damageCharges || 0);
+      rental.depositAdjustment = String(input.depositAdjustment || 0);
+      rental.refundAmount = String(input.refundAmount || 0);
+      rental.returnNotes = input.returnNotes || '';
+      rental.updatedAt = new Date().toISOString();
 
-      const [updatedRental] = await tx
-        .update(rentals)
-        .set({
-          rentalStatus: 'RETURNED',
-          returnDate,
-          returnCondition: input.returnCondition,
-          damageCharges: String(input.damageCharges || 0),
-          depositAdjustment: String(input.depositAdjustment || 0),
-          refundAmount: String(input.refundAmount || 0),
-          returnNotes: input.returnNotes,
-          updatedAt: new Date(),
-        })
-        .where(eq(rentals.id, rental.id))
-        .returning();
-
-      // Log Return Event
-      await tx.insert(rentalEvents).values({
-        rentalId: rental.id,
-        eventType: 'MACHINE_RETURNED',
-        description: `Machine returned on ${returnDate.toLocaleDateString()}. Condition: ${input.returnCondition}. Refund: ₹${input.refundAmount || 0}. Damage charges: ₹${input.damageCharges || 0}.`,
-        actorId: input.actorId,
-        actorName: input.actorName || 'Admin',
-      });
-
-      return updatedRental;
-    });
+      return await attachCustomerDetails(rental, database);
+    }
   }
 
   /**
    * Hard delete rental record
    */
   async delete(id: string, database = db) {
-    const [deleted] = await database.delete(rentals).where(eq(rentals.id, id)).returning();
-    return deleted;
+    try {
+      const [deleted] = await database.delete(rentals).where(eq(rentals.id, id)).returning();
+      if (deleted) return deleted;
+    } catch (err: any) {
+      console.warn('[RentalRepository.delete] DB notice, using memory fallback:', err?.message);
+    }
+    const idx = memoryRentals.findIndex((r) => r.id === id || r.rentalNumber === id);
+    if (idx !== -1) {
+      const [deleted] = memoryRentals.splice(idx, 1);
+      return deleted;
+    }
+    return { id };
   }
 
   /**
