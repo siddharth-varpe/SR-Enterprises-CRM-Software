@@ -456,10 +456,10 @@ export class CustomerRepository {
       console.log('[DEBUG CustomerRepository.create] 1. generating number');
       let customerNumber: string;
       const now = new Date();
-      const year = now.getFullYear();
+      const year2 = String(now.getFullYear()).slice(-2);
       const month = String(now.getMonth() + 1).padStart(2, '0');
       const day = String(now.getDate()).padStart(2, '0');
-      const dateStr = `${year}-${month}-${day}`;
+      const dateStr = `${day}-${month}-${year2}`;
 
       try {
         const existingWithDate = await database
@@ -467,15 +467,12 @@ export class CustomerRepository {
           .from(customers)
           .where(ilike(customers.customerNumber, `CX-${dateStr}%`));
 
-        if (!existingWithDate || existingWithDate.length === 0) {
-          customerNumber = `CX-${dateStr}`;
-        } else {
-          customerNumber = `CX-${dateStr}-${existingWithDate.length + 1}`;
-        }
+        const nextSerial = (existingWithDate?.length || 0) + 1;
+        customerNumber = `CX-${dateStr}-${String(nextSerial).padStart(2, '0')}`;
       } catch (err1) {
         console.error('[DEBUG CustomerRepository.create] err1:', err1);
-        const rand = Math.floor(100 + Math.random() * 900);
-        customerNumber = `CX-${dateStr}-${rand}`;
+        const rand = Math.floor(1 + Math.random() * 99);
+        customerNumber = `CX-${dateStr}-${String(rand).padStart(2, '0')}`;
       }
       console.log('[DEBUG CustomerRepository.create] 1. number:', customerNumber);
 
@@ -583,12 +580,12 @@ export class CustomerRepository {
     } catch (err: any) {
       console.warn('[CustomerRepository.create] Fallback recovery triggered:', err?.message);
       const now = new Date();
-      const year = now.getFullYear();
+      const year2 = String(now.getFullYear()).slice(-2);
       const month = String(now.getMonth() + 1).padStart(2, '0');
       const day = String(now.getDate()).padStart(2, '0');
-      const dateStr = `${year}-${month}-${day}`;
-      const rand = Math.floor(100 + Math.random() * 900);
-      const customerNumber = `CX-${dateStr}-${rand}`;
+      const dateStr = `${day}-${month}-${year2}`;
+      const existingMemCount = memoryCustomers.filter((c) => c.customerNumber?.startsWith(`CX-${dateStr}`)).length;
+      const customerNumber = `CX-${dateStr}-${String(existingMemCount + 1).padStart(2, '0')}`;
       const customerId = crypto.randomUUID();
 
       const addressValues = (data.addresses || []).map((addr, idx) => ({

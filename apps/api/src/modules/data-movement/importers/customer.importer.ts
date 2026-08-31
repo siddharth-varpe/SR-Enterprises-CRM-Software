@@ -190,12 +190,12 @@ export class CustomerImporter extends BaseImporter {
           // Generate unique sequential customer number for every imported record
           let customerNumber = '';
           const now = new Date();
-          const year = now.getFullYear();
+          const year2 = String(now.getFullYear()).slice(-2);
           const month = String(now.getMonth() + 1).padStart(2, '0');
           const day = String(now.getDate()).padStart(2, '0');
-          const dateStr = `${year}-${month}-${day}`;
+          const dateStr = `${day}-${month}-${year2}`;
 
-          customerNumber = `CX-${dateStr}-${String(chunkIdx + i + 1).padStart(4, '0')}`;
+          customerNumber = `CX-${dateStr}-${String(chunkIdx + i + 1).padStart(2, '0')}`;
 
           // Insert customer record (duplicates allowed)
           const [newCustomer] = await tx
