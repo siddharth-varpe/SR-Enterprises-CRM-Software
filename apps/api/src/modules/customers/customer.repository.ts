@@ -178,6 +178,13 @@ export class CustomerRepository {
       try {
         const servicesList = await database.query.services.findMany({
           where: inArray(services.customerId, customerIds),
+          with: {
+            asset: {
+              with: {
+                product: true,
+              },
+            },
+          },
           orderBy: desc(services.scheduledDate),
         });
         for (const s of servicesList) {
@@ -363,6 +370,13 @@ export class CustomerRepository {
     try {
       servicesList = await database.query.services.findMany({
         where: eq(services.customerId, id),
+        with: {
+          asset: {
+            with: {
+              product: true,
+            },
+          },
+        },
         orderBy: desc(services.scheduledDate),
       });
     } catch {}
@@ -1177,7 +1191,8 @@ export class CustomerRepository {
     } catch (err: any) {
       console.warn('[CustomerRepository.getCustomerAssets] DB notice:', err?.message);
       const mem = memoryCustomers.find((c) => c.id === customerId);
-      return mem?.assets || [];
+      const memCustAssets = memoryAssets.filter((a) => a.customerId === customerId);
+      return memCustAssets.length > 0 ? memCustAssets : (mem?.assets || []);
     }
   }
 
@@ -1329,6 +1344,11 @@ export class CustomerRepository {
         with: {
           technician: true,
           jobCard: true,
+          asset: {
+            with: {
+              product: true,
+            },
+          },
         },
       });
 

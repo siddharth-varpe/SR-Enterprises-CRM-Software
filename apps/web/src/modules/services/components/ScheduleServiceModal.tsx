@@ -106,9 +106,9 @@ export const ScheduleServiceModal: React.FC<ScheduleServiceModalProps> = ({
       if (a && a.id) {
         map.set(a.id, {
           id: a.id,
-          productName: a.product?.name || a.customName || 'RO Purifier / Spare',
-          productBrand: a.product?.brand || '',
-          productSku: a.product?.sku || '',
+          productName: a.customName || a.product?.name || a.productName || 'RO Purifier / Spare',
+          productBrand: a.product?.brand || a.productBrand || '',
+          productSku: a.product?.sku || a.productSku || '',
           serialNumber: a.serialNumber || '',
           assetType: a.assetType || 'RO_MACHINE',
           assetNumber: a.assetNumber || 'ASSET',
@@ -117,7 +117,14 @@ export const ScheduleServiceModal: React.FC<ScheduleServiceModalProps> = ({
     }
     for (const a of directAssets) {
       if (a && a.id) {
-        map.set(a.id, a);
+        const existing = map.get(a.id);
+        map.set(a.id, {
+          ...existing,
+          ...a,
+          productName: a.customName || a.productName || (a as any).product?.name || existing?.productName || 'RO Purifier / Spare',
+          productBrand: a.productBrand || (a as any).product?.brand || existing?.productBrand || '',
+          productSku: a.productSku || (a as any).product?.sku || existing?.productSku || '',
+        });
       }
     }
     return Array.from(map.values());

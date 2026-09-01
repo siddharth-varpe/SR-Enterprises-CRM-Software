@@ -291,22 +291,26 @@ export const CustomerProfile: React.FC = () => {
     : 'Recently';
 
   // Real Customer Services from database
-  const customerServicesList = ((customer as any).services || []).map((s: any) => ({
-    id: s.id,
-    title: s.serviceType ? s.serviceType.replace(/_/g, ' ') : 'RO Water Purifier Service',
-    serviceNumber: s.serviceNumber || 'SRV',
-    date: s.scheduledDate ? formatDate(s.scheduledDate) : 'Recently',
-    status: s.status,
-    statusLabel: s.status === 'COMPLETED' ? 'Completed' : s.status === 'IN_PROGRESS' ? 'In Progress' : 'Scheduled',
-    statusColor: s.status === 'COMPLETED'
-      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-      : s.status === 'IN_PROGRESS'
-      ? 'bg-amber-50 text-amber-700 border-amber-200'
-      : 'bg-blue-50 text-blue-700 border-blue-200',
-    amount: s.cost ? formatINR(s.cost) : '₹ 0.00',
-    icon: <Wrench className="w-4 h-4 text-blue-600" />,
-    bgIcon: 'bg-blue-50',
-  }));
+  const customerServicesList = ((customer as any).services || []).map((s: any) => {
+    const machineName = s.productName || s.customName || s.asset?.customName || s.asset?.product?.name || '';
+    return {
+      id: s.id,
+      title: s.serviceType ? s.serviceType.replace(/_/g, ' ') : 'RO Water Purifier Service',
+      machineName,
+      serviceNumber: s.serviceNumber || 'SRV',
+      date: s.scheduledDate ? formatDate(s.scheduledDate) : 'Recently',
+      status: s.status,
+      statusLabel: s.status === 'COMPLETED' ? 'Completed' : s.status === 'IN_PROGRESS' ? 'In Progress' : 'Scheduled',
+      statusColor: s.status === 'COMPLETED'
+        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        : s.status === 'IN_PROGRESS'
+        ? 'bg-amber-50 text-amber-700 border-amber-200'
+        : 'bg-blue-50 text-blue-700 border-blue-200',
+      amount: s.cost ? formatINR(s.cost) : '₹ 0.00',
+      icon: <Wrench className="w-4 h-4 text-blue-600" />,
+      bgIcon: 'bg-blue-50',
+    };
+  });
 
   // Real Customer Payments, Invoices & Sales Data
   const recordedPayments: PaymentItem[] = customerPaymentsData?.data || [];
@@ -695,7 +699,9 @@ export const CustomerProfile: React.FC = () => {
                             {s.icon}
                           </div>
                           <div className="min-w-0">
-                            <div className="text-xs font-bold text-slate-900 truncate">{s.title}</div>
+                            <div className="text-xs font-bold text-slate-900 truncate">
+                              {s.title} {s.machineName ? `• ${s.machineName}` : ''}
+                            </div>
                             <div className="text-2xs text-slate-400 truncate">
                               {s.serviceNumber} • {s.date}
                             </div>
@@ -1121,7 +1127,7 @@ export const CustomerProfile: React.FC = () => {
                     <div className="text-2xs text-slate-400 font-medium">Last Interaction</div>
                     <div className="font-bold text-slate-800">{new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
                     <div className="text-2xs text-slate-500 mt-0.5 font-medium">
-                      Service Discussed <span className="font-bold text-slate-700">{(customer as any).primaryAsset?.productName || 'RO Water Purifier Service'}</span>
+                      Service &amp; Maintenance <span className="font-bold text-slate-700">{customerServicesList[0]?.machineName || (customer as any).assets?.[0]?.customName || (customer as any).assets?.[0]?.product?.name || 'RO Water Purifier System'}</span>
                     </div>
                   </div>
                 </div>

@@ -48,10 +48,10 @@ export const CustomerAssetsList: React.FC<CustomerAssetsListProps> = ({ customer
                   </div>
                   <div>
                     <h4 className="text-sm font-semibold text-slate-900">
-                      {asset.product?.name || 'Water Purifier Asset'}
+                      {asset.customName || (asset as any).product?.name || asset.productName || 'Water Purifier Asset'}
                     </h4>
                     <span className="text-xs text-slate-500 font-mono">
-                      SKU: {asset.product?.sku || 'N/A'} {asset.product?.brand ? `• ${asset.product.brand}` : ''}
+                      SKU: {(asset as any).product?.sku || asset.productSku || 'N/A'} {(asset as any).product?.brand || asset.productBrand ? `• ${(asset as any).product?.brand || asset.productBrand}` : ''}
                     </span>
                   </div>
                 </div>

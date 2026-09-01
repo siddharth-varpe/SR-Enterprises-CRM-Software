@@ -14,7 +14,7 @@ import {
 import { generateBusinessNumber } from '../../database/sequences';
 import { withTransaction } from '../../database/transactions';
 import { randomUUID } from 'crypto';
-import { assetsRepository } from '../assets/assets.repository';
+import { assetsRepository, memoryAssets } from '../assets/assets.repository';
 import { memoryJobCards } from '../job-cards/job-cards.repository';
 import type {
   ServiceQueryFilter,
@@ -133,9 +133,9 @@ export class ServicesRepository {
             assetId: customerAssets.id,
             assetNumber: customerAssets.assetNumber,
             serialNumber: customerAssets.serialNumber,
-            productName: products.name,
-            productBrand: products.brand,
-            productSku: products.sku,
+            productName: sql<string>`COALESCE(${customerAssets.customName}, ${products.name}, 'RO Machine')`,
+            productBrand: sql<string>`COALESCE(${products.brand}, 'SR Enterprises')`,
+            productSku: sql<string>`COALESCE(${products.sku}, 'SKU-RO')`,
             technicianId: technicians.id,
             technicianName: technicians.fullName,
             technicianPhone: technicians.phone,
@@ -180,17 +180,26 @@ export class ServicesRepository {
       };
     } catch {
       let filtered = [...memoryServices];
+      if (filters.status && filters.status !== 'ALL') {
+        filtered = filtered.filter((s) => s.status === filters.status);
+      }
+      if (filters.classification && filters.classification !== 'ALL') {
+        filtered = filtered.filter((s) => s.serviceClassification === filters.classification);
+      }
+      if (filters.location && filters.location !== 'ALL') {
+        filtered = filtered.filter((s) => s.serviceLocation === filters.location);
+      }
+      if (filters.priority && filters.priority !== 'ALL') {
+        filtered = filtered.filter((s) => s.priority === filters.priority);
+      }
       if (filters.customerId) {
         filtered = filtered.filter((s) => s.customerId === filters.customerId);
-      }
-      if (filters.assetId) {
-        filtered = filtered.filter((s) => s.assetId === filters.assetId);
       }
       if (filters.technicianId) {
         filtered = filtered.filter((s) => s.technicianId === filters.technicianId);
       }
-      if (filters.status && filters.status !== 'ALL') {
-        filtered = filtered.filter((s) => s.status === filters.status);
+      if (filters.assetId) {
+        filtered = filtered.filter((s) => s.assetId === filters.assetId);
       }
       if (filters.search?.trim()) {
         const q = filters.search.trim().toLowerCase();
@@ -198,6 +207,8 @@ export class ServicesRepository {
           (s) =>
             s.serviceNumber?.toLowerCase().includes(q) ||
             s.customerName?.toLowerCase().includes(q) ||
+            s.customerPhone?.includes(q) ||
+            s.productName?.toLowerCase().includes(q) ||
             s.serialNumber?.toLowerCase().includes(q)
         );
       }
@@ -216,7 +227,7 @@ export class ServicesRepository {
   }
 
   /**
-   * Find single service by ID with full joins
+   * Find single service by ID with customer, asset, product, technician, warranty, and job card
    */
   async findById(id: string, database = db) {
     try {
@@ -246,9 +257,9 @@ export class ServicesRepository {
           assetId: customerAssets.id,
           assetNumber: customerAssets.assetNumber,
           serialNumber: customerAssets.serialNumber,
-          productName: products.name,
-          productBrand: products.brand,
-          productSku: products.sku,
+          productName: sql<string>`COALESCE(${customerAssets.customName}, ${products.name}, 'RO Machine')`,
+          productBrand: sql<string>`COALESCE(${products.brand}, 'SR Enterprises')`,
+          productSku: sql<string>`COALESCE(${products.sku}, 'SKU-RO')`,
           technicianId: technicians.id,
           technicianName: technicians.fullName,
           technicianPhone: technicians.phone,
@@ -283,13 +294,25 @@ export class ServicesRepository {
 
       if (!rows[0]) {
         const mem = memoryServices.find((s) => s.id === id);
-        return mem || null;
+        if (!mem) return null;
+        const asset = memoryAssets.find((a) => a.id === mem.assetId);
+        return {
+          ...mem,
+          productName: asset?.customName || asset?.productName || 'RO Machine',
+          serialNumber: asset?.serialNumber || '',
+        };
       }
 
       return rows[0];
     } catch {
       const mem = memoryServices.find((s) => s.id === id);
-      return mem || null;
+      if (!mem) return null;
+      const asset = memoryAssets.find((a) => a.id === mem.assetId);
+      return {
+        ...mem,
+        productName: asset?.customName || asset?.productName || 'RO Machine',
+        serialNumber: asset?.serialNumber || '',
+      };
     }
   }
 
@@ -487,9 +510,10 @@ export class ServicesRepository {
     // 1. Validation & Provisioning: ensure asset belongs to customer
     let asset = input.assetId ? await assetsRepository.findById(input.assetId) : null;
     if (!asset || asset.customerId !== input.customerId) {
-      const custAssets = await assetsRepository.findPaginated({ page: 1, customerId: input.customerId, limit: 1 });
+      const custAssets = await assetsRepository.findPaginated({ page: 1, customerId: input.customerId, limit: 100 });
       if (custAssets?.data && custAssets.data.length > 0) {
-        asset = custAssets.data[0];
+        const matched = custAssets.data.find((a: any) => a.id === input.assetId);
+        asset = matched || custAssets.data[0];
         input.assetId = asset.id;
       } else {
         // Auto-provision an active machine asset for this customer
@@ -509,7 +533,7 @@ export class ServicesRepository {
           asset = newAsset;
           input.assetId = newAsset.id;
         } catch {
-          const [firstAsset] = await db.select().from(customerAssets).limit(1);
+          const [firstAsset] = await db.select().from(customerAssets).where(eq(customerAssets.customerId, input.customerId)).limit(1);
           if (firstAsset) {
             input.assetId = firstAsset.id;
           }

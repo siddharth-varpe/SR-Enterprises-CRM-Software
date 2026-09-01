@@ -548,7 +548,20 @@ export class InvoicesRepository {
       console.error('[InvoicesRepository.findById ERROR]', err);
       // Check memory store on database error
       const mem = memoryInvoices.find((m) => m.id === id || m.invoiceNumber === id || m.saleId === id);
-      return mem || null;
+      if (mem) {
+        const totalPaid = (mem.payments || [])
+          .filter((p: any) => p.status === 'COMPLETED')
+          .reduce((sum: number, p: any) => sum + parseFloat(p.amount), 0);
+        return {
+          ...mem,
+          items: mem.items || memoryInvoiceItems.filter((i) => i.invoiceId === mem.id) || [],
+          addresses: mem.addresses || [],
+          payments: mem.payments || [],
+          paidAmount: (mem.paidAmount !== undefined ? mem.paidAmount : totalPaid).toString(),
+          outstandingAmount: (mem.outstandingAmount !== undefined ? mem.outstandingAmount : Math.max(0, parseFloat(mem.totalAmount) - totalPaid)).toString(),
+        };
+      }
+      return null;
     }
   }
 

@@ -22,7 +22,7 @@ import { inventoryRepository } from '../inventory/inventory.repository';
 import { productRepository } from '../products/product.repository';
 import { customerRepository } from '../customers/customer.repository';
 import { assetsRepository } from '../assets/assets.repository';
-import { invoicesRepository, memoryInvoices } from '../invoices/invoices.repository';
+import { invoicesRepository, memoryInvoices, memoryInvoiceItems } from '../invoices/invoices.repository';
 import { memoryPayments } from '../payments/payments.repository';
 import { randomUUID } from 'crypto';
 import type {
@@ -226,7 +226,8 @@ export class SalesRepository {
           totalPages: Math.ceil(total / limit) || 1,
         },
       };
-    } catch {
+    } catch (err: any) {
+      console.error('[SalesRepository.findPaginated ERROR]', err?.message || err);
       let filtered = [...memorySales];
       if (filters.status && (filters.status as string) !== 'ALL') {
         filtered = filtered.filter((s) => s.status === filters.status);
@@ -248,7 +249,10 @@ export class SalesRepository {
       }
       const total = filtered.length;
       return {
-        data: filtered.slice(offset, offset + limit),
+        data: filtered.slice(offset, offset + limit).map((s) => ({
+          ...s,
+          items: memorySaleItems.filter((i) => i.saleId === s.id),
+        })),
         pagination: {
           page,
           limit,
@@ -1064,6 +1068,24 @@ export class SalesRepository {
           notes: data.notes ? data.notes.trim() : null,
           createdAt: new Date(),
         };
+
+        const memoryInvItems = createdItems.map((ci) => ({
+          id: randomUUID(),
+          invoiceId,
+          productId: ci.productId,
+          itemType: 'PRODUCT',
+          nameSnapshot: ci.productNameSnapshot,
+          descriptionSnapshot: `SKU: ${ci.skuSnapshot}`,
+          quantity: ci.quantity,
+          unitPriceSnapshot: ci.unitPriceSnapshot,
+          discountAmount: ci.discountAmount,
+          taxRatePercent: ci.taxRatePercent,
+          taxAmount: ci.taxAmount,
+          lineTotal: ci.lineTotal,
+        }));
+        memoryInvoiceItems.unshift(...memoryInvItems);
+        (invoiceObj as any).items = memoryInvItems;
+
         memoryInvoices.unshift(invoiceObj);
         saleRecord.invoice = {
           id: invoiceId,
@@ -1093,10 +1115,11 @@ export class SalesRepository {
               customerId: data.customerId,
               productId: line.productId,
               serialNumber: line.serialNumber,
+              customName: line.productNameSnapshot,
               installationDate: new Date().toISOString().split('T')[0],
               status: 'ACTIVE',
               notes: `Registered via Sale ${saleNumber}`,
-            });
+            } as any);
           } catch {}
         }
       }
@@ -1590,25 +1613,48 @@ export class SalesRepository {
             ? line.serialNumber || `SN-${assetNumber}`
             : `${line.serialNumber || 'SN'}-${q + 1}`;
 
-        const assetType: any = line.productType === 'RO_MACHINE' ? 'RO_MACHINE' : 'SPARE_PART';
+        // Check if asset was already created during draft sale
+        const [existingAsset] = await tx
+          .select()
+          .from(customerAssets)
+          .where(
+            and(
+              eq(customerAssets.customerId, customer.id),
+              eq(customerAssets.serialNumber, serialNumber)
+            )
+          );
 
-        const [asset] = await tx
-          .insert(customerAssets)
-          .values({
-            assetNumber,
-            customerId: customer.id,
-            productId: line.productId,
-            assetType,
-            serialNumber,
-            customName: `${line.productNameSnapshot} (${serialNumber})`,
-            installationAddressId: confirmation?.installationAddressId || null,
-            purchaseDate: invoiceDate,
-            initialWarrantyMonths: line.warrantyMonths || 12,
-            serviceIntervalMonths: line.serviceIntervalMonths || 6,
-            status: 'ACTIVE',
-            notes: confirmation?.installationNotes || null,
-          })
-          .returning();
+        let asset = existingAsset;
+        if (!asset) {
+          const [newAsset] = await tx
+            .insert(customerAssets)
+            .values({
+              assetNumber,
+              customerId: customer.id,
+              productId: line.productId,
+              assetType,
+              serialNumber,
+              customName: `${line.productNameSnapshot} (${serialNumber})`,
+              installationAddressId: confirmation?.installationAddressId || null,
+              purchaseDate: invoiceDate,
+              initialWarrantyMonths: line.warrantyMonths || 12,
+              serviceIntervalMonths: line.serviceIntervalMonths || 6,
+              status: 'ACTIVE',
+              notes: confirmation?.installationNotes || null,
+            })
+            .returning();
+          asset = newAsset;
+        } else {
+          await tx
+            .update(customerAssets)
+            .set({
+              installationAddressId: confirmation?.installationAddressId || asset.installationAddressId,
+              purchaseDate: invoiceDate,
+              status: 'ACTIVE',
+              notes: confirmation?.installationNotes || asset.notes,
+            })
+            .where(eq(customerAssets.id, asset.id));
+        }
 
           // 5. Activate Warranty Foundation
           const { sequenceNumber: warrantyNumber } = await generateBusinessNumber(tx, 'WARRANTY', 'WAR');

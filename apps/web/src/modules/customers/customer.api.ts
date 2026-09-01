@@ -53,6 +53,10 @@ export interface CustomerAssetItem {
   id: string;
   assetType: 'RO_MACHINE' | 'SPARE_PART';
   serialNumber?: string | null;
+  customName?: string | null;
+  productName?: string | null;
+  productSku?: string | null;
+  productBrand?: string | null;
   purchaseDate?: string | null;
   installationDate?: string | null;
   status: 'ACTIVE' | 'IN_SERVICE' | 'REPLACED' | 'DECOMMISSIONED';
