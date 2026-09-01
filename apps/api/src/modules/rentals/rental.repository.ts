@@ -10,6 +10,7 @@ import {
 import { eq, desc, asc, and, or, ilike, sql, inArray, gte, lte, count } from 'drizzle-orm';
 import { generateBusinessNumber } from '../../database/sequences';
 import { memoryCustomers } from '../customers/customer.repository';
+import { randomUUID } from 'crypto';
 
 export interface RentalListFilter {
   tab?: 'active' | 'due' | 'overdue' | 'returned' | 'all';
@@ -88,7 +89,7 @@ export interface RecordRentalReturnInput {
   actorName?: string;
 }
 
-const memoryRentals: any[] = [];
+export const memoryRentals: any[] = [];
 
 async function attachCustomerDetails(rental: any, database = db) {
   if (!rental) return rental;

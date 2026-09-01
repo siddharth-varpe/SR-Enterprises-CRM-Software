@@ -27,53 +27,8 @@ import type {
 } from '@crm/validation';
 
 // Resilient memory store for offline desktop and local development
-export const memoryInvoices: any[] = [
-  {
-    id: 'inv-1111111-1111-1111-1111-111111111111',
-    invoiceNumber: 'INV-2026-0001',
-    customerId: 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',
-    customerName: 'Rajesh Sharma',
-    customerNumber: 'CUST-2026-0001',
-    customerPhone: '9820098200',
-    customerEmail: 'rajesh.sharma@example.com',
-    customerGst: null,
-    customerType: 'INDIVIDUAL',
-    saleId: 's1111111-1111-1111-1111-111111111111',
-    invoiceDate: new Date('2026-01-15T10:00:00Z'),
-    dueDate: new Date('2026-01-30T10:00:00Z'),
-    subtotal: '25000.00',
-    discountAmount: '0.00',
-    taxAmount: '4500.00',
-    totalAmount: '29500.00',
-    status: 'ISSUED',
-    notes: 'Standard residential RO installation invoice',
-    termsAndConditions: 'Payment due within 15 days of invoice date. 1 year standard warranty on RO machines.',
-    createdAt: new Date('2026-01-15T10:00:00Z'),
-    updatedAt: new Date('2026-01-15T10:00:00Z'),
-    cancelledAt: null,
-    cancelReason: null,
-    paidAmount: '0.00',
-    outstandingAmount: '29500.00',
-  },
-];
-
-export const memoryInvoiceItems: any[] = [
-  {
-    id: 'ii-1111111-1111-1111-1111-111111111111',
-    invoiceId: 'inv-1111111-1111-1111-1111-111111111111',
-    productId: 'p1111111-1111-1111-1111-111111111111',
-    itemType: 'PRODUCT',
-    nameSnapshot: 'Aquapure RO 100 GPD Commercial',
-    descriptionSnapshot: 'SKU: RO-100-GPD',
-    quantity: 1,
-    unitPriceSnapshot: '25000.00',
-    discountAmount: '0.00',
-    taxRatePercent: '18.00',
-    taxAmount: '4500.00',
-    lineTotal: '29500.00',
-    createdAt: new Date('2026-01-15T10:00:00Z'),
-  },
-];
+export const memoryInvoices: any[] = [];
+export const memoryInvoiceItems: any[] = [];
 
 export class InvoicesRepository {
   /**

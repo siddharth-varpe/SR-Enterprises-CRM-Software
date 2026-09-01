@@ -23,6 +23,7 @@ import {
   whatsappConversations,
   whatsappMessages,
   whatsappEvents,
+  rentals,
 } from '../../database/schema/index';
 import { eq, and, or, ilike, desc, asc, count, sum, sql, inArray, gte, lte, ne } from 'drizzle-orm';
 import { generateBusinessNumber } from '../../database/sequences';
@@ -32,6 +33,7 @@ import { salesRepository, memorySales } from '../sales/sales.repository';
 import { paymentsRepository, memoryPayments } from '../payments/payments.repository';
 import { servicesRepository, memoryServices } from '../services/services.repository';
 import { warrantiesRepository, memoryWarranties } from '../warranties/warranties.repository';
+import { rentalRepository, memoryRentals } from '../rentals/rental.repository';
 import { jobCardsRepository } from '../job-cards/job-cards.repository';
 import type {
   CreateCustomerInput,
@@ -431,6 +433,20 @@ export class CustomerRepository {
       salesList = [...salesList, ...memSales.filter((ms) => !salesList.some((ds) => ds.id === ms.id))];
     }
 
+    let rentalsList: any[] = [];
+    try {
+      rentalsList = await database.query.rentals.findMany({
+        where: eq(rentals.customerId, id),
+        orderBy: desc(rentals.createdAt),
+      });
+    } catch {}
+    const memRentals = memoryRentals.filter((r) => r.customerId === id);
+    if (rentalsList.length === 0) {
+      rentalsList = customer.rentals && customer.rentals.length > 0 ? customer.rentals : memRentals;
+    } else if (memRentals.length > 0) {
+      rentalsList = [...rentalsList, ...memRentals.filter((mr) => !rentalsList.some((dr) => dr.id === mr.id))];
+    }
+
     const totalSpent = (invoicesList || []).reduce((acc, inv) => acc + Number(inv.totalAmount || 0), 0);
     const totalPaid = (paymentsList || []).reduce((acc, p) => acc + Number(p.amount || 0), 0);
     const outstanding = Math.max(0, totalSpent - totalPaid);
@@ -457,12 +473,20 @@ export class CustomerRepository {
       invoices: invoicesList || [],
       payments: paymentsList || [],
       warranties: warrantiesList || [],
+      rentals: rentalsList || [],
       summary: {
         totalSpent,
         outstanding,
         overdue: 0,
         activeWarranty: hasActiveWarranty ? 'Yes' : 'No',
         customerSince: customerSinceFormatted,
+      },
+      overview: {
+        totalInvoicesAmount: totalSpent,
+        outstandingAmount: outstanding,
+        activeWarranty: hasActiveWarranty,
+        lastServiceDate: null,
+        nextServiceDate: nextUpcomingService ? new Date(nextUpcomingService.scheduledDate).toISOString() : null,
       },
       nextServiceDate: nextUpcomingService
         ? new Date(nextUpcomingService.scheduledDate).toLocaleDateString('en-IN', {
@@ -541,7 +565,6 @@ export class CustomerRepository {
     database = db
   ) {
     try {
-      console.log('[DEBUG CustomerRepository.create] 1. generating number');
       let customerNumber: string;
       const now = new Date();
       const year2 = String(now.getFullYear()).slice(-2);
@@ -555,37 +578,58 @@ export class CustomerRepository {
           .from(customers)
           .where(ilike(customers.customerNumber, `CX-${dateStr}%`));
 
-        const nextSerial = (existingWithDate?.length || 0) + 1;
-        customerNumber = `CX-${dateStr}${String(nextSerial).padStart(2, '0')}`;
+        let maxNum = 0;
+        if (existingWithDate && existingWithDate.length > 0) {
+          for (const c of existingWithDate) {
+            const suffix = c.customerNumber?.replace(`CX-${dateStr}`, '');
+            const parsed = parseInt(suffix, 10);
+            if (!isNaN(parsed) && parsed > maxNum) {
+              maxNum = parsed;
+            }
+          }
+        }
+        customerNumber = `CX-${dateStr}${String(maxNum + 1).padStart(2, '0')}`;
       } catch (err1) {
         console.error('[DEBUG CustomerRepository.create] err1:', err1);
-        const rand = Math.floor(1 + Math.random() * 99);
+        const rand = Math.floor(10 + Math.random() * 89);
         customerNumber = `CX-${dateStr}${String(rand).padStart(2, '0')}`;
       }
-      console.log('[DEBUG CustomerRepository.create] 1. number:', customerNumber);
 
       const customerId = crypto.randomUUID();
-      console.log('[DEBUG CustomerRepository.create] 2. inserting customer:', customerId);
 
-      // 1. Insert customer record
-      await database
-        .insert(customers)
-        .values({
-          id: customerId,
-          customerNumber,
-          fullName: (data.fullName ? String(data.fullName).trim() : '') || 'Customer',
-          phone: data.phone ? String(data.phone).trim() : '',
-          email: data.email && String(data.email).trim() ? String(data.email).trim().toLowerCase() : null,
-          customerType: data.customerType || 'INDIVIDUAL',
-          companyName: data.companyName && String(data.companyName).trim() ? String(data.companyName).trim() : null,
-          gstNumber: data.gstNumber && String(data.gstNumber).trim() ? String(data.gstNumber).trim().toUpperCase() : null,
-          notes: data.notes && String(data.notes).trim() ? String(data.notes).trim() : null,
-          status: 'ACTIVE',
-          createdBy: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
-      console.log('[DEBUG CustomerRepository.create] 2. customer inserted');
+      // 1. Insert customer record with unique customerNumber retry
+      let insertedCustomer = false;
+      let attempts = 0;
+      while (!insertedCustomer && attempts < 5) {
+        attempts++;
+        try {
+          await database
+            .insert(customers)
+            .values({
+              id: customerId,
+              customerNumber,
+              fullName: (data.fullName ? String(data.fullName).trim() : '') || 'Customer',
+              phone: data.phone ? String(data.phone).trim() : '',
+              email: data.email && String(data.email).trim() ? String(data.email).trim().toLowerCase() : null,
+              customerType: data.customerType || 'INDIVIDUAL',
+              companyName: data.companyName && String(data.companyName).trim() ? String(data.companyName).trim() : null,
+              gstNumber: data.gstNumber && String(data.gstNumber).trim() ? String(data.gstNumber).trim().toUpperCase() : null,
+              notes: data.notes && String(data.notes).trim() ? String(data.notes).trim() : null,
+              status: 'ACTIVE',
+              createdBy: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            });
+          insertedCustomer = true;
+        } catch (insertErr: any) {
+          if (insertErr?.message?.includes('customers_customer_number_unique') || insertErr?.code === '23505') {
+            const randSuffix = Math.floor(10 + Math.random() * 89);
+            customerNumber = `CX-${dateStr}${String(randSuffix).padStart(2, '0')}`;
+          } else {
+            throw insertErr;
+          }
+        }
+      }
 
     // 2. Insert addresses
     let insertedAddresses: any[] = [];
@@ -766,12 +810,12 @@ export class CustomerRepository {
         const addressValues = data.addresses.map((addr, idx) => ({
           customerId: id,
           addressType: (addr.addressType || addr.type || 'SERVICE') as any,
-          addressLine1: addr.addressLine1.trim(),
-          addressLine2: addr.addressLine2 ? addr.addressLine2.trim() : null,
-          landmark: addr.landmark ? addr.landmark.trim() : null,
-          city: addr.city.trim(),
-          state: addr.state.trim(),
-          postalCode: (addr.postalCode || addr.pincode || '411001').trim(),
+          addressLine1: (addr.addressLine1 ? String(addr.addressLine1).trim() : '') || 'Main Service Location',
+          addressLine2: addr.addressLine2 ? String(addr.addressLine2).trim() : null,
+          landmark: addr.landmark ? String(addr.landmark).trim() : null,
+          city: addr.city ? String(addr.city).trim() : '',
+          state: addr.state ? String(addr.state).trim() : '',
+          postalCode: String(addr.postalCode || addr.pincode || '411001').trim(),
           isDefault: addr.isDefault ?? idx === 0,
           createdAt: new Date(),
           updatedAt: new Date(),

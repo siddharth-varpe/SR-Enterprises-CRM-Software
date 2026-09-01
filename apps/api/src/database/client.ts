@@ -4,7 +4,6 @@ import postgres from 'postgres';
 import { PGlite } from '@electric-sql/pglite';
 import path from 'node:path';
 import fs from 'node:fs';
-import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { env } from '../config/env';
 import * as schema from './schema/index';
@@ -15,6 +14,7 @@ const __dirname = path.dirname(__filename);
 let pgClient: postgres.Sql | null = null;
 let pgliteClient: PGlite | null = null;
 let dbInstance: any = null;
+let initPromise: Promise<void> | null = null;
 let isInitialized = false;
 
 /**
@@ -49,17 +49,27 @@ export async function applySqlMigrations(targetPg: PGlite | postgres.Sql): Promi
     .filter(Boolean);
 
   const statements = rawStatements.map((stmt) => {
-    // Make CREATE TABLE idempotent
+    // 1. Make CREATE TYPE idempotent
+    if (/^CREATE\s+TYPE\s+/i.test(stmt)) {
+      const cleanStmt = stmt.replace(/;$/, '');
+      return `DO $$ BEGIN ${cleanStmt}; EXCEPTION WHEN duplicate_object THEN null; END $$;`;
+    }
+    // 2. Make CREATE TABLE idempotent
     if (/^CREATE\s+TABLE\s+(?!"?[a-zA-Z0-9_]+"?\s+IF\s+NOT\s+EXISTS)/i.test(stmt)) {
       return stmt.replace(/^CREATE\s+TABLE\s+/i, 'CREATE TABLE IF NOT EXISTS ');
     }
-    // Make CREATE INDEX idempotent
+    // 3. Make CREATE INDEX idempotent
     if (/^CREATE\s+INDEX\s+/i.test(stmt)) {
       return stmt.replace(/^CREATE\s+INDEX\s+/i, 'CREATE INDEX IF NOT EXISTS ');
     }
-    // Make CREATE UNIQUE INDEX idempotent
+    // 4. Make CREATE UNIQUE INDEX idempotent
     if (/^CREATE\s+UNIQUE\s+INDEX\s+/i.test(stmt)) {
       return stmt.replace(/^CREATE\s+UNIQUE\s+INDEX\s+/i, 'CREATE UNIQUE INDEX IF NOT EXISTS ');
+    }
+    // 5. Make ALTER TABLE ADD CONSTRAINT idempotent
+    if (/^ALTER\s+TABLE\s+.*ADD\s+CONSTRAINT/i.test(stmt)) {
+      const cleanStmt = stmt.replace(/;$/, '');
+      return `DO $$ BEGIN ${cleanStmt}; EXCEPTION WHEN duplicate_object THEN null; WHEN duplicate_table THEN null; END $$;`;
     }
     return stmt;
   });
@@ -70,7 +80,7 @@ export async function applySqlMigrations(targetPg: PGlite | postgres.Sql): Promi
       try {
         await targetPg.exec(stmt);
       } catch (err: any) {
-        // Suppress non-critical migration notices
+        // Suppress non-critical duplicate notices
       }
     }
   } else {
@@ -79,7 +89,7 @@ export async function applySqlMigrations(targetPg: PGlite | postgres.Sql): Promi
       try {
         await targetPg.unsafe(stmt);
       } catch (err: any) {
-        // Suppress non-critical migration notices
+        // Suppress non-critical duplicate notices
       }
     }
   }
@@ -96,7 +106,8 @@ export function getDatabaseClient() {
   const storageDir = resolveDatabaseStorageDir();
   fs.mkdirSync(storageDir, { recursive: true });
 
-  ['postmaster.pid', 'postmaster.opts', '.lock'].forEach((f) => {
+  // Clean stale pid file only if process crashed
+  ['postmaster.pid', '.lock'].forEach((f) => {
     const p = path.join(storageDir, f);
     if (fs.existsSync(p)) {
       try {
@@ -111,15 +122,8 @@ export function getDatabaseClient() {
     dbInstance = drizzlePglite(pgliteClient, { schema });
     console.log(`[Database] Connected to persistent database engine at: ${storageDir}`);
   } catch (err) {
-    console.warn('[Database] Initializing clean database storage directory due to exception:', err);
+    console.warn('[Database] PGlite initialization notice:', err);
     try {
-      if (fs.existsSync(storageDir)) {
-        fs.rmSync(storageDir, { recursive: true, force: true });
-      }
-      fs.mkdirSync(storageDir, { recursive: true });
-      pgliteClient = new PGlite(storageDir);
-      dbInstance = drizzlePglite(pgliteClient, { schema });
-    } catch {
       pgClient = postgres(env.DATABASE_URL, {
         max: env.DB_MAX_CONNECTIONS,
         idle_timeout: Math.floor(env.DB_IDLE_TIMEOUT_MS / 1000),
@@ -127,6 +131,8 @@ export function getDatabaseClient() {
         onnotice: () => {},
       });
       dbInstance = drizzlePg(pgClient, { schema });
+    } catch (pgErr) {
+      console.error('[Database] Connection fallback failed:', pgErr);
     }
   }
 
@@ -401,56 +407,33 @@ export async function ensureRentalTables(targetPg: PGlite | postgres.Sql): Promi
  */
 export async function ensureDatabaseInitialized(): Promise<void> {
   if (isInitialized) return;
+  if (initPromise) return initPromise;
 
-  try {
-    if (pgliteClient) {
-      // Ensure PGlite WebAssembly instance is completely loaded and ready
-      let isHealthy = false;
-      try {
+  initPromise = (async () => {
+    try {
+      getDatabaseClient();
+
+      if (pgliteClient) {
         await pgliteClient.waitReady;
-        await pgliteClient.query('SELECT 1;');
-        isHealthy = true;
-      } catch (healthErr: any) {
-        console.warn('⚠️ [Database] Persistent storage check failed, recovering clean database state...', healthErr?.message);
+        await applySqlMigrations(pgliteClient);
+        await ensureEmailTables(pgliteClient);
+        await ensureGoogleDriveColumns(pgliteClient);
+        await ensureRentalTables(pgliteClient);
+      } else if (pgClient) {
+        await applySqlMigrations(pgClient);
+        await ensureEmailTables(pgClient);
+        await ensureGoogleDriveColumns(pgClient);
+        await ensureRentalTables(pgClient);
       }
 
-      if (!isHealthy) {
-        try {
-          await pgliteClient.close();
-        } catch {}
-        const storageDir = resolveDatabaseStorageDir();
-        if (fs.existsSync(storageDir)) {
-          fs.rmSync(storageDir, { recursive: true, force: true });
-        }
-        fs.mkdirSync(storageDir, { recursive: true });
-        ['postmaster.pid', 'postmaster.opts', '.lock'].forEach((f) => {
-          const p = path.join(storageDir, f);
-          if (fs.existsSync(p)) {
-            try {
-              fs.unlinkSync(p);
-            } catch {}
-          }
-        });
-        pgliteClient = new PGlite(storageDir);
-        await pgliteClient.waitReady;
-        dbInstance = drizzlePglite(pgliteClient, { schema });
-      }
-
-      await applySqlMigrations(pgliteClient);
-      await ensureEmailTables(pgliteClient);
-      await ensureGoogleDriveColumns(pgliteClient);
-      await ensureRentalTables(pgliteClient);
-    } else if (pgClient) {
-      await applySqlMigrations(pgClient);
-      await ensureEmailTables(pgClient);
-      await ensureGoogleDriveColumns(pgClient);
-      await ensureRentalTables(pgClient);
+      isInitialized = true;
+      console.log('✅ [Database] All database tables, sequences, and indexes verified successfully.');
+    } catch (err) {
+      console.error('[Database] Error verifying database schema:', err);
     }
-    isInitialized = true;
-    console.log('✅ [Database] All database tables, sequences, and indexes verified successfully.');
-  } catch (err) {
-    console.error('[Database] Error verifying database schema:', err);
-  }
+  })();
+
+  return initPromise;
 }
 
 /**
@@ -466,5 +449,6 @@ export async function closeDatabaseConnections(): Promise<void> {
     pgliteClient = null;
   }
   dbInstance = null;
+  initPromise = null;
   isInitialized = false;
 }

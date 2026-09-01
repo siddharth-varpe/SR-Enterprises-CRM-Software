@@ -37,53 +37,8 @@ const recentSalesSubmissions = new Map<string, { timestamp: number; result: any 
 const inFlightSales = new Map<string, Promise<any>>();
 
 // Resilient memory store for offline desktop and local development
-export const memorySales: any[] = [
-  {
-    id: 's1111111-1111-1111-1111-111111111111',
-    saleNumber: 'SALE-2026-0001',
-    customerId: 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',
-    customerName: 'Rajesh Sharma',
-    customerNumber: 'CUST-2026-0001',
-    customerPhone: '9820098200',
-    customerEmail: 'rajesh.sharma@example.com',
-    customerType: 'INDIVIDUAL',
-    saleDate: new Date('2026-01-15T10:00:00Z'),
-    status: 'COMPLETED',
-    subtotal: '25000.00',
-    discountAmount: '0.00',
-    taxAmount: '4500.00',
-    totalAmount: '29500.00',
-    notes: 'Standard installation at primary residence',
-    createdBy: null,
-    createdAt: new Date('2026-01-15T10:00:00Z'),
-    updatedAt: new Date('2026-01-15T10:00:00Z'),
-    invoice: {
-      id: 'inv-1111111-1111-1111-1111-111111111111',
-      invoiceNumber: 'INV-2026-0001',
-      status: 'ISSUED',
-    },
-  },
-];
-
-const memorySaleItems: any[] = [
-  {
-    id: 'si-1111111-1111-1111-1111-111111111111',
-    saleId: 's1111111-1111-1111-1111-111111111111',
-    productId: 'p1111111-1111-1111-1111-111111111111',
-    productNameSnapshot: 'Aquapure RO 100 GPD Commercial',
-    skuSnapshot: 'RO-100-GPD',
-    quantity: 1,
-    unitPriceSnapshot: '25000.00',
-    discountAmount: '0.00',
-    taxRatePercent: '18.00',
-    taxAmount: '4500.00',
-    lineTotal: '29500.00',
-    warrantyMonths: 24,
-    serviceIntervalMonths: 6,
-    serialNumber: 'AP100-2026-000123',
-    createdAt: new Date('2026-01-15T10:00:00Z'),
-  },
-];
+export const memorySales: any[] = [];
+const memorySaleItems: any[] = [];
 
 export class SalesRepository {
   private buildFilterConditions(filters: SaleQueryFilter, database = db) {

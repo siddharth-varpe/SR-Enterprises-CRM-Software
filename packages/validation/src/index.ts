@@ -47,16 +47,16 @@ export const CaptchaVerificationSchema = z.object({
 
 export const CustomerAddressSchema = z.object({
   id: z.string().uuid().optional(),
-  type: z.enum(['BILLING', 'SERVICE', 'BOTH']).default('BOTH').optional(),
+  type: z.enum(['BILLING', 'SERVICE', 'BOTH']).optional(),
   addressType: z.enum(['BILLING', 'SERVICE', 'BOTH']).optional(),
-  addressLine1: z.string().optional().default(''),
+  addressLine1: z.string().optional(),
   addressLine2: z.string().optional().nullable(),
-  city: z.string().optional().default(''),
-  state: z.string().optional().default(''),
-  pincode: z.string().optional().default(''),
-  postalCode: z.string().optional().default(''),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  pincode: z.string().optional(),
+  postalCode: z.string().optional(),
   landmark: z.string().optional().nullable(),
-  isDefault: z.boolean().default(true).optional(),
+  isDefault: z.boolean().optional(),
 });
 export type CustomerAddressInput = {
   id?: string;
