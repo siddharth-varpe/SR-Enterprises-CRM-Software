@@ -242,6 +242,15 @@ function MainAppShellRouter() {
               </PermissionGuard>
             }
           />
+          <Route path="/invoice" element={<Navigate to="/invoices" replace />} />
+          <Route
+            path="/invoice/:id"
+            element={
+              <PermissionGuard permission="invoices.view" moduleName="Invoice Details">
+                <InvoiceDetailPage />
+              </PermissionGuard>
+            }
+          />
 
           {/* Customer Assets Domain Routes (Phase 5 Live) */}
           <Route

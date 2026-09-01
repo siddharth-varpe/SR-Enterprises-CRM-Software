@@ -200,7 +200,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hasPermission = (permission: PermissionKey | string): boolean => {
     if (!isAuthenticated || !user) return false;
-    if (user.role === 'Super Admin' || permissions.includes('*')) return true;
+    if (user.role === 'Super Admin' || permissions.includes('*') || user.role === 'Admin') return true;
+    if (
+      user.role === 'Staff' &&
+      (permission.startsWith('customers.') ||
+        permission.startsWith('sales.') ||
+        permission.startsWith('invoices.') ||
+        permission.startsWith('rentals.') ||
+        permission.startsWith('assets.') ||
+        permission.startsWith('services.') ||
+        permission.startsWith('payments.') ||
+        permission.startsWith('tasks.') ||
+        permission.startsWith('inquiries.') ||
+        permission.startsWith('whatsapp.'))
+    ) {
+      return true;
+    }
     return permissions.includes(permission);
   };
 
