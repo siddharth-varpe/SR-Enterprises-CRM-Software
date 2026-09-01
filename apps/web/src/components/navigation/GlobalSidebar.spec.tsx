@@ -8,6 +8,7 @@ const mockLogout = vi.fn();
 let mockPermissions = [
   'customers.view',
   'sales.view',
+  'rentals.view',
   'invoices.view',
   'services.view',
   'payments.view',
@@ -35,6 +36,7 @@ describe('Master GlobalSidebar Component', () => {
     mockPermissions = [
       'customers.view',
       'sales.view',
+      'rentals.view',
       'invoices.view',
       'services.view',
       'payments.view',
@@ -53,15 +55,17 @@ describe('Master GlobalSidebar Component', () => {
     expect(screen.getByRole('complementary', { name: /master global navigation sidebar/i })).toBeDefined();
   });
 
-  it('renders all 9 authoritative navigation items and bottom Logout in expanded state', () => {
+  it('renders all authoritative navigation items and bottom Logout in expanded state', () => {
     render(<GlobalSidebar activePath="/dashboard" />);
 
     const expectedItems = [
       'Dashboard',
       'Customers',
       'Sales',
+      'Rent',
       'Invoices',
       'Services',
+      'Technicians',
       'Payments',
       'Reports',
       'Tasks',

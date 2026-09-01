@@ -15,6 +15,7 @@ import { generateBusinessNumber } from '../../database/sequences';
 import { withTransaction } from '../../database/transactions';
 import { randomUUID } from 'crypto';
 import { memoryServices } from '../services/services.repository';
+import { memoryTechnicians } from '../technicians/technicians.repository';
 import type {
   JobCardQueryFilter,
   CreateJobCardInput,
@@ -406,15 +407,22 @@ export class JobCardsRepository {
         throw notFound;
       }
 
+      const tech = memoryTechnicians.find((t) => t.id === input.technicianId);
+      const techName = tech?.fullName || 'Aakash Sharma';
+      const techPhone = tech?.phone || '';
+      const techSkills = tech?.skills || [];
+
       target.technicianId = input.technicianId;
-      target.technicianName = 'Aakash Sharma';
+      target.technicianName = techName;
+      target.technicianPhone = techPhone;
+      target.technicianSkills = techSkills;
       target.status = 'ASSIGNED';
       target.updatedAt = new Date();
 
       const targetSrv = memoryServices.find((s) => s.id === target.serviceId);
       if (targetSrv) {
         targetSrv.technicianId = input.technicianId;
-        targetSrv.technicianName = 'Aakash Sharma';
+        targetSrv.technicianName = techName;
         targetSrv.status = 'ASSIGNED';
         targetSrv.updatedAt = new Date();
       }

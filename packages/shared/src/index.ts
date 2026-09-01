@@ -64,6 +64,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   { key: 'rent', label: 'Rent', path: '/rent', icon: 'Repeat' },
   { key: 'invoices', label: 'Invoices', path: '/invoices', icon: 'FileText' },
   { key: 'services', label: 'Services', path: '/services', icon: 'Wrench' },
+  { key: 'technicians', label: 'Technicians', path: '/technicians', icon: 'UserCog' },
   { key: 'payments', label: 'Payments', path: '/payments', icon: 'WalletCards' },
   { key: 'reports', label: 'Reports', path: '/reports', icon: 'PieChart' },
   { key: 'tasks', label: 'Tasks', path: '/tasks', icon: 'ClipboardCheck' },
