@@ -245,39 +245,56 @@ export class InvoicesRepository {
   /**
    * Find single invoice by ID with items, customer snapshots, addresses, and payment logs
    */
+  /**
+   * Find single invoice by ID with items, customer snapshots, addresses, and payment logs
+   */
+  /**
+   * Find single invoice by ID with items, customer snapshots, addresses, and payment logs
+   */
   async findById(id: string, database = db) {
     try {
-      let [invoice] = await database
-        .select({
-          id: invoices.id,
-          invoiceNumber: invoices.invoiceNumber,
-          customerId: invoices.customerId,
-          customerName: customers.fullName,
-          customerNumber: customers.customerNumber,
-          customerPhone: customers.phone,
-          customerEmail: customers.email,
-          customerGst: customers.gstNumber,
-          customerType: customers.customerType,
-          saleId: invoices.saleId,
-          invoiceDate: invoices.invoiceDate,
-          dueDate: invoices.dueDate,
-          subtotal: invoices.subtotal,
-          discountAmount: invoices.discountAmount,
-          taxAmount: invoices.taxAmount,
-          totalAmount: invoices.totalAmount,
-          status: invoices.status,
-          notes: invoices.notes,
-          termsAndConditions: invoices.termsAndConditions,
-          createdAt: invoices.createdAt,
-          updatedAt: invoices.updatedAt,
-          cancelledAt: invoices.cancelledAt,
-          cancelReason: invoices.cancelReason,
-        })
-        .from(invoices)
-        .leftJoin(customers, eq(invoices.customerId, customers.id))
-        .where(eq(invoices.id, id));
+      if (!id || typeof id !== 'string') return null;
+      const cleanId = id.trim();
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId);
 
-      if (!invoice && typeof id === 'string' && id.startsWith('INV-')) {
+      let invoice: any = null;
+
+      // 1. If valid UUID, find by invoice.id
+      if (isUuid) {
+        const [byId] = await database
+          .select({
+            id: invoices.id,
+            invoiceNumber: invoices.invoiceNumber,
+            customerId: invoices.customerId,
+            customerName: customers.fullName,
+            customerNumber: customers.customerNumber,
+            customerPhone: customers.phone,
+            customerEmail: customers.email,
+            customerGst: customers.gstNumber,
+            customerType: customers.customerType,
+            saleId: invoices.saleId,
+            invoiceDate: invoices.invoiceDate,
+            dueDate: invoices.dueDate,
+            subtotal: invoices.subtotal,
+            discountAmount: invoices.discountAmount,
+            taxAmount: invoices.taxAmount,
+            totalAmount: invoices.totalAmount,
+            status: invoices.status,
+            notes: invoices.notes,
+            termsAndConditions: invoices.termsAndConditions,
+            createdAt: invoices.createdAt,
+            updatedAt: invoices.updatedAt,
+            cancelledAt: invoices.cancelledAt,
+            cancelReason: invoices.cancelReason,
+          })
+          .from(invoices)
+          .leftJoin(customers, eq(invoices.customerId, customers.id))
+          .where(eq(invoices.id, cleanId));
+        if (byId) invoice = byId;
+      }
+
+      // 2. Find by invoiceNumber (e.g. INV-2026-0001)
+      if (!invoice) {
         const [byNumber] = await database
           .select({
             id: invoices.id,
@@ -306,11 +323,173 @@ export class InvoicesRepository {
           })
           .from(invoices)
           .leftJoin(customers, eq(invoices.customerId, customers.id))
-          .where(eq(invoices.invoiceNumber, id));
+          .where(or(eq(invoices.invoiceNumber, cleanId), ilike(invoices.invoiceNumber, cleanId)));
         if (byNumber) invoice = byNumber;
       }
 
+      // 3. If UUID, find by linked sale ID
+      if (!invoice && isUuid) {
+        const [bySaleId] = await database
+          .select({
+            id: invoices.id,
+            invoiceNumber: invoices.invoiceNumber,
+            customerId: invoices.customerId,
+            customerName: customers.fullName,
+            customerNumber: customers.customerNumber,
+            customerPhone: customers.phone,
+            customerEmail: customers.email,
+            customerGst: customers.gstNumber,
+            customerType: customers.customerType,
+            saleId: invoices.saleId,
+            invoiceDate: invoices.invoiceDate,
+            dueDate: invoices.dueDate,
+            subtotal: invoices.subtotal,
+            discountAmount: invoices.discountAmount,
+            taxAmount: invoices.taxAmount,
+            totalAmount: invoices.totalAmount,
+            status: invoices.status,
+            notes: invoices.notes,
+            termsAndConditions: invoices.termsAndConditions,
+            createdAt: invoices.createdAt,
+            updatedAt: invoices.updatedAt,
+            cancelledAt: invoices.cancelledAt,
+            cancelReason: invoices.cancelReason,
+          })
+          .from(invoices)
+          .leftJoin(customers, eq(invoices.customerId, customers.id))
+          .where(eq(invoices.saleId, cleanId));
+        if (bySaleId) invoice = bySaleId;
+      }
+
+      // 4. If still not found, check if a sale exists for this ID or saleNumber
       if (!invoice) {
+        const [existingSale] = isUuid
+          ? await database.select().from(sales).where(eq(sales.id, cleanId))
+          : await database.select().from(sales).where(or(eq(sales.saleNumber, cleanId), ilike(sales.saleNumber, cleanId)));
+
+        if (existingSale) {
+          // Check if invoice exists for this sale
+          const [saleInvoice] = await database
+            .select({
+              id: invoices.id,
+              invoiceNumber: invoices.invoiceNumber,
+              customerId: invoices.customerId,
+              customerName: customers.fullName,
+              customerNumber: customers.customerNumber,
+              customerPhone: customers.phone,
+              customerEmail: customers.email,
+              customerGst: customers.gstNumber,
+              customerType: customers.customerType,
+              saleId: invoices.saleId,
+              invoiceDate: invoices.invoiceDate,
+              dueDate: invoices.dueDate,
+              subtotal: invoices.subtotal,
+              discountAmount: invoices.discountAmount,
+              taxAmount: invoices.taxAmount,
+              totalAmount: invoices.totalAmount,
+              status: invoices.status,
+              notes: invoices.notes,
+              termsAndConditions: invoices.termsAndConditions,
+              createdAt: invoices.createdAt,
+              updatedAt: invoices.updatedAt,
+              cancelledAt: invoices.cancelledAt,
+              cancelReason: invoices.cancelReason,
+            })
+            .from(invoices)
+            .leftJoin(customers, eq(invoices.customerId, customers.id))
+            .where(eq(invoices.saleId, existingSale.id));
+
+          if (saleInvoice) {
+            invoice = saleInvoice;
+          } else {
+            const invDate = existingSale.saleDate || new Date();
+            const dueDate = new Date(invDate);
+            dueDate.setDate(dueDate.getDate() + 15);
+
+            const { sequenceNumber: invoiceNumber } = await generateBusinessNumber(database as any, 'INVOICE', 'INV');
+
+            const [createdInv] = await database
+              .insert(invoices)
+              .values({
+                invoiceNumber,
+                customerId: existingSale.customerId,
+                saleId: existingSale.id,
+                invoiceDate: invDate,
+                dueDate,
+                subtotal: existingSale.subtotal,
+                discountAmount: existingSale.discountAmount,
+                taxAmount: existingSale.taxAmount,
+                totalAmount: existingSale.totalAmount,
+                status: existingSale.status === 'COMPLETED' ? 'ISSUED' : 'DRAFT',
+                notes: existingSale.notes,
+                termsAndConditions: 'Payment due within 15 days of invoice date. 1 year standard warranty on RO machines.',
+              })
+              .returning();
+
+            // Copy sale items to invoice items
+            const sItems = await database
+              .select()
+              .from(saleItems)
+              .where(eq(saleItems.saleId, existingSale.id));
+
+            if (sItems.length > 0) {
+              await database.insert(invoiceItems).values(
+                sItems.map((si) => ({
+                  invoiceId: createdInv.id,
+                  productId: si.productId,
+                  itemType: 'PRODUCT' as const,
+                  nameSnapshot: si.productNameSnapshot,
+                  descriptionSnapshot: `SKU: ${si.skuSnapshot}`,
+                  quantity: si.quantity,
+                  unitPriceSnapshot: si.unitPriceSnapshot,
+                  discountAmount: si.discountAmount,
+                  taxRatePercent: si.taxRatePercent,
+                  taxAmount: si.taxAmount,
+                  lineTotal: si.lineTotal,
+                }))
+              );
+            }
+
+            const [freshCustomer] = await database
+              .select()
+              .from(customers)
+              .where(eq(customers.id, existingSale.customerId));
+
+            invoice = {
+              id: createdInv.id,
+              invoiceNumber: createdInv.invoiceNumber,
+              customerId: createdInv.customerId,
+              customerName: freshCustomer?.fullName || 'Valued Customer',
+              customerNumber: freshCustomer?.customerNumber || 'N/A',
+              customerPhone: freshCustomer?.phone || '',
+              customerEmail: freshCustomer?.email || null,
+              customerGst: freshCustomer?.gstNumber || null,
+              customerType: freshCustomer?.customerType || 'INDIVIDUAL',
+              saleId: createdInv.saleId,
+              invoiceDate: createdInv.invoiceDate,
+              dueDate: createdInv.dueDate,
+              subtotal: createdInv.subtotal,
+              discountAmount: createdInv.discountAmount,
+              taxAmount: createdInv.taxAmount,
+              totalAmount: createdInv.totalAmount,
+              status: createdInv.status,
+              notes: createdInv.notes,
+              termsAndConditions: createdInv.termsAndConditions,
+              createdAt: createdInv.createdAt,
+              updatedAt: createdInv.updatedAt,
+              cancelledAt: createdInv.cancelledAt,
+              cancelReason: createdInv.cancelReason,
+            };
+          }
+        }
+      }
+
+      if (!invoice) {
+        // Resilient memory store fallback
+        const mem = memoryInvoices.find((m) => m.id === cleanId || m.invoiceNumber === cleanId || m.saleId === cleanId);
+        if (mem) {
+          return mem;
+        }
         return null;
       }
 
@@ -365,8 +544,11 @@ export class InvoicesRepository {
         outstandingAmount: outstandingAmount.toFixed(2),
         sale: sale ?? null,
       };
-    } catch {
-      return null;
+    } catch (err) {
+      console.error('[InvoicesRepository.findById ERROR]', err);
+      // Check memory store on database error
+      const mem = memoryInvoices.find((m) => m.id === id || m.invoiceNumber === id || m.saleId === id);
+      return mem || null;
     }
   }
 
