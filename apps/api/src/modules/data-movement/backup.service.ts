@@ -65,7 +65,8 @@ export class BackupRestoreService {
     context?: BackupContext
   ): Promise<BackupMetadata> {
     const startTime = Date.now();
-    const backupId = isSafetyBackup ? `SAFETY-${Date.now()}` : `BACKUP-${Date.now()}`;
+    const randomSuffix = crypto.randomBytes(3).toString('hex');
+    const backupId = isSafetyBackup ? `SAFETY-${Date.now()}-${randomSuffix}` : `BACKUP-${Date.now()}-${randomSuffix}`;
     const timestamp = new Date().toISOString();
     const formattedDate = timestamp.replace(/[:.]/g, '-');
     const filename = `srm_${isSafetyBackup ? 'safety_' : ''}${backupId.toLowerCase()}_${formattedDate}.srm.json`;

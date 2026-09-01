@@ -12,14 +12,15 @@ export interface FileValidationOptions {
   allowedMimeTypes?: string[];
 }
 
-const DEFAULT_MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
-const DEFAULT_ALLOWED_EXTENSIONS = ['.csv', '.json', '.xlsx'];
+const DEFAULT_MAX_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
+const DEFAULT_ALLOWED_EXTENSIONS = ['.csv', '.json', '.xlsx', '.xls'];
 const DEFAULT_ALLOWED_MIME_TYPES = [
   'text/csv',
   'text/plain',
   'application/json',
   'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/octet-stream',
 ];
 
 /**

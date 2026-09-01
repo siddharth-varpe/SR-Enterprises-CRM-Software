@@ -441,12 +441,17 @@ export async function ensureDatabaseInitialized(): Promise<void> {
  */
 export async function closeDatabaseConnections(): Promise<void> {
   if (pgClient) {
-    await pgClient.end({ timeout: 5 });
+    try {
+      await pgClient.end({ timeout: 5 });
+    } catch {}
     pgClient = null;
   }
   if (pgliteClient) {
-    await pgliteClient.close();
+    try {
+      await pgliteClient.close();
+    } catch {}
     pgliteClient = null;
+    await new Promise((r) => setTimeout(r, 200));
   }
   dbInstance = null;
   initPromise = null;

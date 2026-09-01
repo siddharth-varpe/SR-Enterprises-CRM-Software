@@ -42,6 +42,7 @@ export function buildApp(opts: FastifyServerOptions = {}): FastifyInstance {
   const fastify = Fastify({
     logger: loggerConfig,
     trustProxy: true,
+    bodyLimit: 50 * 1024 * 1024, // 50MB payload limit for large data imports
     ...opts,
   });
 
