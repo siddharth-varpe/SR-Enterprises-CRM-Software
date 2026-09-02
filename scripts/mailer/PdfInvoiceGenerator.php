@@ -170,6 +170,36 @@ class PdfInvoiceGenerator {
         $formattedReceivedAmount = number_format($receivedAmount);
         $formattedBalanceAmount = number_format($balanceAmount);
 
+        $status = strtoupper($data['status'] ?? '');
+        $hasOutstanding = $balanceAmount > 0.001 && $status !== 'PAID';
+
+        $metaCellsHtml = '';
+        if ($hasOutstanding) {
+            $metaCellsHtml = "
+            <td style='width: 16.66%; border-right: 1px solid #000; text-align: center; vertical-align: middle; padding: 4px 2px;'>
+                <div style='font-size: 8.5px; font-weight: bold; color: #000;'>Invoice No.</div>
+                <div style='font-size: 9px; font-weight: bold; color: #000; margin-top: 2px;'>{$invoiceNo}</div>
+            </td>
+            <td style='width: 16.66%; border-right: 1px solid #000; text-align: center; vertical-align: middle; padding: 4px 2px;'>
+                <div style='font-size: 8.5px; font-weight: bold; color: #000;'>Invoice Date</div>
+                <div style='font-size: 9px; font-weight: bold; color: #000; margin-top: 2px;'>{$invoiceDate}</div>
+            </td>
+            <td style='width: 16.68%; text-align: center; vertical-align: middle; padding: 4px 2px;'>
+                <div style='font-size: 8.5px; font-weight: bold; color: #000;'>Due Date</div>
+                <div style='font-size: 9px; font-weight: bold; color: #000; margin-top: 2px;'>{$dueDate}</div>
+            </td>";
+        } else {
+            $metaCellsHtml = "
+            <td style='width: 25%; border-right: 1px solid #000; text-align: center; vertical-align: middle; padding: 4px 2px;'>
+                <div style='font-size: 8.5px; font-weight: bold; color: #000;'>Invoice No.</div>
+                <div style='font-size: 9px; font-weight: bold; color: #000; margin-top: 2px;'>{$invoiceNo}</div>
+            </td>
+            <td style='width: 25%; text-align: center; vertical-align: middle; padding: 4px 2px;'>
+                <div style='font-size: 8.5px; font-weight: bold; color: #000;'>Invoice Date</div>
+                <div style='font-size: 9px; font-weight: bold; color: #000; margin-top: 2px;'>{$invoiceDate}</div>
+            </td>";
+        }
+
         // Warranty Notes
         $warrantyNotes = !empty($data['notes']) ? htmlspecialchars($data['notes']) : '1 Years Warranty On Ele Spears 1 Service Free';
 
@@ -202,6 +232,8 @@ class PdfInvoiceGenerator {
     
     .doc-container {
         width: 100%;
+        max-width: 190mm;
+        margin: 0 auto;
         page-break-inside: avoid;
     }
     
@@ -283,18 +315,7 @@ class PdfInvoiceGenerator {
                 <div style="font-size: 10px; font-weight: bold; color: #000; text-transform: uppercase;">{$customerName}</div>
                 <div style="font-size: 9px; font-weight: 500; color: #000; margin-top: 2px;">Mobile: {$customerPhone}</div>
             </td>
-            <td style="width: 16.66%; border-right: 1px solid #000; text-align: center; vertical-align: middle; padding: 4px 2px;">
-                <div style="font-size: 8.5px; font-weight: bold; color: #000;">Invoice No.</div>
-                <div style="font-size: 9px; font-weight: bold; color: #000; margin-top: 2px;">{$invoiceNo}</div>
-            </td>
-            <td style="width: 16.66%; border-right: 1px solid #000; text-align: center; vertical-align: middle; padding: 4px 2px;">
-                <div style="font-size: 8.5px; font-weight: bold; color: #000;">Invoice Date</div>
-                <div style="font-size: 9px; font-weight: bold; color: #000; margin-top: 2px;">{$invoiceDate}</div>
-            </td>
-            <td style="width: 16.68%; text-align: center; vertical-align: middle; padding: 4px 2px;">
-                <div style="font-size: 8.5px; font-weight: bold; color: #000;">Due Date</div>
-                <div style="font-size: 9px; font-weight: bold; color: #000; margin-top: 2px;">{$dueDate}</div>
-            </td>
+            {$metaCellsHtml}
         </tr>
     </table>
 

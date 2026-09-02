@@ -380,7 +380,7 @@ export const CustomerProfile: React.FC = () => {
       : inv.status === 'PARTIALLY_PAID'
       ? 'bg-amber-50 text-amber-700 border-amber-200'
       : 'bg-rose-50 text-rose-700 border-rose-200',
-    paymentStatus: inv.status === 'PAID'
+    paymentStatus: inv.status === 'PAID' || parseFloat(inv.outstandingAmount || '0') <= 0
       ? `Paid in Full (${formatINR(inv.paidAmount)})`
       : inv.status === 'PARTIALLY_PAID'
       ? `Paid ${formatINR(inv.paidAmount)} • Due: ${formatDate(inv.dueDate)}`
@@ -1325,7 +1325,9 @@ export const CustomerProfile: React.FC = () => {
                           {inv.status}
                         </span>
                       </td>
-                      <td className="py-3.5 text-slate-500 font-medium">{formatDate(inv.dueDate)}</td>
+                      <td className="py-3.5 text-slate-500 font-medium">
+                        {inv.status === 'PAID' || parseFloat(inv.outstandingAmount || '0') <= 0 ? '—' : formatDate(inv.dueDate)}
+                      </td>
                       <td className="py-3.5 text-right flex items-center justify-end gap-2">
                         {inv.status !== 'PAID' && (
                           <Button

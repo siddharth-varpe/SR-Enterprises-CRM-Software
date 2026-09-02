@@ -1613,6 +1613,8 @@ export class SalesRepository {
             ? line.serialNumber || `SN-${assetNumber}`
             : `${line.serialNumber || 'SN'}-${q + 1}`;
 
+        const assetType: any = line.productType === 'RO_MACHINE' ? 'RO_MACHINE' : 'SPARE_PART';
+
         // Check if asset was already created during draft sale
         const [existingAsset] = await tx
           .select()
