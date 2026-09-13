@@ -11,6 +11,44 @@ import { memoryInvoices, memoryInvoiceItems } from '../invoices/invoices.reposit
 import { memoryPayments } from '../payments/payments.repository';
 import { memoryServices } from '../services/services.repository';
 import { memoryCustomers } from '../customers/customer.repository';
+import { memoryTechnicians } from '../technicians/technicians.repository';
+import { memoryJobCards } from '../job-cards/job-cards.repository';
+import { memoryWarranties } from '../warranties/warranties.repository';
+import { memoryReminders } from '../reminders/reminders.repository';
+import { memoryAssets } from '../assets/assets.repository';
+import {
+  memoryInventoryItems,
+  memoryPurchases,
+  memorySales as memoryInventorySales,
+} from '../inventory-management/inventory-management.repository';
+import { memoryRentals, memoryRentalPayments } from '../rentals/rental.repository';
+import {
+  memoryNotifications,
+  memoryNotificationPreferences,
+} from '../notifications/notifications.repository';
+
+export function resetAllMemoryStores() {
+  try {
+    memorySales.length = 0;
+    memoryInvoices.length = 0;
+    memoryInvoiceItems.length = 0;
+    memoryPayments.length = 0;
+    memoryServices.length = 0;
+    memoryCustomers.length = 0;
+    memoryTechnicians.length = 0;
+    memoryJobCards.length = 0;
+    memoryWarranties.length = 0;
+    memoryReminders.length = 0;
+    memoryAssets.length = 0;
+    memoryInventoryItems.length = 0;
+    memoryPurchases.length = 0;
+    memoryInventorySales.length = 0;
+    memoryRentals.length = 0;
+    memoryRentalPayments.length = 0;
+    memoryNotifications.length = 0;
+    memoryNotificationPreferences.clear();
+  } catch {}
+}
 
 /**
  * System routes for testing end-to-end API connectivity and system maintenance
@@ -96,6 +134,9 @@ export const systemRoutes: FastifyPluginAsync = async (fastify) => {
       } catch (err: any) {
         results['business_sequences'] = `error: ${err.message}`;
       }
+
+      // Reset all in-memory repositories
+      resetAllMemoryStores();
 
       return reply.status(200).send({
         success: true,
@@ -226,15 +267,8 @@ export const systemRoutes: FastifyPluginAsync = async (fastify) => {
         }
       } catch {}
 
-      // 5. Reset memory store arrays
-      try {
-        memorySales.length = 0;
-        memoryInvoices.length = 0;
-        memoryInvoiceItems.length = 0;
-        memoryPayments.length = 0;
-        memoryServices.length = 0;
-        memoryCustomers.length = 0;
-      } catch {}
+      // 5. Reset all in-memory store arrays
+      resetAllMemoryStores();
 
       return reply.status(200).send({
         success: true,

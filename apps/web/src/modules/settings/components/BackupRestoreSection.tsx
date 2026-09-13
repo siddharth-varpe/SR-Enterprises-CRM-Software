@@ -33,6 +33,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { RestoreBackupModal } from './RestoreBackupModal';
+import { resetDashboardCache } from '../../dashboard/DashboardPage';
 
 export const BackupRestoreSection: React.FC = () => {
   const toast = useToast();
@@ -79,6 +80,11 @@ export const BackupRestoreSection: React.FC = () => {
       setDeleteDbModalOpen(false);
       setDeleteConfirmationText('');
       queryClient.clear();
+      resetDashboardCache();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('crm_dashboard_refresh'));
+        localStorage.setItem('crm_dashboard_refresh_tick', String(Date.now()));
+      }
       window.location.reload();
     } catch (err: any) {
       toast.error(err.message || 'Failed to delete CRM database.');

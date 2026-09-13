@@ -14,31 +14,7 @@ import { memoryServices } from '../services/services.repository';
 import type { AssetQueryFilter, CreateAssetInput, UpdateAssetInput } from '@crm/validation';
 
 // Resilient memory state for offline desktop and local development
-export const memoryAssets: any[] = [
-  {
-    id: 'a1111111-1111-1111-1111-111111111111',
-    assetNumber: 'ASSET-2026-0001',
-    customerId: 'c1111111-1111-1111-1111-111111111111',
-    customerName: 'Aarav Patel',
-    customerNumber: 'CUST-2026-0001',
-    customerPhone: '9876543210',
-    productId: 'p1111111-1111-1111-1111-111111111111',
-    productName: 'Aquapure RO 100 GPD Commercial',
-    productSku: 'RO-100-GPD',
-    productBrand: 'Aquapure',
-    productModel: 'AP-100C',
-    assetType: 'RO_MACHINE',
-    serialNumber: 'AP100-2026-000123',
-    customName: 'Main Factory RO System',
-    purchaseDate: new Date('2026-01-15T00:00:00Z'),
-    initialWarrantyMonths: 24,
-    serviceIntervalMonths: 6,
-    status: 'ACTIVE',
-    notes: 'Installed on 2nd floor pantry',
-    createdAt: new Date('2026-01-15T10:00:00Z'),
-    updatedAt: new Date('2026-01-15T10:00:00Z'),
-  },
-];
+export const memoryAssets: any[] = [];
 
 export class AssetsRepository {
   /**

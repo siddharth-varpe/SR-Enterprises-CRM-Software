@@ -101,11 +101,10 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
         allServices = [...(dbServices || [])];
       } catch (err: any) {
         console.warn('[Dashboard.overview] Services query notice:', err?.message);
-      }
-
-      for (const ms of memoryServices) {
-        if (!allServices.some((s) => s.id === ms.id)) {
-          allServices.push(ms);
+        for (const ms of memoryServices) {
+          if (!allServices.some((s) => s.id === ms.id)) {
+            allServices.push(ms);
+          }
         }
       }
 
@@ -119,7 +118,7 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
         const schedTime = new Date(s.scheduledDate).getTime();
         return schedTime <= endOfToday.getTime();
       });
-      const servicesDueToday = dueTodayServices.length || (servicesScheduled > 0 ? servicesScheduled : 0);
+      const servicesDueToday = dueTodayServices.length;
 
       const servicesUrgent = activeServices.filter(
         (s) => s.priority === 'URGENT' || s.priority === 'HIGH'
@@ -149,11 +148,12 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
           where: sql`${warranties.status} != 'EXPIRED'`,
         });
         allWarranties = [...(dbWarranties || [])];
-      } catch {}
-
-      for (const mw of memoryWarranties) {
-        if (!allWarranties.some((w) => w.id === mw.id)) {
-          allWarranties.push(mw);
+      } catch (err: any) {
+        console.warn('[Dashboard.overview] Warranties query notice:', err?.message);
+        for (const mw of memoryWarranties) {
+          if (!allWarranties.some((w) => w.id === mw.id)) {
+            allWarranties.push(mw);
+          }
         }
       }
 
@@ -178,11 +178,12 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
           limit: 20,
         });
         allInvoices = [...(dbInvoices || [])];
-      } catch {}
-
-      for (const mi of memoryInvoices) {
-        if (!allInvoices.some((i) => i.id === mi.id)) {
-          allInvoices.push(mi);
+      } catch (err: any) {
+        console.warn('[Dashboard.overview] Invoices query notice:', err?.message);
+        for (const mi of memoryInvoices) {
+          if (!allInvoices.some((i) => i.id === mi.id)) {
+            allInvoices.push(mi);
+          }
         }
       }
 
@@ -196,7 +197,7 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
         return false;
       }).length;
 
-      // 5. Technicians queries (DB + memoryTechnicians / INITIAL_TECHNICIANS)
+      // 5. Technicians queries (DB + memoryTechnicians)
       let allTechs: any[] = [];
       try {
         const dbTechs = await db.query.technicians.findMany({
@@ -205,8 +206,7 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
         allTechs = [...(dbTechs || [])];
       } catch (err: any) {
         console.warn('[Dashboard.overview] Technicians query notice:', err?.message);
-        const sourceTechs = memoryTechnicians.length > 0 ? memoryTechnicians : INITIAL_TECHNICIANS;
-        for (const st of sourceTechs) {
+        for (const st of memoryTechnicians) {
           if (!allTechs.some((t) => t.id === st.id)) {
             allTechs.push(st);
           }
@@ -410,7 +410,7 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
 
       // In case of any unhandled exception, return real data from in-memory stores
       const activeServices = memoryServices.filter((s) => s.status !== 'CANCELLED' && s.status !== 'COMPLETED');
-      const techOnDuty = (memoryTechnicians.length > 0 ? memoryTechnicians : INITIAL_TECHNICIANS).filter((t) => t.status === 'ACTIVE').length;
+      const techOnDuty = memoryTechnicians.filter((t) => t.status === 'ACTIVE').length;
 
       const schedule = activeServices.slice(0, 25).map((s, idx) => ({
         id: s.serviceNumber || s.id || `SCH-${idx + 1}`,
