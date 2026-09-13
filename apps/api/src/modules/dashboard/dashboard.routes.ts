@@ -203,12 +203,13 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
           where: eq(technicians.status, 'ACTIVE'),
         });
         allTechs = [...(dbTechs || [])];
-      } catch {}
-
-      const sourceTechs = memoryTechnicians.length > 0 ? memoryTechnicians : INITIAL_TECHNICIANS;
-      for (const st of sourceTechs) {
-        if (!allTechs.some((t) => t.id === st.id)) {
-          allTechs.push(st);
+      } catch (err: any) {
+        console.warn('[Dashboard.overview] Technicians query notice:', err?.message);
+        const sourceTechs = memoryTechnicians.length > 0 ? memoryTechnicians : INITIAL_TECHNICIANS;
+        for (const st of sourceTechs) {
+          if (!allTechs.some((t) => t.id === st.id)) {
+            allTechs.push(st);
+          }
         }
       }
 
