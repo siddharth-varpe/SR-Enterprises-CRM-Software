@@ -200,12 +200,11 @@ export const backupRoutes: FastifyPluginAsync = async (fastify) => {
     async (request, reply) => {
       const { id } = request.params;
       try {
-        const fileInfo = backupService.getBackupFilePath(id);
-        const stream = fs.createReadStream(fileInfo.fullPath);
+        const fileInfo = await backupService.getBackupDownloadStream(id);
         return reply
           .header('Content-Disposition', `attachment; filename="${fileInfo.filename}"`)
-          .header('Content-Type', 'application/octet-stream')
-          .send(stream);
+          .header('Content-Type', fileInfo.contentType || 'application/gzip')
+          .send(fileInfo.stream);
       } catch (err: any) {
         return reply.status(HTTP_STATUS.NOT_FOUND).send({
           success: false,

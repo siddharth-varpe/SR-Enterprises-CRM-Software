@@ -86,7 +86,7 @@ const envSchema = z.object({
   S3_BUCKET: z.string().optional(),
   SENTRY_DSN: z.string().optional(),
 
-  // Supabase Database & Persistent Object Storage
+  // Supabase Database & Persistent Object Storage (Supabase Project #1 - Primary)
   SUPABASE_URL: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SUPABASE_ANON_KEY: z.string().optional(),
@@ -95,6 +95,13 @@ const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
   PUBLIC_ANON_KEY: z.string().optional(),
   SERVICE_ROLE_SECREAT: z.string().optional(),
+
+  // Supabase Database #2 (Archive Database & Full Backup Storage)
+  ARCHIVE_DATABASE_URL: z.string().optional(),
+  ARCHIVE_SUPABASE_URL: z.string().optional(),
+  ARCHIVE_SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  ARCHIVE_SUPABASE_ANON_KEY: z.string().optional(),
+  ARCHIVE_BACKUP_BUCKET: z.string().default('crm-backups'),
 
   // Production CORS & Cross-Site Cookies for Vercel <-> Oracle Cloud
   CORS_ALLOWED_ORIGINS: z.string().optional(),
@@ -142,6 +149,14 @@ export function parseEnv(customEnv?: Record<string, string | undefined>): EnvCon
   if (!source.SUPABASE_ANON_KEY) {
     source.SUPABASE_ANON_KEY =
       source.PUBLIC_ANON_KEY || source.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  }
+
+  // Normalize Supabase #2 credentials across naming conventions
+  if (!source.ARCHIVE_SUPABASE_SERVICE_ROLE_KEY && (source as any).ARCHIVE_SERVICE_ROLE_KEY) {
+    source.ARCHIVE_SUPABASE_SERVICE_ROLE_KEY = (source as any).ARCHIVE_SERVICE_ROLE_KEY;
+  }
+  if (!source.ARCHIVE_SUPABASE_URL && (source as any).ARCHIVE_PROJECT_URL) {
+    source.ARCHIVE_SUPABASE_URL = (source as any).ARCHIVE_PROJECT_URL;
   }
 
   const isProduction =

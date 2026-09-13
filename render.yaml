@@ -43,3 +43,11 @@ services:
         sync: false
       - key: SESSION_SECRET
         sync: false
+      - key: ARCHIVE_DATABASE_URL
+        sync: false
+      - key: ARCHIVE_SUPABASE_URL
+        sync: false
+      - key: ARCHIVE_SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: ARCHIVE_BACKUP_BUCKET
+        value: crm-backups

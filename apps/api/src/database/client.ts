@@ -8,6 +8,13 @@ import { fileURLToPath } from 'node:url';
 import dns from 'node:dns';
 import { env } from '../config/env';
 import * as schema from './schema/index';
+import {
+  archiveDb,
+  archiveSql,
+  getArchiveDatabaseClient,
+  isArchiveDatabaseConfigured,
+  closeArchiveDatabaseConnection,
+} from './archive/archive-client.js';
 
 try {
   dns.setDefaultResultOrder('ipv4first');
@@ -239,6 +246,20 @@ export const sql: any = new Proxy(
     },
   }
 );
+
+// Export Archive Database (Supabase #2) references and routing layer
+export {
+  archiveDb,
+  archiveSql,
+  getArchiveDatabaseClient,
+  isArchiveDatabaseConfigured,
+};
+
+export const dbManager = {
+  primary: () => db,
+  archive: () => archiveDb,
+  isArchiveConfigured: isArchiveDatabaseConfigured,
+};
 
 /**
  * Ensures email_notifications and email_queue tables and enums exist
@@ -1002,6 +1023,7 @@ export async function closeDatabaseConnections(): Promise<void> {
     pgliteClient = null;
     await new Promise((r) => setTimeout(r, 200));
   }
+  await closeArchiveDatabaseConnection();
   dbInstance = null;
   initPromise = null;
   isInitialized = false;

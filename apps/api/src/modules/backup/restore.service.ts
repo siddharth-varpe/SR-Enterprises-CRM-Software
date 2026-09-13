@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import zlib from 'node:zlib';
 import { db } from '../../database/client';
 import { sql } from 'drizzle-orm';
 import { auditLogs } from '../../database/schema/audit';
@@ -119,27 +120,49 @@ export class RestoreService {
       // Step 2: Read & Parse Backup Package
       state.stage = 'EXTRACTING';
       const fullPath = this.backupService.resolveBackupPath(backupIdOrFilename);
-      const rawContent = await fs.promises.readFile(fullPath, 'utf8');
-      const parsed = JSON.parse(rawContent);
+      let sqlStatements: string[] = [];
+      let tablesData: Record<string, any[]> = {};
+      let documentsPayload: Record<string, { originalFilename: string; mimeType: string; dataBase64: string }> = {};
 
-      const tablesData: Record<string, any[]> = JSON.parse(parsed.databaseJson || '{}');
-      const documentsPayload: Record<string, { originalFilename: string; mimeType: string; dataBase64: string }> = parsed.documentsJson
-        ? JSON.parse(parsed.documentsJson)
-        : {};
+      if (fs.existsSync(fullPath)) {
+        if (fullPath.endsWith('.sql.gz')) {
+          const comp = await fs.promises.readFile(fullPath);
+          const decomp = zlib.gunzipSync(comp).toString('utf8');
+          sqlStatements = decomp.split(/;\s*[\r\n]+/).map((s) => s.trim()).filter(Boolean);
+        } else {
+          try {
+            const rawContent = await fs.promises.readFile(fullPath, 'utf8');
+            const parsed = JSON.parse(rawContent);
+            if (parsed.databaseJson) {
+              tablesData = JSON.parse(parsed.databaseJson || '{}');
+            }
+            if (parsed.documentsJson) {
+              documentsPayload = JSON.parse(parsed.documentsJson || '{}');
+            }
+          } catch {}
+        }
+      }
 
       // Step 3: Transactional Database Table Truncate & Restore
       state.stage = 'RESTORING_DB';
       const restoredCounts: Record<string, number> = {};
 
-      // Truncate in reverse order
-      const reverseTables = [...ORDERED_DOMAIN_TABLES].reverse();
-      for (const table of reverseTables) {
-        try {
-          await db.execute(sql.raw(`TRUNCATE TABLE "${table}" CASCADE;`));
-        } catch {
-          // Table might not exist or already empty
+      if (sqlStatements.length > 0) {
+        for (const stmt of sqlStatements) {
+          try {
+            await db.execute(sql.raw(stmt));
+          } catch {}
         }
-      }
+      } else {
+        // Truncate in reverse order
+        const reverseTables = [...ORDERED_DOMAIN_TABLES].reverse();
+        for (const table of reverseTables) {
+          try {
+            await db.execute(sql.raw(`TRUNCATE TABLE "${table}" CASCADE;`));
+          } catch {
+            // Table might not exist or already empty
+          }
+        }
 
       // Re-insert table rows in dependency order
       for (const table of ORDERED_DOMAIN_TABLES) {
@@ -175,6 +198,7 @@ export class RestoreService {
           }
         }
       }
+    }
 
       // Step 3.1: Reset PostgreSQL Sequences to prevent duplicate key errors on future inserts
       for (const table of ORDERED_DOMAIN_TABLES) {
