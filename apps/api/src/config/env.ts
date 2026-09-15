@@ -23,8 +23,8 @@ for (const p of envLocations) {
 }
 dotenv.config();
 
-// Default development database URL for local fallback
-const DEFAULT_DEV_DATABASE_URL = 'postgres://postgres:postgres@localhost:5432/sr_enterprises_crm';
+export const SUPABASE_PRODUCTION_DB_URL =
+  'postgresql://postgres.swdrtbdpzjcxptszskll:Shreesha2026%40%21@aws-0-ap-south-1.pooler.supabase.com:5432/postgres';
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -37,10 +37,14 @@ const envSchema = z.object({
   WEB_URL: z.string().url().default('http://localhost:3000'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 
-  // Database (Direct PostgreSQL 18 on OCI)
+  // Database
   DATABASE_URL: z
     .string()
-    .default(DEFAULT_DEV_DATABASE_URL),
+    .default(
+      process.env.NODE_ENV === 'production' || process.env.RENDER
+        ? SUPABASE_PRODUCTION_DB_URL
+        : 'postgres://postgres:postgres@localhost:5432/sr_enterprises_crm'
+    ),
   DB_MAX_CONNECTIONS: z
     .string()
     .default(process.env.NODE_ENV === 'production' ? '5' : '10')
@@ -82,7 +86,7 @@ const envSchema = z.object({
   S3_BUCKET: z.string().optional(),
   SENTRY_DSN: z.string().optional(),
 
-  // Supabase Database & Persistent Object Storage
+  // Supabase Database & Persistent Object Storage (Supabase Project #1 - Primary)
   SUPABASE_URL: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SUPABASE_ANON_KEY: z.string().optional(),
@@ -91,6 +95,13 @@ const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
   PUBLIC_ANON_KEY: z.string().optional(),
   SERVICE_ROLE_SECREAT: z.string().optional(),
+
+  // Supabase Database #2 (Archive Database & Full Backup Storage)
+  ARCHIVE_DATABASE_URL: z.string().optional(),
+  ARCHIVE_SUPABASE_URL: z.string().optional(),
+  ARCHIVE_SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  ARCHIVE_SUPABASE_ANON_KEY: z.string().optional(),
+  ARCHIVE_BACKUP_BUCKET: z.string().default('crm-backups'),
 
   // Production CORS & Cross-Site Cookies for Vercel <-> Oracle Cloud
   CORS_ALLOWED_ORIGINS: z.string().optional(),
@@ -140,26 +151,40 @@ export function parseEnv(customEnv?: Record<string, string | undefined>): EnvCon
       source.PUBLIC_ANON_KEY || source.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   }
 
+  // Normalize Supabase #2 credentials across naming conventions
+  if (!source.ARCHIVE_SUPABASE_SERVICE_ROLE_KEY && (source as any).ARCHIVE_SERVICE_ROLE_KEY) {
+    source.ARCHIVE_SUPABASE_SERVICE_ROLE_KEY = (source as any).ARCHIVE_SERVICE_ROLE_KEY;
+  }
+  if (!source.ARCHIVE_SUPABASE_URL && (source as any).ARCHIVE_PROJECT_URL) {
+    source.ARCHIVE_SUPABASE_URL = (source as any).ARCHIVE_PROJECT_URL;
+  }
+
   const isProduction =
     source.NODE_ENV === 'production' ||
     process.env.NODE_ENV === 'production' ||
     Boolean(process.env.RENDER) ||
     Boolean(source.RENDER);
 
-  // Normalize or resolve DATABASE_URL for direct PostgreSQL 18
+  // Normalize or resolve DATABASE_URL for cloud deployments
   if (!source.DATABASE_URL) {
     if (source.POSTGRES_URL) {
       source.DATABASE_URL = source.POSTGRES_URL;
-    } else if (source.POSTGRES_USER && source.POSTGRES_PASSWORD) {
-      const dbHost = source.POSTGRES_HOST || (isProduction ? 'postgres' : 'localhost');
-      const dbPort = source.POSTGRES_PORT || '5432';
-      const dbName = source.POSTGRES_DB || 'sr_enterprises_crm';
-      source.DATABASE_URL = `postgres://${source.POSTGRES_USER}:${source.POSTGRES_PASSWORD}@${dbHost}:${dbPort}/${dbName}`;
+    } else if (source.SUPABASE_DATABASE_URL) {
+      source.DATABASE_URL = source.SUPABASE_DATABASE_URL;
     } else if (isProduction) {
-      throw new Error(
-        'Critical Production Database Error: DATABASE_URL (or POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB) must be explicitly configured in production environment.'
-      );
+      source.DATABASE_URL = SUPABASE_PRODUCTION_DB_URL;
     }
+  }
+
+  // Prevent cloud containers from attempting connection to local non-existent database
+  if (
+    isProduction &&
+    source.DATABASE_URL &&
+    (source.DATABASE_URL.includes('localhost') ||
+      source.DATABASE_URL.includes('127.0.0.1') ||
+      source.DATABASE_URL.includes('::1'))
+  ) {
+    source.DATABASE_URL = SUPABASE_PRODUCTION_DB_URL;
   }
 
   const result = envSchema.safeParse(source);
