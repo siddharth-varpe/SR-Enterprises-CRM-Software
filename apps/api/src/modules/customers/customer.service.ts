@@ -44,26 +44,21 @@ export class CustomerService {
   }
 
   /**
-   * Check for potential duplicate customer by phone or email
+   * Check for potential duplicate customer by email (duplicate phone numbers are permitted)
    */
   async checkDuplicate(input: CheckDuplicateCustomerInput) {
-    let duplicateByPhone: any = null;
     let duplicateByEmail: any = null;
-
-    if (input.phone) {
-      duplicateByPhone = await this.repo.findByPhone(input.phone, input.excludeCustomerId);
-    }
 
     if (input.email) {
       duplicateByEmail = await this.repo.findByEmail(input.email, input.excludeCustomerId);
     }
 
-    const isDuplicate = !!duplicateByPhone || !!duplicateByEmail;
-    const existing: any = duplicateByPhone || duplicateByEmail;
+    const isDuplicate = !!duplicateByEmail;
+    const existing: any = duplicateByEmail;
 
     return {
       isDuplicate,
-      matchField: duplicateByPhone ? 'phone' : duplicateByEmail ? 'email' : null,
+      matchField: duplicateByEmail ? 'email' : null,
       existingCustomer: existing
         ? {
             id: existing.id,
@@ -85,23 +80,9 @@ export class CustomerService {
     actorId?: string | null,
     actorName?: string | null
   ) {
-    console.log('[DEBUG customer.service.ts] 1. Checking duplicate phone:', data.phone);
-    // 1. Check duplicate phone
-    const existingPhone = await this.repo.findByPhone(data.phone);
-    console.log('[DEBUG customer.service.ts] Checked phone, result:', existingPhone);
-    if (existingPhone) {
-      const error = new Error(`A customer with phone number ${data.phone} already exists (${existingPhone.customerNumber})`);
-      (error as any).statusCode = 409;
-      (error as any).code = 'CONFLICT';
-      (error as any).details = { existingCustomerId: existingPhone.id, customerNumber: existingPhone.customerNumber };
-      throw error;
-    }
-
-    // 2. Check duplicate email if supplied
+    // Check duplicate email if supplied (duplicate mobile numbers are permitted)
     if (data.email && data.email.trim()) {
-      console.log('[DEBUG customer.service.ts] 2. Checking duplicate email:', data.email);
       const existingEmail = await this.repo.findByEmail(data.email);
-      console.log('[DEBUG customer.service.ts] Checked email, result:', existingEmail);
       if (existingEmail) {
         const error = new Error(`A customer with email ${data.email} already exists (${existingEmail.customerNumber})`);
         (error as any).statusCode = 409;
@@ -111,10 +92,8 @@ export class CustomerService {
       }
     }
 
-    console.log('[DEBUG customer.service.ts] 3. Calling this.repo.create...');
-    // 3. Execute atomic creation directly via repository
+    // Execute atomic creation directly via repository
     const customer = await this.repo.create(data, actorId, actorName);
-    console.log('[DEBUG customer.service.ts] Created customer in repo:', customer?.id);
     if (!customer || !customer.id) {
       throw new Error('Database transaction failed to create customer record');
     }
@@ -133,18 +112,7 @@ export class CustomerService {
     // Verify customer exists
     await this.getCustomerById(id);
 
-    // Check duplicate phone if being modified
-    if (data.phone) {
-      const duplicatePhone = await this.repo.findByPhone(data.phone, id);
-      if (duplicatePhone) {
-        const error = new Error(`A customer with phone number ${data.phone} already exists (${duplicatePhone.customerNumber})`);
-        (error as any).statusCode = 409;
-        (error as any).code = 'CONFLICT';
-        throw error;
-      }
-    }
-
-    // Check duplicate email if being modified
+    // Check duplicate email if being modified (duplicate mobile numbers are permitted)
     if (data.email) {
       const duplicateEmail = await this.repo.findByEmail(data.email, id);
       if (duplicateEmail) {

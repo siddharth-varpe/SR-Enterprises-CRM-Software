@@ -7,6 +7,7 @@ import { StatusBadge } from '../../components/ui/StatusBadge';
 import { JobCardDetailCard } from './components/JobCardDetailCard';
 import { CompleteServiceModal } from './components/CompleteServiceModal';
 import { QuickAssignModal } from './components/QuickAssignModal';
+import { EditServiceModal } from './components/EditServiceModal';
 import { RecordPaymentModal } from '../payments/components/RecordPaymentModal';
 import {
   useServiceDetailQuery,
@@ -33,6 +34,7 @@ import {
   MessageSquare,
   Send,
   AlertCircle,
+  Pencil,
 } from 'lucide-react';
 
 function formatSystemDate(dateVal: string | Date | null | undefined): string {
@@ -80,6 +82,7 @@ export const ServiceDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const toast = useToast();
 
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isRecordPaymentModalOpen, setIsRecordPaymentModalOpen] = useState(false);
@@ -251,6 +254,17 @@ export const ServiceDetailPage: React.FC = () => {
 
         {/* Action CTAs */}
         <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Edit Service Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsEditModalOpen(true)}
+            className="text-xs border-slate-200 text-slate-700 hover:bg-slate-50 font-medium"
+            leftIcon={<Pencil className="w-4 h-4 text-slate-500" />}
+          >
+            Edit Service
+          </Button>
+
           {/* Record Payment Button */}
           {totalBilled > 0 && !isFullyPaid && (
             <Button
@@ -649,6 +663,12 @@ export const ServiceDetailPage: React.FC = () => {
       </div>
 
       {/* Modals */}
+      <EditServiceModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        service={service}
+      />
+
       <CompleteServiceModal
         isOpen={isCompleteModalOpen}
         onClose={() => setIsCompleteModalOpen(false)}

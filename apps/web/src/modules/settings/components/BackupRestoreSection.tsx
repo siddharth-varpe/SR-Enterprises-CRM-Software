@@ -33,6 +33,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 import { RestoreBackupModal } from './RestoreBackupModal';
+import { resetDashboardCache } from '../../dashboard/DashboardPage';
 
 export const BackupRestoreSection: React.FC = () => {
   const toast = useToast();
@@ -79,6 +80,11 @@ export const BackupRestoreSection: React.FC = () => {
       setDeleteDbModalOpen(false);
       setDeleteConfirmationText('');
       queryClient.clear();
+      resetDashboardCache();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('crm_dashboard_refresh'));
+        localStorage.setItem('crm_dashboard_refresh_tick', String(Date.now()));
+      }
       window.location.reload();
     } catch (err: any) {
       toast.error(err.message || 'Failed to delete CRM database.');
@@ -556,7 +562,7 @@ export const BackupRestoreSection: React.FC = () => {
               <span>Danger Zone — Delete CRM Database</span>
             </div>
             <p className="text-xs text-rose-700/90 max-w-xl">
-              Permanently deletes all operational business records (customers, sales, invoices, payments, services, warranties, assets, inventory, reminders, activities) at the database level and purges all documents and files in Supabase Storage.
+              Permanently deletes all operational business records (customers, sales, invoices, payments, services, warranties, assets, inventory, reminders, activities) at the database level and purges all documents and files in system storage.
             </p>
           </div>
           <Button
@@ -607,7 +613,7 @@ export const BackupRestoreSection: React.FC = () => {
               <ul className="list-disc pl-5 space-y-1 text-rose-700">
                 <li>All customer records, sales orders, invoices, and payment ledgers will be permanently deleted from PostgreSQL.</li>
                 <li>All scheduled services, job cards, customer assets, warranties, and inventory items will be wiped.</li>
-                <li>All documents, invoices, backups, and attachments stored in Supabase Storage will be purged.</li>
+                <li>All documents, invoices, backups, and attachments stored in system storage will be purged.</li>
                 <li>All sequence numbers will reset to 0. Super Admin account credentials will be preserved.</li>
               </ul>
             </div>

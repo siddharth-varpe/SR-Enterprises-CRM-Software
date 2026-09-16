@@ -296,19 +296,9 @@ export class CustomerImporter extends BaseImporter {
         });
       }
 
-      // Check duplicates (in database or earlier in this file)
+      // Check duplicates for email (duplicate mobile numbers are permitted)
       let isDuplicate = false;
-      if (fields.phone && (existingPhones.has(fields.phone) || seenPhonesInFile.has(fields.phone))) {
-        isDuplicate = true;
-        duplicateRows++;
-        rowErrors.push({
-          rowNumber,
-          field: 'phone',
-          code: 'DUPLICATE',
-          message: `Row ${rowNumber}: Customer with phone number '${fields.phone}' already exists.`,
-          value: fields.phone,
-        });
-      } else if (fields.email && (existingEmails.has(fields.email) || seenEmailsInFile.has(fields.email))) {
+      if (fields.email && (existingEmails.has(fields.email) || seenEmailsInFile.has(fields.email))) {
         isDuplicate = true;
         duplicateRows++;
         rowErrors.push({
@@ -320,7 +310,6 @@ export class CustomerImporter extends BaseImporter {
         });
       }
 
-      if (fields.phone) seenPhonesInFile.add(fields.phone);
       if (fields.email) seenEmailsInFile.add(fields.email);
 
       const normalized = {
@@ -607,13 +596,6 @@ export class CustomerImporter extends BaseImporter {
       }
     }
 
-    // Trigger persistent snapshot synchronization to Supabase Cloud
-    if (imported > 0 && process.env.NODE_ENV !== 'test') {
-      try {
-        const { supabaseDbPersistence } = await import('../../../database/supabase-db-persistence');
-        supabaseDbPersistence.syncDatabaseSnapshotToSupabase().catch(() => {});
-      } catch {}
-    }
 
     // 4. Record structured audit log
     let auditLogId: string | undefined;

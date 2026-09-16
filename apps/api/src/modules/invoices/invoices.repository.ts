@@ -98,14 +98,6 @@ export class InvoicesRepository {
 
       const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-      const [totalRes] = await database
-        .select({ count: sql<number>`count(*)::int` })
-        .from(invoices)
-        .leftJoin(customers, eq(invoices.customerId, customers.id))
-        .where(whereClause);
-
-      const total = totalRes?.count ?? 0;
-
       let orderByClauses: any[];
       const sortOrder = filters.sortOrder === 'asc' ? asc : desc;
       switch (filters.sortBy) {
@@ -124,7 +116,19 @@ export class InvoicesRepository {
           break;
       }
 
-      const rows = await database
+      const needsCustomerJoinForCount = Boolean(filters.search?.trim());
+      const countQuery = needsCustomerJoinForCount
+        ? database
+            .select({ count: sql<number>`count(*)::int` })
+            .from(invoices)
+            .leftJoin(customers, eq(invoices.customerId, customers.id))
+            .where(whereClause)
+        : database
+            .select({ count: sql<number>`count(*)::int` })
+            .from(invoices)
+            .where(whereClause);
+
+      const rowsQuery = database
         .select({
           id: invoices.id,
           invoiceNumber: invoices.invoiceNumber,
@@ -153,6 +157,10 @@ export class InvoicesRepository {
         .limit(limit)
         .offset(offset)
         .orderBy(...orderByClauses);
+
+      // Execute count and paginated rows selection concurrently
+      const [[totalRes], rows] = await Promise.all([countQuery, rowsQuery]);
+      const total = totalRes?.count ?? 0;
 
       // Fetch payments for these invoices to calculate real collected and outstanding
       const invoiceIds = rows.map((r) => r.id);

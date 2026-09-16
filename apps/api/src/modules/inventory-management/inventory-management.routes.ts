@@ -4,8 +4,10 @@ import {
   UpdateInventoryItemSchema,
   InventoryItemQueryFilterSchema,
   CreateInventoryPurchaseSchema,
+  UpdateInventoryPurchaseSchema,
   InventoryPurchaseQueryFilterSchema,
   CreateInventorySaleSchema,
+  UpdateInventorySaleSchema,
   InventorySaleQueryFilterSchema,
   InventoryAnalyticsFilterSchema,
   InventoryProfitLedgerFilterSchema,
@@ -137,6 +139,32 @@ export const inventoryManagementRoutes: FastifyPluginAsync = async (fastify) => 
   });
 
   /**
+   * GET /api/v1/inventory-management/purchases/:id
+   * Get single purchase details
+   */
+  fastify.get('/purchases/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    try {
+      const purchase = await inventoryManagementService.getPurchaseById(id);
+      return reply.status(HTTP_STATUS.OK).send({
+        success: true,
+        data: purchase,
+      });
+    } catch (err: any) {
+      if (err.message && err.message.includes('not found')) {
+        return reply.status(HTTP_STATUS.NOT_FOUND).send({
+          success: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: err.message,
+          },
+        });
+      }
+      throw err;
+    }
+  });
+
+  /**
    * POST /api/v1/inventory-management/purchases
    * Record a new inward purchase (increments stock)
    */
@@ -151,6 +179,79 @@ export const inventoryManagementRoutes: FastifyPluginAsync = async (fastify) => 
   });
 
   /**
+   * PUT /api/v1/inventory-management/purchases/:id
+   * Edit purchase record and recalculate stock + batch totals
+   */
+  fastify.put('/purchases/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    try {
+      const body = UpdateInventoryPurchaseSchema.parse(request.body);
+      const purchase = await inventoryManagementService.updatePurchase(id, body);
+      return reply.status(HTTP_STATUS.OK).send({
+        success: true,
+        data: purchase,
+        message: 'Purchase record updated and stock recalculated successfully',
+      });
+    } catch (err: any) {
+      if (err.message && err.message.includes('Cannot reduce purchase quantity')) {
+        return reply.status(HTTP_STATUS.BAD_REQUEST).send({
+          success: false,
+          error: {
+            code: 'CANNOT_REDUCE_PURCHASE_QUANTITY',
+            message: err.message,
+          },
+        });
+      }
+      if (err.message && err.message.includes('not found')) {
+        return reply.status(HTTP_STATUS.NOT_FOUND).send({
+          success: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: err.message,
+          },
+        });
+      }
+      throw err;
+    }
+  });
+
+  /**
+   * DELETE /api/v1/inventory-management/purchases/:id
+   * Delete purchase record and deduct stock from inventory item
+   */
+  fastify.delete('/purchases/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    try {
+      const result = await inventoryManagementService.deletePurchase(id);
+      return reply.status(HTTP_STATUS.OK).send({
+        success: true,
+        data: result,
+        message: 'Purchase record deleted and stock recalculated successfully',
+      });
+    } catch (err: any) {
+      if (err.message && err.message.includes('Cannot delete purchase')) {
+        return reply.status(HTTP_STATUS.BAD_REQUEST).send({
+          success: false,
+          error: {
+            code: 'CANNOT_DELETE_PURCHASE',
+            message: err.message,
+          },
+        });
+      }
+      if (err.message && err.message.includes('not found')) {
+        return reply.status(HTTP_STATUS.NOT_FOUND).send({
+          success: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: err.message,
+          },
+        });
+      }
+      throw err;
+    }
+  });
+
+  /**
    * GET /api/v1/inventory-management/sales
    * Query outward sales history
    */
@@ -162,6 +263,32 @@ export const inventoryManagementRoutes: FastifyPluginAsync = async (fastify) => 
       data: result.data,
       pagination: result.pagination,
     });
+  });
+
+  /**
+   * GET /api/v1/inventory-management/sales/:id
+   * Get single sale details
+   */
+  fastify.get('/sales/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    try {
+      const sale = await inventoryManagementService.getSaleById(id);
+      return reply.status(HTTP_STATUS.OK).send({
+        success: true,
+        data: sale,
+      });
+    } catch (err: any) {
+      if (err.message && err.message.includes('not found')) {
+        return reply.status(HTTP_STATUS.NOT_FOUND).send({
+          success: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: err.message,
+          },
+        });
+      }
+      throw err;
+    }
   });
 
   /**
@@ -183,6 +310,70 @@ export const inventoryManagementRoutes: FastifyPluginAsync = async (fastify) => 
           success: false,
           error: {
             code: 'INSUFFICIENT_STOCK',
+            message: err.message,
+          },
+        });
+      }
+      throw err;
+    }
+  });
+
+  /**
+   * PUT /api/v1/inventory-management/sales/:id
+   * Edit sale record and recalculate stock, revenue, cost, and profit
+   */
+  fastify.put('/sales/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    try {
+      const body = UpdateInventorySaleSchema.parse(request.body);
+      const sale = await inventoryManagementService.updateSale(id, body);
+      return reply.status(HTTP_STATUS.OK).send({
+        success: true,
+        data: sale,
+        message: 'Sale record updated and profit recalculated successfully',
+      });
+    } catch (err: any) {
+      if (err.message && err.message.includes('Insufficient stock')) {
+        return reply.status(HTTP_STATUS.BAD_REQUEST).send({
+          success: false,
+          error: {
+            code: 'INSUFFICIENT_STOCK',
+            message: err.message,
+          },
+        });
+      }
+      if (err.message && err.message.includes('not found')) {
+        return reply.status(HTTP_STATUS.NOT_FOUND).send({
+          success: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: err.message,
+          },
+        });
+      }
+      throw err;
+    }
+  });
+
+  /**
+   * DELETE /api/v1/inventory-management/sales/:id
+   * Delete sale record and restore stock to inventory item
+   */
+  fastify.delete('/sales/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    try {
+      const result = await inventoryManagementService.deleteSale(id);
+      return reply.status(HTTP_STATUS.OK).send({
+        success: true,
+        data: result,
+        message: 'Sale record deleted and stock restored successfully',
+      });
+    } catch (err: any) {
+      if (err.message && err.message.includes('not found')) {
+        return reply.status(HTTP_STATUS.NOT_FOUND).send({
+          success: false,
+          error: {
+            code: 'NOT_FOUND',
             message: err.message,
           },
         });

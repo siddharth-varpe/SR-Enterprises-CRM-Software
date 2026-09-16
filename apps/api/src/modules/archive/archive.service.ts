@@ -8,20 +8,20 @@ export interface ArchiveSummaryReport {
 }
 
 /**
- * Archive Service (Supabase #2 Data Foundation)
- * Provides read and query access for historical records residing in Supabase #2.
- * Strictly read-only for existing operational records (zero deletion or mutation of DB1).
+ * Archive Service (Secondary Archive Database)
+ * Provides read and query access for historical records residing in the archive database.
+ * Strictly read-only for existing operational records.
  */
 export class ArchiveService {
   /**
-   * Check if Supabase #2 Archive Database is configured and ready
+   * Check if Archive Database is configured and ready
    */
   public isArchiveAvailable(): boolean {
     return isArchiveDatabaseConfigured();
   }
 
   /**
-   * Inspect status and record counts across Supabase #2 tables
+   * Inspect status and record counts across Archive Database tables
    */
   public async getArchiveSummary(): Promise<ArchiveSummaryReport> {
     if (!this.isArchiveAvailable()) {
@@ -68,7 +68,7 @@ export class ArchiveService {
   }
 
   /**
-   * Query historical records from Supabase #2 Archive Database
+   * Query historical records from Archive Database
    */
   public async queryArchivedTable<T = any>(
     tableName: string,

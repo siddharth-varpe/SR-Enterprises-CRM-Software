@@ -4,6 +4,7 @@ import { Skeleton } from '../../../components/ui/Skeleton';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { useCustomerActivitiesQuery } from '../customer.api';
 import { Activity, Clock, User, CheckCircle2 } from 'lucide-react';
+import { formatDateTime } from '../../../lib/formatters';
 
 export interface CustomerActivityTimelineProps {
   customerId: string;
@@ -50,13 +51,7 @@ export const CustomerActivityTimeline: React.FC<CustomerActivityTimelineProps> =
                   <span className="text-xs font-semibold text-slate-900">{act.description}</span>
                   <span className="text-[11px] text-slate-400 flex items-center gap-1 shrink-0">
                     <Clock className="w-3 h-3" />
-                    {new Date(act.timestamp).toLocaleDateString('en-IN', {
-                      day: '2-digit',
-                      month: 'short',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                    {formatDateTime(act.timestamp)}
                   </span>
                 </div>
 

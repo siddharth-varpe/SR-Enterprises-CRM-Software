@@ -302,6 +302,17 @@ export class ConfigurationService {
   private cache = new Map<SettingsCategory, { value: any; version: number; cachedAt: number }>();
   private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
+  constructor() {
+    const now = Date.now();
+    for (const [cat, def] of Object.entries(SYSTEM_DEFAULTS)) {
+      this.cache.set(cat as SettingsCategory, {
+        value: { ...def },
+        version: 1,
+        cachedAt: now,
+      });
+    }
+  }
+
   public static getInstance(): ConfigurationService {
     if (!ConfigurationService.instance) {
       ConfigurationService.instance = new ConfigurationService();
@@ -321,10 +332,99 @@ export class ConfigurationService {
   }
 
   /**
+   * Preload all system settings from database into in-memory cache
+   */
+  public async preloadAll(client?: any): Promise<void> {
+    const target = client || db;
+    try {
+      let records: any[] = [];
+      if (target?.select) {
+        records = await target.select().from(appSettings);
+      } else if (target?.query?.appSettings?.findMany) {
+        records = await target.query.appSettings.findMany();
+      }
+
+      const foundCategories = new Set<string>();
+      const now = Date.now();
+
+      if (Array.isArray(records)) {
+        for (const record of records) {
+          if (record && record.category) {
+            foundCategories.add(record.category);
+            const mergedValue = {
+              ...SYSTEM_DEFAULTS[record.category as SettingsCategory],
+              ...(record.value as object),
+            };
+            this.cache.set(record.category as SettingsCategory, {
+              value: mergedValue,
+              version: record.version || 1,
+              cachedAt: now,
+            });
+          }
+        }
+      }
+
+      // Populate any remaining categories with SYSTEM_DEFAULTS
+      const allCategories: SettingsCategory[] = [
+        'SYSTEM',
+        'BUSINESS',
+        'TAX',
+        'INVOICE',
+        'PAYMENT',
+        'SALES',
+        'SERVICE',
+        'JOB_CARD',
+        'WARRANTY',
+        'INVENTORY',
+        'NOTIFICATION',
+        'NUMBERING',
+        'SECURITY',
+      ];
+
+      for (const cat of allCategories) {
+        if (!foundCategories.has(cat)) {
+          this.cache.set(cat, {
+            value: { ...SYSTEM_DEFAULTS[cat] },
+            version: 1,
+            cachedAt: now,
+          });
+        }
+      }
+    } catch {
+      // Safely ensure all categories populated
+      const now = Date.now();
+      const allCategories: SettingsCategory[] = [
+        'SYSTEM',
+        'BUSINESS',
+        'TAX',
+        'INVOICE',
+        'PAYMENT',
+        'SALES',
+        'SERVICE',
+        'JOB_CARD',
+        'WARRANTY',
+        'INVENTORY',
+        'NOTIFICATION',
+        'NUMBERING',
+        'SECURITY',
+      ];
+      for (const cat of allCategories) {
+        if (!this.cache.has(cat)) {
+          this.cache.set(cat, {
+            value: { ...SYSTEM_DEFAULTS[cat] },
+            version: 1,
+            cachedAt: now,
+          });
+        }
+      }
+    }
+  }
+
+  /**
    * Retrieves configuration for a given category.
    * Checks in-memory cache -> queries database -> falls back to system defaults.
    */
-  public async get<T>(category: SettingsCategory): Promise<T> {
+  public async get<T>(category: SettingsCategory, clientOrTx?: any): Promise<T> {
     const now = Date.now();
     const cached = this.cache.get(category);
 
@@ -333,9 +433,36 @@ export class ConfigurationService {
     }
 
     try {
-      const record = await db.query.appSettings.findFirst({
-        where: eq(appSettings.category, category),
+      const client = clientOrTx || db;
+      let record: any = null;
+
+      const queryPromise = (async () => {
+        if (client?.query?.appSettings?.findFirst) {
+          return await client.query.appSettings.findFirst({
+            where: eq(appSettings.category, category),
+          });
+        }
+        if (client?.select) {
+          const [found] = await client
+            .select()
+            .from(appSettings)
+            .where(eq(appSettings.category, category))
+            .limit(1);
+          return found;
+        }
+        return null;
+      })();
+
+      let timer: NodeJS.Timeout | null = null;
+      const timeoutPromise = new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), 1000);
       });
+
+      try {
+        record = await Promise.race([queryPromise, timeoutPromise]);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
 
       if (record && record.value) {
         // Deep merge stored value over system defaults for backward compatibility
@@ -366,22 +493,50 @@ export class ConfigurationService {
   /**
    * Retrieves a specific setting key inside a category
    */
-  public async getSetting<T = any>(category: SettingsCategory, key: string): Promise<T> {
-    const categoryConfig = await this.get<Record<string, any>>(category);
+  public async getSetting<T = any>(category: SettingsCategory, key: string, clientOrTx?: any): Promise<T> {
+    const categoryConfig = await this.get<Record<string, any>>(category, clientOrTx);
     return categoryConfig[key];
   }
 
   /**
    * Get version of a category for optimistic concurrency
    */
-  public async getCategoryVersion(category: SettingsCategory): Promise<number> {
+  public async getCategoryVersion(category: SettingsCategory, clientOrTx?: any): Promise<number> {
     const cached = this.cache.get(category);
     if (cached) return cached.version;
 
     try {
-      const record = await db.query.appSettings.findFirst({
-        where: eq(appSettings.category, category),
+      const client = clientOrTx || db;
+      let record: any = null;
+
+      const queryPromise = (async () => {
+        if (client?.query?.appSettings?.findFirst) {
+          return await client.query.appSettings.findFirst({
+            where: eq(appSettings.category, category),
+          });
+        }
+        if (client?.select) {
+          const [found] = await client
+            .select()
+            .from(appSettings)
+            .where(eq(appSettings.category, category))
+            .limit(1);
+          return found;
+        }
+        return null;
+      })();
+
+      let timer: NodeJS.Timeout | null = null;
+      const timeoutPromise = new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), 1000);
       });
+
+      try {
+        record = await Promise.race([queryPromise, timeoutPromise]);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+
       return record?.version ?? 1;
     } catch {
       return 1;

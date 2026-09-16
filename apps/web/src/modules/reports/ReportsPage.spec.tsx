@@ -232,4 +232,13 @@ describe('Reports & Analytics Page (/reports)', () => {
 
     expect(screen.getByText('Registered Technicians')).toBeDefined();
   });
+
+  it('renders genuine financial metrics without duplicate inflation or arbitrary multipliers', () => {
+    renderComponent();
+
+    // Verify gross billed renders exact value from overview without multiplier
+    expect(screen.getAllByText(/₹\s*8,75,450/i).length).toBeGreaterThan(0);
+    // Verify no arbitrary completed * 450 artifact is present
+    expect(screen.queryByText(/₹\s*450\.00/i)).toBeNull();
+  });
 });

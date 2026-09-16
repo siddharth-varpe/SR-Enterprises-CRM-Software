@@ -49,23 +49,26 @@ describe('Customer Module Deep Production-Grade Integration Tests', () => {
     expect(customer?.addresses[0].city).toBe('Pune');
   });
 
-  it('should enforce duplicate phone rejection with 409 Conflict', async () => {
+  it('should allow duplicate phone numbers across customers', async () => {
     const testPhone = `99${Math.floor(10000000 + Math.random() * 90000000)}`;
 
-    await customerService.createCustomer({
+    const first = await customerService.createCustomer({
       fullName: 'Primary Owner',
       phone: testPhone,
       customerType: 'INDIVIDUAL',
     });
 
-    // Attempt creating duplicate
-    await expect(
-      customerService.createCustomer({
-        fullName: 'Duplicate Owner',
-        phone: testPhone,
-        customerType: 'INDIVIDUAL',
-      })
-    ).rejects.toThrow(/already exists/);
+    const second = await customerService.createCustomer({
+      fullName: 'Duplicate Owner',
+      phone: testPhone,
+      customerType: 'INDIVIDUAL',
+    });
+
+    expect(first.id).toBeDefined();
+    expect(second.id).toBeDefined();
+    expect(first.id).not.toBe(second.id);
+    expect(first.phone).toBe(testPhone);
+    expect(second.phone).toBe(testPhone);
   });
 
   it('should enforce duplicate email rejection with 409 Conflict', async () => {

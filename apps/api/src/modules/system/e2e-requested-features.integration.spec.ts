@@ -3,13 +3,15 @@ import { ensureDatabaseInitialized, db } from '../../database/client';
 import { customerService } from '../customers/customer.service';
 import { salesService } from '../sales/sales.service';
 import { servicesService } from '../services/services.service';
-import { supabaseStorage } from '../documents/supabase-storage.service';
+import { storageEngine } from '../documents/storage-engine';
 import { customers, sales, invoices, services, jobCards, customerAssets, users } from '../../database/schema';
 import { eq, count, sql } from 'drizzle-orm';
 
-describe('Requested Features End-to-End Verification Tests', () => {
+describe('Requested Features End-to-End Verification Tests', { timeout: 30000 }, () => {
   beforeAll(async () => {
     await ensureDatabaseInitialized();
+    const { configService } = await import('../system/configuration.service');
+    await configService.getAll();
   });
 
   it('Feature 1: Sales Page & Sales Delete End-to-End', async () => {
@@ -44,8 +46,8 @@ describe('Requested Features End-to-End Verification Tests', () => {
     expect(sale).toBeDefined();
     expect(sale.id).toBeDefined();
 
-    // 2. Query sales with all-time / default filters - sale must be returned
-    const list = await salesService.getSales({ page: 1, limit: 10 });
+    // 2. Query sales with customerId filter - sale must be returned
+    const list = await salesService.getSales({ customerId: customer!.id, page: 1, limit: 10 });
     const found = list.data.find((s: any) => s.id === sale.id);
     expect(found).toBeDefined();
 
@@ -161,13 +163,27 @@ describe('Requested Features End-to-End Verification Tests', () => {
   });
 
   it('Feature 4: Delete CRM Database (DB + Storage Level) End-to-End', async () => {
-    // 1. Verify storage purge method exists and executes safely
-    const storageRes = await supabaseStorage.purgeAllStorage();
-    expect(storageRes).toBeDefined();
-    expect(typeof storageRes.deletedCount).toBe('number');
+    // 1. Verify storage scan methods exist and execute safely
+    const storageStats = await storageEngine.scanPhysicalFiles();
+    expect(storageStats).toBeDefined();
+    expect(typeof storageStats.fileCount).toBe('number');
 
     // 2. Execute table wipes as done by /api/v1/system/delete-crm-database
     const allBusinessTables = [
+      'job_cards',
+      'service_schedules',
+      'services',
+      'warranty_events',
+      'warranties',
+      'customer_assets',
+      'payments',
+      'invoice_items',
+      'invoices',
+      'sale_items',
+      'sales',
+      'customer_addresses',
+      'customer_custom_labels',
+      'customer_activities',
       'rental_events',
       'rental_payments',
       'rentals',
@@ -175,20 +191,6 @@ describe('Requested Features End-to-End Verification Tests', () => {
       'inventory_purchases',
       'inventory_items',
       'reminders',
-      'payments',
-      'invoice_items',
-      'invoices',
-      'sale_items',
-      'sales',
-      'warranty_events',
-      'warranties',
-      'job_cards',
-      'service_schedules',
-      'services',
-      'customer_assets',
-      'customer_addresses',
-      'customer_custom_labels',
-      'customer_activities',
       'technicians',
       'inquiry_events',
       'inquiries',

@@ -232,4 +232,68 @@ describe('Services Scheduling & Reminder Integration Tests', () => {
     expect(schedulerReport).toBeDefined();
     expect(schedulerReport.status).toBe('COMPLETED');
   });
+
+  it('TEST 10: should update service completely including schedule, notes, technician, and job card fields', async () => {
+    let [testCust] = await db.select().from(customers).limit(1);
+    if (!testCust) {
+      const [newCust] = await db.insert(customers).values({
+        customerNumber: `CUST-EDIT-${Date.now() % 10000}`,
+        fullName: 'Rohan Sharma Test',
+        phone: '9876540000',
+        email: `rohan.${Date.now()}@example.com`,
+        status: 'ACTIVE',
+      }).returning();
+      testCust = newCust;
+    }
+
+    const created = await servicesRepository.createService({
+      customerId: testCust.id,
+      serviceType: 'PERIODIC_MAINTENANCE',
+      serviceLocation: 'DOORSTEP',
+      serviceClassification: 'GENERAL',
+      scheduledDate: '2026-09-25',
+      scheduledTimeSlot: '10:00 AM - 12:00 PM',
+      priority: 'NORMAL',
+      customerNotes: 'Initial service request',
+    });
+
+    expect(created.service.id).toBeDefined();
+
+    // Perform complete update of all attributes
+    const updated = await servicesRepository.updateService(created.service.id, {
+      serviceType: 'REPAIR',
+      serviceLocation: 'IN_SHOP',
+      serviceClassification: 'WARRANTY',
+      scheduledDate: '2026-10-05',
+      scheduledTimeSlot: '02:00 PM - 04:00 PM',
+      priority: 'URGENT',
+      customerNotes: 'Updated customer complaint - filter leakage',
+      internalNotes: 'Use heavy-duty clamp kit',
+      diagnosis: 'O-ring worn out',
+      workPerformed: 'Replaced O-ring and test ran 30 mins',
+      technicianNotes: 'Advised client on input water pressure',
+      customerRemarks: 'Very satisfied with fix',
+      laborCharges: 350,
+      partsCharges: 150,
+      totalCharges: 500,
+    });
+
+    expect(updated).toBeDefined();
+    expect(updated.serviceType).toBe('REPAIR');
+    expect(updated.serviceLocation).toBe('IN_SHOP');
+    expect(updated.serviceClassification).toBe('WARRANTY');
+    expect(updated.priority).toBe('URGENT');
+    expect(updated.customerNotes).toBe('Updated customer complaint - filter leakage');
+    expect(updated.internalNotes).toBe('Use heavy-duty clamp kit');
+
+    // Verify detail lookup joined with updated job card
+    const detail = await servicesRepository.findById(created.service.id);
+    expect(detail).toBeDefined();
+    expect(detail?.serviceType).toBe('REPAIR');
+    expect(detail?.diagnosis).toBe('O-ring worn out');
+    expect(detail?.workPerformed).toBe('Replaced O-ring and test ran 30 mins');
+    expect(Number(detail?.laborCharges)).toBe(350);
+    expect(Number(detail?.partsCharges)).toBe(150);
+    expect(Number(detail?.totalCharges)).toBe(500);
+  });
 });

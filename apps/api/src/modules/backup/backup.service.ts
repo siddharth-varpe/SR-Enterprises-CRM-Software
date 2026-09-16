@@ -9,8 +9,7 @@ import { db } from '../../database/client';
 import { sql } from 'drizzle-orm';
 import { auditLogs } from '../../database/schema/audit';
 import { storageEngine, StorageEngine } from '../documents/storage-engine';
-import { archiveStorageService } from './archive-storage.service.js';
-import { env, SUPABASE_PRODUCTION_DB_URL } from '../../config/env.js';
+import { env } from '../../config/env.js';
 import {
   backupValidator,
   BackupValidator,
@@ -88,7 +87,7 @@ export const ORDERED_DOMAIN_TABLES = [
 export interface BackupStoredItem extends BackupManifestDTO {
   filename: string;
   storagePath?: string;
-  storageType?: 'SUPABASE_2_STORAGE' | 'LOCAL';
+  storageType?: 'LOCAL';
   verificationStatus?: 'VERIFIED' | 'PENDING' | 'CORRUPTED';
   tablesCovered?: string[];
   postgresVersion?: string;
@@ -188,6 +187,13 @@ export class BackupService {
           const proc = spawn('pg_dump', args, { stdio: ['ignore', 'pipe', 'pipe'] });
           let stderr = '';
 
+          const timer = setTimeout(() => {
+            try {
+              proc.kill('SIGTERM');
+            } catch {}
+            reject(new Error('pg_dump timed out after 45 seconds'));
+          }, 45000);
+
           proc.stderr.on('data', (d) => {
             stderr += d.toString();
           });
@@ -195,6 +201,7 @@ export class BackupService {
           proc.stdout.pipe(gzip).pipe(outStream);
 
           outStream.on('finish', () => {
+            clearTimeout(timer);
             if (proc.exitCode === 0) {
               resolve();
             } else {
@@ -202,9 +209,18 @@ export class BackupService {
             }
           });
 
-          proc.on('error', (err) => reject(err));
-          outStream.on('error', (err) => reject(err));
-          gzip.on('error', (err) => reject(err));
+          proc.on('error', (err) => {
+            clearTimeout(timer);
+            reject(err);
+          });
+          outStream.on('error', (err) => {
+            clearTimeout(timer);
+            reject(err);
+          });
+          gzip.on('error', (err) => {
+            clearTimeout(timer);
+            reject(err);
+          });
         });
 
         return { postgresVersion: 'PostgreSQL 17.6/18.6', method: 'PG_DUMP_NATIVE' };
@@ -280,8 +296,8 @@ export class BackupService {
   }
 
   /**
-   * Create Full Backup Snapshot of Primary Database (Supabase #1)
-   * and store the verified PostgreSQL artifact in Supabase #2 Storage.
+   * Create Full Backup Snapshot of Primary Database
+   * and store the verified PostgreSQL artifact in local backup storage.
    */
   public async createBackup(
     options: CreateBackupRequest & { isSafetyBackup?: boolean },
@@ -289,13 +305,6 @@ export class BackupService {
   ): Promise<BackupManifestDTO> {
     if (this.isBackingUp) {
       throw new Error('Backup Error: Another backup operation is currently in progress.');
-    }
-
-    // PHASE 3 & 11 CHECK: If Supabase #2 Storage is not configured, report clearly
-    if (!archiveStorageService.isConfigured()) {
-      throw new Error(
-        'Archive/Backup storage (Supabase #2) is not configured. Please set ARCHIVE_SUPABASE_URL and ARCHIVE_SUPABASE_SERVICE_ROLE_KEY in your environment.'
-      );
     }
 
     this.isBackingUp = true;
@@ -310,17 +319,7 @@ export class BackupService {
 
     try {
       // 1. Resolve Primary Database URL
-      const isProduction = env.NODE_ENV === 'production' || Boolean(process.env.RENDER);
-      let primaryDbUrl = env.DATABASE_URL;
-      if (
-        isProduction &&
-        (!primaryDbUrl ||
-          primaryDbUrl.includes('localhost') ||
-          primaryDbUrl.includes('127.0.0.1') ||
-          primaryDbUrl.includes('::1'))
-      ) {
-        primaryDbUrl = SUPABASE_PRODUCTION_DB_URL;
-      }
+      const primaryDbUrl = env.DATABASE_URL;
 
       // 2. Count Records across all tables for the manifest
       const tableCounts: Record<string, number> = {};
@@ -414,55 +413,39 @@ export class BackupService {
         dumpMethod: dumpInfo.method,
       };
 
-      // 7. Upload Artifacts to DB2 Private Supabase Storage
-      console.log(`[BackupService] Uploading real PostgreSQL backup artifact to DB2 Storage: ${storagePrefix}/${dumpFilename}`);
-      await archiveStorageService.uploadFile(`${storagePrefix}/${dumpFilename}`, dumpBuffer, 'application/gzip');
+      // 7. Store Artifacts in Persistent Local Backup Directory
+      const localFilename = `srm_${backupId.toLowerCase()}_${dateSlug}.srmbackup`;
+      const localDumpCopy = path.join(this.backupDir, `${backupId}_database.sql.gz`);
+      await fs.promises.copyFile(tempDumpPath, localDumpCopy);
 
       const shaFileContent = `${dumpSha256}  ${dumpFilename}\n`;
-      await archiveStorageService.uploadFile(
-        `${storagePrefix}/checksum.sha256`,
-        Buffer.from(shaFileContent, 'utf8'),
-        'text/plain'
+      await fs.promises.writeFile(
+        path.join(this.backupDir, `${backupId}_checksum.sha256`),
+        shaFileContent,
+        'utf8'
       );
 
       if (includeDocs && documentCount > 0) {
-        await archiveStorageService.uploadFile(
-          `${storagePrefix}/documents.json`,
-          docsJsonBuffer,
-          'application/json'
+        await fs.promises.writeFile(
+          path.join(this.backupDir, `${backupId}_documents.json`),
+          docsJsonBuffer
         );
       }
 
-      // 8. Verify Uploaded Artifact in DB2 Storage (Phase 14)
-      const listed = await archiveStorageService.listObjects(storagePrefix);
-      const uploadedDump = listed.find((item) => item.name === dumpFilename);
-
-      if (!uploadedDump) {
-        throw new Error('Backup Verification Failure: Uploaded database artifact was not found in Supabase #2 Storage.');
+      // 8. Verify Stored Artifact
+      if (!fs.existsSync(localDumpCopy)) {
+        throw new Error('Backup Verification Failure: Stored database artifact was not found.');
       }
 
       manifest.verificationStatus = 'VERIFIED';
       manifest.status = 'COMPLETED';
 
-      // 9. Upload Final Verified Manifest to DB2 Storage
-      const manifestBuffer = Buffer.from(JSON.stringify(manifest, null, 2), 'utf8');
-      await archiveStorageService.uploadFile(
-        `${storagePrefix}/manifest.json`,
-        manifestBuffer,
-        'application/json'
-      );
-
-      // 10. Write local cache in backupDir for instantaneous history retrieval and download caching
-      const localFilename = `srm_${backupId.toLowerCase()}_${dateSlug}.srmbackup`;
+      // 9. Write Verified Manifest
       const localManifestPath = path.join(this.backupDir, `${localFilename}.json`);
       await fs.promises.writeFile(localManifestPath, JSON.stringify(manifest, null, 2), 'utf8');
 
-      // Also cache database.sql.gz locally for download acceleration
-      const localDumpCopy = path.join(this.backupDir, `${backupId}_database.sql.gz`);
-      await fs.promises.copyFile(tempDumpPath, localDumpCopy);
-
       console.log(
-        `✅ [BackupService] Full backup successfully created and verified in Supabase #2 Storage (${totalRecords} records across all ${ORDERED_DOMAIN_TABLES.length} tables, ${dumpSizeBytes} bytes): ${storagePrefix}`
+        `✅ [BackupService] Full backup successfully created and verified (${totalRecords} records across all ${ORDERED_DOMAIN_TABLES.length} tables, ${dumpSizeBytes} bytes): ${localFilename}`
       );
 
       // 11. Record Audit Log
@@ -496,7 +479,7 @@ export class BackupService {
   }
 
   /**
-   * List all real backups from Supabase #2 Storage (with local cache support)
+   * List all real backups from local backup storage
    */
   public async listBackups(options?: { page?: number; limit?: number; type?: string }): Promise<{
     items: (BackupManifestDTO & { filename: string; storagePath?: string })[];
@@ -529,45 +512,7 @@ export class BackupService {
       } catch {}
     }
 
-    // 2. If Supabase #2 Storage is configured, sync manifests from cloud
-    if (archiveStorageService.isConfigured()) {
-      try {
-        const years = await archiveStorageService.listObjects('backups/full');
-        for (const yearItem of years) {
-          if (yearItem.name) {
-            const months = await archiveStorageService.listObjects(`backups/full/${yearItem.name}`);
-            for (const monthItem of months) {
-              if (monthItem.name) {
-                const folders = await archiveStorageService.listObjects(
-                  `backups/full/${yearItem.name}/${monthItem.name}`
-                );
-                for (const folder of folders) {
-                  if (folder.name && folder.name.startsWith('backup_')) {
-                    const prefix = `backups/full/${yearItem.name}/${monthItem.name}/${folder.name}`;
-                    try {
-                      const manifestBuf = await archiveStorageService.downloadFile(`${prefix}/manifest.json`);
-                      const manifest: BackupManifestDTO = JSON.parse(manifestBuf.toString('utf8'));
-                      if (manifest?.backupId && !itemsMap.has(manifest.backupId)) {
-                        itemsMap.set(manifest.backupId, {
-                          ...manifest,
-                          filename: `${manifest.backupId}.srmbackup`,
-                          storagePath: prefix,
-                        });
-                        // Cache locally
-                        const localPath = path.join(this.backupDir, `${manifest.backupId}.json`);
-                        await fs.promises.writeFile(localPath, manifestBuf);
-                      }
-                    } catch {}
-                  }
-                }
-              }
-            }
-          }
-        }
-      } catch (err: any) {
-        console.warn('[BackupService] Cloud listing notice:', err?.message || err);
-      }
-    }
+
 
     const items = Array.from(itemsMap.values());
     items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -607,24 +552,6 @@ export class BackupService {
 
     const expectedChecksum = matched.checksumSha256;
 
-    // Verify against DB2 Storage if configured
-    if (archiveStorageService.isConfigured() && matched.storagePath) {
-      try {
-        const shaBuffer = await archiveStorageService.downloadFile(`${matched.storagePath}/checksum.sha256`);
-        const shaContent = shaBuffer.toString('utf8').trim();
-        const storedSha = shaContent.split(/\s+/)[0];
-
-        if (storedSha && storedSha.toLowerCase() === expectedChecksum.toLowerCase()) {
-          return {
-            valid: true,
-            checksum: expectedChecksum,
-            errors: [],
-          };
-        }
-      } catch (cloudErr: any) {
-        console.warn('[BackupService] Cloud checksum check notice:', cloudErr?.message || cloudErr);
-      }
-    }
 
     // Verify against local file if present
     const localDump = path.join(this.backupDir, `${matched.backupId}_database.sql.gz`);
@@ -672,16 +599,7 @@ export class BackupService {
       }
     }
 
-    // 2. Fetch directly from Supabase #2 Storage
-    if (archiveStorageService.isConfigured() && matched?.storagePath) {
-      const dumpBuffer = await archiveStorageService.downloadFile(`${matched.storagePath}/database.sql.gz`);
-      const readable = Readable.from(dumpBuffer);
-      return {
-        stream: readable,
-        filename: downloadFilename,
-        contentType: 'application/gzip',
-      };
-    }
+
 
     // 3. Fallback: check legacy file path
     const fullPath = this.resolveBackupPath(backupIdOrFilename);
@@ -693,7 +611,7 @@ export class BackupService {
       };
     }
 
-    throw new Error(`Backup file '${backupIdOrFilename}' not found in Supabase #2 Storage or local cache.`);
+    throw new Error(`Backup file '${backupIdOrFilename}' not found in local storage.`);
   }
 
   /**
@@ -713,7 +631,7 @@ export class BackupService {
   }
 
   /**
-   * Delete Backup Snapshot from Supabase #2 Storage and local cache
+   * Delete Backup Snapshot from backup storage
    */
   public async deleteBackup(backupIdOrFilename: string, user?: { userId?: string }): Promise<boolean> {
     const list = await this.listBackups({ limit: 100 });
@@ -727,17 +645,7 @@ export class BackupService {
       throw new Error('Backup Delete Error: Cannot delete protected or pre-restore safety backup.');
     }
 
-    // 1. Delete from Supabase #2 Storage
-    if (archiveStorageService.isConfigured() && matched?.storagePath) {
-      try {
-        await archiveStorageService.deleteFile(`${matched.storagePath}/database.sql.gz`);
-        await archiveStorageService.deleteFile(`${matched.storagePath}/checksum.sha256`);
-        await archiveStorageService.deleteFile(`${matched.storagePath}/manifest.json`);
-        await archiveStorageService.deleteFile(`${matched.storagePath}/documents.json`);
-      } catch (err: any) {
-        console.warn('[BackupService] Cloud delete notice:', err?.message || err);
-      }
-    }
+
 
     // 2. Delete local files
     if (fs.existsSync(this.backupDir)) {
@@ -826,9 +734,18 @@ export class BackupService {
 
   public resolveBackupPath(backupIdOrFilename: string): string {
     const files = fs.existsSync(this.backupDir) ? fs.readdirSync(this.backupDir) : [];
-    const matched = files.find(
-      (f) => f.toLowerCase().includes(backupIdOrFilename.toLowerCase()) && !f.endsWith('.tmp')
-    );
+    // Prioritize real database dump archives (.sql.gz) over metadata json files
+    const matched =
+      files.find(
+        (f) =>
+          f.toLowerCase().includes(backupIdOrFilename.toLowerCase()) &&
+          (f.endsWith('.sql.gz') || f.endsWith('.srmbackup')) &&
+          !f.endsWith('.json') &&
+          !f.endsWith('.tmp')
+      ) ||
+      files.find(
+        (f) => f.toLowerCase().includes(backupIdOrFilename.toLowerCase()) && !f.endsWith('.tmp')
+      );
     return matched ? path.join(this.backupDir, matched) : path.join(this.backupDir, backupIdOrFilename);
   }
 }

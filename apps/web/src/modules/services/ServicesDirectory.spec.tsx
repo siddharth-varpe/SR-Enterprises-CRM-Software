@@ -164,6 +164,12 @@ describe('ServicesDirectory Component (Page 6)', () => {
     expect(screen.getByPlaceholderText(/Search by SRV #, customer, phone, serial #, or technician/i)).toBeInTheDocument();
   });
 
+  it('renders Edit button in service row actions and opens EditServiceModal', () => {
+    renderComponent();
+    const editButtons = screen.getAllByRole('button', { name: /edit/i });
+    expect(editButtons.length).toBeGreaterThan(0);
+  });
+
   it('renders flat baseline graph when all service metrics are 0', () => {
     const { container } = render(
       <ServiceSummaryCards

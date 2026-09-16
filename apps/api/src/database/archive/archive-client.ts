@@ -7,19 +7,18 @@ let archivePgClient: postgres.Sql | null = null;
 let archiveDbInstance: any = null;
 
 /**
- * Check whether Supabase #2 Archive Database credentials are configured
+ * Check whether Secondary Archive Database credentials are configured
  */
 export function isArchiveDatabaseConfigured(): boolean {
   return Boolean(env.ARCHIVE_DATABASE_URL && env.ARCHIVE_DATABASE_URL.trim() !== '');
 }
 
 /**
- * Initialize or retrieve isolated Supabase #2 Archive PostgreSQL connection.
- * Strictly isolated from Primary Supabase #1.
+ * Initialize or retrieve isolated Secondary Archive PostgreSQL connection.
  */
 export function getArchiveDatabaseClient(): { sql: postgres.Sql; db: any } {
   if (!isArchiveDatabaseConfigured()) {
-    throw new Error('Archive database (Supabase #2) is not configured. Please set ARCHIVE_DATABASE_URL in your environment.');
+    throw new Error('Archive database is not configured. Please set ARCHIVE_DATABASE_URL in your environment.');
   }
 
   if (archiveDbInstance && archivePgClient) {
@@ -27,9 +26,7 @@ export function getArchiveDatabaseClient(): { sql: postgres.Sql; db: any } {
   }
 
   const archiveUrl = env.ARCHIVE_DATABASE_URL!;
-  const isSupabasePooler = archiveUrl.includes(':6543') || archiveUrl.includes('pooler.supabase.com');
-  const isSupabase = isSupabasePooler || archiveUrl.includes('supabase.co');
-  const sslMode = isSupabase || archiveUrl.includes('sslmode=') || env.NODE_ENV === 'production' ? 'require' : undefined;
+  const sslMode = archiveUrl.includes('sslmode=require') || env.NODE_ENV === 'production' ? 'require' : undefined;
 
   try {
     archivePgClient = postgres(archiveUrl, {
@@ -37,24 +34,23 @@ export function getArchiveDatabaseClient(): { sql: postgres.Sql; db: any } {
       idle_timeout: Math.floor((env.DB_IDLE_TIMEOUT_MS || 30000) / 1000),
       connect_timeout: 10,
       ssl: sslMode as any,
-      prepare: isSupabasePooler ? false : true,
       onnotice: () => {},
     });
 
     archiveDbInstance = drizzle(archivePgClient, { schema });
     console.log(
-      `[Database #2 Archive] Connected to Supabase #2 PostgreSQL engine at: ${archiveUrl.replace(/:[^:@]+@/, ':****@')}`
+      `[Archive Database] Connected to Archive PostgreSQL engine at: ${archiveUrl.replace(/:[^:@]+@/, ':****@')}`
     );
 
     return { sql: archivePgClient, db: archiveDbInstance };
   } catch (err: any) {
-    console.error('[Database #2 Archive] Connection error:', err?.message || err);
+    console.error('[Archive Database] Connection error:', err?.message || err);
     throw err;
   }
 }
 
 /**
- * Proxy for Archive Database (Supabase #2) operations.
+ * Proxy for Archive Database operations.
  * Throws explicit descriptive error if accessed when unconfigured.
  */
 export const archiveDb: any = new Proxy(
@@ -68,7 +64,7 @@ export const archiveDb: any = new Proxy(
 );
 
 /**
- * Proxy for Archive SQL client (Supabase #2).
+ * Proxy for Archive SQL client.
  */
 export const archiveSql: any = new Proxy(
   function () {},
@@ -85,7 +81,7 @@ export const archiveSql: any = new Proxy(
 );
 
 /**
- * Close Supabase #2 Archive Database connections
+ * Close Archive Database connections
  */
 export async function closeArchiveDatabaseConnection(): Promise<void> {
   if (archivePgClient) {

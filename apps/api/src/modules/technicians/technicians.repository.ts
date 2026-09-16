@@ -317,7 +317,7 @@ export class TechniciansRepository {
       const result = await database.execute(query);
       const row = result[0] as any;
 
-      if (row && Number(row.total_technicians) > 0) {
+      if (row) {
         return {
           totalTechnicians: Number(row.total_technicians) || 0,
           activeTechnicians: Number(row.active_technicians) || 0,

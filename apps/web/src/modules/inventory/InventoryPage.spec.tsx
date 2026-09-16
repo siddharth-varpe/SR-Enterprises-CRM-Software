@@ -334,4 +334,109 @@ describe('InventoryPage Frontend Component', () => {
 
     expect(mockDelete).toHaveBeenCalledWith('item-1');
   });
+
+  it('11. Purchases tab renders View, Edit, and Delete action buttons for each purchase row', () => {
+    renderWithProviders(<InventoryPage />);
+
+    const purchasesTab = screen.getByRole('button', { name: /purchases \(inward\)/i });
+    fireEvent.click(purchasesTab);
+
+    expect(screen.getByTitle('View Purchase Details')).toBeInTheDocument();
+    expect(screen.getByTitle('Edit Purchase & Recalculate')).toBeInTheDocument();
+    expect(screen.getByTitle('Delete Purchase')).toBeInTheDocument();
+  });
+
+  it('12. Clicking View Purchase opens the View Purchase Modal', () => {
+    renderWithProviders(<InventoryPage />);
+
+    const purchasesTab = screen.getByRole('button', { name: /purchases \(inward\)/i });
+    fireEvent.click(purchasesTab);
+
+    const viewButton = screen.getByTitle('View Purchase Details');
+    fireEvent.click(viewButton);
+
+    expect(screen.getByText('Purchase Details')).toBeInTheDocument();
+    expect(screen.getByText('Inward inventory batch specification')).toBeInTheDocument();
+    expect(screen.getByText('Stock & Financial Breakdown')).toBeInTheDocument();
+  });
+
+  it('13. Clicking Edit Purchase opens the Edit Purchase Modal with recalculation notice', () => {
+    renderWithProviders(<InventoryPage />);
+
+    const purchasesTab = screen.getByRole('button', { name: /purchases \(inward\)/i });
+    fireEvent.click(purchasesTab);
+
+    const editButton = screen.getByTitle('Edit Purchase & Recalculate');
+    fireEvent.click(editButton);
+
+    expect(screen.getByText('Edit Purchase Record')).toBeInTheDocument();
+    expect(screen.getByText(/Stock & Calculation Notice:/i)).toBeInTheDocument();
+    expect(screen.getByText('Recalculated Inward Amount')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /save changes & recalculate/i })).toBeInTheDocument();
+  });
+
+  it('14. Clicking Delete Purchase opens Delete Purchase Confirmation Modal', () => {
+    renderWithProviders(<InventoryPage />);
+
+    const purchasesTab = screen.getByRole('button', { name: /purchases \(inward\)/i });
+    fireEvent.click(purchasesTab);
+
+    const deleteButton = screen.getByTitle('Delete Purchase');
+    fireEvent.click(deleteButton);
+
+    expect(screen.getByText('Delete Purchase Record?')).toBeInTheDocument();
+    expect(screen.getByText(/Are you sure you want to delete purchase:/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /delete & deduct stock/i })).toBeInTheDocument();
+  });
+
+  it('15. Sales tab renders View, Edit, and Delete action buttons for each sale row', () => {
+    renderWithProviders(<InventoryPage />);
+
+    const salesTab = screen.getByRole('button', { name: /sales \(outward\)/i });
+    fireEvent.click(salesTab);
+
+    expect(screen.getByTitle('View Sale Details')).toBeInTheDocument();
+    expect(screen.getByTitle('Edit Sale & Recalculate')).toBeInTheDocument();
+    expect(screen.getByTitle('Delete Sale')).toBeInTheDocument();
+  });
+
+  it('16. Clicking View Sale opens View Sale Modal and Clicking Edit opens Edit Sale Modal', () => {
+    renderWithProviders(<InventoryPage />);
+
+    const salesTab = screen.getByRole('button', { name: /sales \(outward\)/i });
+    fireEvent.click(salesTab);
+
+    // View Sale
+    const viewButton = screen.getByTitle('View Sale Details');
+    fireEvent.click(viewButton);
+
+    expect(screen.getByText('Sale Details')).toBeInTheDocument();
+    expect(screen.getByText('Sale Revenue & Profit Breakdown')).toBeInTheDocument();
+
+    // Close view modal
+    const closeButtons = screen.getAllByRole('button', { name: /close/i });
+    fireEvent.click(closeButtons[closeButtons.length - 1]);
+
+    // Edit Sale
+    const editButton = screen.getByTitle('Edit Sale & Recalculate');
+    fireEvent.click(editButton);
+
+    expect(screen.getByText('Edit Sale Record')).toBeInTheDocument();
+    expect(screen.getByText(/Recalculation Notice:/i)).toBeInTheDocument();
+    expect(screen.getByText('Recalculated Financial Impact')).toBeInTheDocument();
+  });
+
+  it('17. Clicking Delete Sale opens Delete Sale Confirmation Modal', () => {
+    renderWithProviders(<InventoryPage />);
+
+    const salesTab = screen.getByRole('button', { name: /sales \(outward\)/i });
+    fireEvent.click(salesTab);
+
+    const deleteButton = screen.getByTitle('Delete Sale');
+    fireEvent.click(deleteButton);
+
+    expect(screen.getByText('Delete Sale Record?')).toBeInTheDocument();
+    expect(screen.getByText(/Are you sure you want to delete sale:/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /delete & restore stock/i })).toBeInTheDocument();
+  });
 });

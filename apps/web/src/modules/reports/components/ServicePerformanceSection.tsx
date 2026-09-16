@@ -23,7 +23,7 @@ export const ServicePerformanceSection: React.FC<ServicePerformanceSectionProps>
   const pending = serviceData?.pendingServices ?? 0;
   const overdue = serviceData?.overdueServices ?? 0;
   const completionRate = serviceData?.completionRate ?? 0;
-  const avgTurnaround = serviceData?.avgTurnaroundHours ?? 3.8;
+  const avgTurnaround = serviceData?.avgTurnaroundHours ?? 0;
 
   const serviceSegments: DonutSegment[] = serviceData?.serviceTypeDistribution?.length
     ? serviceData.serviceTypeDistribution.map((s: any, idx: number) => ({
@@ -146,7 +146,7 @@ export const ServicePerformanceSection: React.FC<ServicePerformanceSectionProps>
           </div>
 
           <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-            <span>Avg Turnaround: {avgTurnaround} hrs</span>
+            <span>Avg Turnaround: {avgTurnaround > 0 ? `${avgTurnaround} hrs` : '—'}</span>
             <span className="font-semibold text-emerald-700">{completionRate}% Efficiency</span>
           </div>
         </div>

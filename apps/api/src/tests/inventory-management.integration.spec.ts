@@ -138,6 +138,29 @@ describe('Inventory Management Module (Spare Parts, Purchases, Sales & Profit An
 
     const refreshed = await inventoryManagementService.getItemById(item.id);
     expect(refreshed.currentStock).toBe(3);
+
+    // Verify persisted directly in database
+    const [dbSale] = await db
+      .select()
+      .from(inventorySales)
+      .where(eq(inventorySales.id, sale.id));
+    expect(dbSale).toBeDefined();
+    expect(dbSale.customerName).toBeNull();
+    expect(dbSale.customerPhone).toBeNull();
+    expect(Number(dbSale.totalSaleAmount)).toBe(250);
+
+    // Verify it is listed on the inventory page sales list
+    const salesList = await inventoryManagementService.getSales({ itemId: item.id });
+    const listed = salesList.data.find((s) => s.id === sale.id);
+    expect(listed).toBeDefined();
+    expect(listed?.customerName).toBeNull();
+
+    // Verify it feeds the inventory page graph and analytics series
+    const analytics = await inventoryManagementService.getAnalytics({ period: 'today' });
+    expect(analytics.kpis.totalSales).toBeGreaterThanOrEqual(250);
+    expect(analytics.dailySeries.length).toBeGreaterThan(0);
+    const todaySeries = analytics.dailySeries.find((d) => Number(d.sales) >= 250);
+    expect(todaySeries).toBeDefined();
   });
 
   it('4. Rejects sale when requested quantity exceeds available stock', async () => {
@@ -380,5 +403,150 @@ describe('Inventory Management Module (Spare Parts, Purchases, Sales & Profit An
     // Item must still exist
     const [fetched] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, item.id));
     expect(fetched).toBeDefined();
+  });
+
+  it('12. Updates a purchase and verifies item stock and financial recalculations', async () => {
+    const item = await inventoryManagementService.createItem({
+      name: 'Purchase Edit Test Item',
+      category: 'Filter',
+      purchasePrice: 100,
+      sellingPrice: 200,
+      initialStock: 10,
+    });
+
+    // Create a purchase of 10 units @ 120 (total: 1200)
+    const purchase = await inventoryManagementService.createPurchase({
+      itemId: item.id,
+      supplierName: 'Initial Supplier',
+      purchaseDate: new Date().toISOString(),
+      quantity: 10,
+      purchasePricePerUnit: 120,
+    });
+
+    let updatedItem = await inventoryManagementService.getItemById(item.id);
+    expect(updatedItem.currentStock).toBe(20); // 10 initial + 10 purchase
+
+    // Edit purchase: change quantity from 10 to 15, and unit price to 130
+    const editedPurchase = await inventoryManagementService.updatePurchase(purchase.id, {
+      quantity: 15,
+      purchasePricePerUnit: 130,
+      supplierName: 'Updated Supplier',
+    });
+
+    expect(Number(editedPurchase.quantity)).toBe(15);
+    expect(Number(editedPurchase.purchasePricePerUnit)).toBe(130);
+    expect(Number(editedPurchase.totalAmount)).toBe(1950);
+    expect(editedPurchase.supplierName).toBe('Updated Supplier');
+
+    // Stock should now be 25 (10 initial + 15 purchase)
+    updatedItem = await inventoryManagementService.getItemById(item.id);
+    expect(updatedItem.currentStock).toBe(25);
+  });
+
+  it('13. Deletes a purchase and verifies item stock is deducted', async () => {
+    const item = await inventoryManagementService.createItem({
+      name: 'Purchase Delete Test Item',
+      category: 'Spares',
+      purchasePrice: 50,
+      sellingPrice: 100,
+      initialStock: 5,
+    });
+
+    const purchase = await inventoryManagementService.createPurchase({
+      itemId: item.id,
+      supplierName: 'Supplier Del',
+      purchaseDate: new Date().toISOString(),
+      quantity: 8,
+      purchasePricePerUnit: 50,
+    });
+
+    let updatedItem = await inventoryManagementService.getItemById(item.id);
+    expect(updatedItem.currentStock).toBe(13); // 5 + 8
+
+    // Delete purchase
+    const delResult = await inventoryManagementService.deletePurchase(purchase.id);
+    expect(delResult.success).toBe(true);
+
+    // Stock should be reduced back to 5
+    updatedItem = await inventoryManagementService.getItemById(item.id);
+    expect(updatedItem.currentStock).toBe(5);
+
+    // Fetching purchase by ID should now fail
+    await expect(inventoryManagementService.getPurchaseById(purchase.id)).rejects.toThrow(
+      /Purchase record not found/
+    );
+  });
+
+  it('14. Updates a sale and verifies stock, revenue, and profit recalculations', async () => {
+    const item = await inventoryManagementService.createItem({
+      name: 'Sale Edit Test Item',
+      category: 'Accessory',
+      purchasePrice: 200,
+      sellingPrice: 400,
+      initialStock: 20,
+    });
+
+    // Record sale: 5 units @ 400 (Sale: 2000, Cost: 1000, Profit: 1000)
+    const sale = await inventoryManagementService.createSale({
+      itemId: item.id,
+      customerName: 'Alice',
+      saleDate: new Date().toISOString(),
+      quantity: 5,
+      sellingPricePerUnit: 400,
+    });
+
+    let updatedItem = await inventoryManagementService.getItemById(item.id);
+    expect(updatedItem.currentStock).toBe(15); // 20 - 5
+
+    // Edit sale: increase quantity to 8 units @ 450
+    // Additional 3 units sold, stock should decrease from 15 to 12
+    const updatedSale = await inventoryManagementService.updateSale(sale.id, {
+      quantity: 8,
+      sellingPricePerUnit: 450,
+      customerName: 'Alice M',
+    });
+
+    expect(Number(updatedSale.quantity)).toBe(8);
+    expect(Number(updatedSale.sellingPricePerUnit)).toBe(450);
+    expect(Number(updatedSale.totalSaleAmount)).toBe(3600); // 8 * 450
+    expect(Number(updatedSale.totalCostAmount)).toBe(1600); // 8 * 200
+    expect(Number(updatedSale.profit)).toBe(2000); // 3600 - 1600
+    expect(updatedSale.customerName).toBe('Alice M');
+
+    updatedItem = await inventoryManagementService.getItemById(item.id);
+    expect(updatedItem.currentStock).toBe(12);
+  });
+
+  it('15. Deletes a sale and verifies stock restoration', async () => {
+    const item = await inventoryManagementService.createItem({
+      name: 'Sale Delete Test Item',
+      category: 'Fitting',
+      purchasePrice: 30,
+      sellingPrice: 80,
+      initialStock: 10,
+    });
+
+    const sale = await inventoryManagementService.createSale({
+      itemId: item.id,
+      saleDate: new Date().toISOString(),
+      quantity: 4,
+      sellingPricePerUnit: 80,
+    });
+
+    let updatedItem = await inventoryManagementService.getItemById(item.id);
+    expect(updatedItem.currentStock).toBe(6); // 10 - 4
+
+    // Delete the sale
+    const delResult = await inventoryManagementService.deleteSale(sale.id);
+    expect(delResult.success).toBe(true);
+
+    // Stock should be restored back to 10
+    updatedItem = await inventoryManagementService.getItemById(item.id);
+    expect(updatedItem.currentStock).toBe(10);
+
+    // Fetching sale by ID should fail
+    await expect(inventoryManagementService.getSaleById(sale.id)).rejects.toThrow(
+      /Sale record not found/
+    );
   });
 });

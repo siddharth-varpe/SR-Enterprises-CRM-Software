@@ -5,12 +5,49 @@ import { authenticate } from '../../middleware/auth';
 import { requirePermission } from '../../middleware/rbac';
 import { db } from '../../database/client';
 import { sql } from 'drizzle-orm';
-import { supabaseStorage } from '../documents/supabase-storage.service';
 import { memorySales } from '../sales/sales.repository';
 import { memoryInvoices, memoryInvoiceItems } from '../invoices/invoices.repository';
 import { memoryPayments } from '../payments/payments.repository';
 import { memoryServices } from '../services/services.repository';
 import { memoryCustomers } from '../customers/customer.repository';
+import { memoryTechnicians } from '../technicians/technicians.repository';
+import { memoryJobCards } from '../job-cards/job-cards.repository';
+import { memoryWarranties } from '../warranties/warranties.repository';
+import { memoryReminders } from '../reminders/reminders.repository';
+import { memoryAssets } from '../assets/assets.repository';
+import {
+  memoryInventoryItems,
+  memoryPurchases,
+  memorySales as memoryInventorySales,
+} from '../inventory-management/inventory-management.repository';
+import { memoryRentals, memoryRentalPayments } from '../rentals/rental.repository';
+import {
+  memoryNotifications,
+  memoryNotificationPreferences,
+} from '../notifications/notifications.repository';
+
+export function resetAllMemoryStores() {
+  try {
+    memorySales.length = 0;
+    memoryInvoices.length = 0;
+    memoryInvoiceItems.length = 0;
+    memoryPayments.length = 0;
+    memoryServices.length = 0;
+    memoryCustomers.length = 0;
+    memoryTechnicians.length = 0;
+    memoryJobCards.length = 0;
+    memoryWarranties.length = 0;
+    memoryReminders.length = 0;
+    memoryAssets.length = 0;
+    memoryInventoryItems.length = 0;
+    memoryPurchases.length = 0;
+    memoryInventorySales.length = 0;
+    memoryRentals.length = 0;
+    memoryRentalPayments.length = 0;
+    memoryNotifications.length = 0;
+    memoryNotificationPreferences.clear();
+  } catch {}
+}
 
 /**
  * System routes for testing end-to-end API connectivity and system maintenance
@@ -42,6 +79,20 @@ export const systemRoutes: FastifyPluginAsync = async (fastify) => {
     { preHandler: [authenticate, requirePermission('settings.manage')] },
     async (_request, reply) => {
       const tablesToClean = [
+        'job_cards',
+        'service_schedules',
+        'services',
+        'warranty_events',
+        'warranties',
+        'customer_assets',
+        'payments',
+        'invoice_items',
+        'invoices',
+        'sale_items',
+        'sales',
+        'customer_addresses',
+        'customer_custom_labels',
+        'customer_activities',
         'rental_events',
         'rental_payments',
         'rentals',
@@ -49,19 +100,6 @@ export const systemRoutes: FastifyPluginAsync = async (fastify) => {
         'inventory_purchases',
         'inventory_items',
         'reminders',
-        'payments',
-        'invoice_items',
-        'invoices',
-        'sale_items',
-        'sales',
-        'warranty_events',
-        'warranties',
-        'job_cards',
-        'service_schedules',
-        'services',
-        'customer_assets',
-        'customer_addresses',
-        'customer_activities',
         'technicians',
         'inquiry_events',
         'inquiries',
@@ -96,6 +134,9 @@ export const systemRoutes: FastifyPluginAsync = async (fastify) => {
       } catch (err: any) {
         results['business_sequences'] = `error: ${err.message}`;
       }
+
+      // Reset all in-memory repositories
+      resetAllMemoryStores();
 
       return reply.status(200).send({
         success: true,
@@ -136,7 +177,7 @@ export const systemRoutes: FastifyPluginAsync = async (fastify) => {
    * POST /api/v1/system/delete-crm-database
    * Complete purge of all CRM data across database level and cloud/local storage levels.
    * Permanently clears all business tables, resets sequence counters to 0,
-   * purges all objects from Supabase Storage bucket, and wipes local documents/backups.
+   * purges all objects from storage, and wipes local documents/backups.
    * Super Admin account and system roles are preserved for uninterrupted access.
    */
   fastify.post(
@@ -144,6 +185,20 @@ export const systemRoutes: FastifyPluginAsync = async (fastify) => {
     { preHandler: [authenticate, requirePermission('settings.manage')] },
     async (_request, reply) => {
       const allBusinessTables = [
+        'job_cards',
+        'service_schedules',
+        'services',
+        'warranty_events',
+        'warranties',
+        'customer_assets',
+        'payments',
+        'invoice_items',
+        'invoices',
+        'sale_items',
+        'sales',
+        'customer_addresses',
+        'customer_custom_labels',
+        'customer_activities',
         'rental_events',
         'rental_payments',
         'rentals',
@@ -151,20 +206,6 @@ export const systemRoutes: FastifyPluginAsync = async (fastify) => {
         'inventory_purchases',
         'inventory_items',
         'reminders',
-        'payments',
-        'invoice_items',
-        'invoices',
-        'sale_items',
-        'sales',
-        'warranty_events',
-        'warranties',
-        'job_cards',
-        'service_schedules',
-        'services',
-        'customer_assets',
-        'customer_addresses',
-        'customer_custom_labels',
-        'customer_activities',
         'technicians',
         'inquiry_events',
         'inquiries',
@@ -202,39 +243,36 @@ export const systemRoutes: FastifyPluginAsync = async (fastify) => {
         dbResults['business_sequences'] = `skipped/error: ${err.message}`;
       }
 
-      // 3. Purge all files from Supabase Storage
+      // 3. Clean physical storage directories
       let storagePurgedCount = 0;
       try {
-        const purgeRes = await supabaseStorage.purgeAllStorage();
-        storagePurgedCount = purgeRes.deletedCount;
+        const cleanDirRecursively = (dirPath: string) => {
+          if (!fs.existsSync(dirPath)) return;
+          const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+          for (const entry of entries) {
+            const fullPath = path.join(dirPath, entry.name);
+            if (entry.isDirectory()) {
+              cleanDirRecursively(fullPath);
+              try { fs.rmdirSync(fullPath); } catch {}
+            } else if (entry.isFile()) {
+              try {
+                fs.unlinkSync(fullPath);
+                storagePurgedCount++;
+              } catch {}
+            }
+          }
+        };
+
+        const localDirs = ['./storage/documents', './storage/temp', './backups', './.crm-data/backups', './.crm-data/documents'];
+        for (const dir of localDirs) {
+          cleanDirRecursively(dir);
+        }
       } catch (err: any) {
         console.warn('[Delete CRM Database] Storage purge error:', err?.message || err);
       }
 
-      // 4. Clean local storage directories if any exist
-      try {
-        const localDirs = ['./storage', './.crm-data/backups', './.crm-data/documents'];
-        for (const dir of localDirs) {
-          if (fs.existsSync(dir)) {
-            const files = fs.readdirSync(dir);
-            for (const file of files) {
-              try {
-                fs.unlinkSync(path.join(dir, file));
-              } catch {}
-            }
-          }
-        }
-      } catch {}
-
-      // 5. Reset memory store arrays
-      try {
-        memorySales.length = 0;
-        memoryInvoices.length = 0;
-        memoryInvoiceItems.length = 0;
-        memoryPayments.length = 0;
-        memoryServices.length = 0;
-        memoryCustomers.length = 0;
-      } catch {}
+      // 5. Reset all in-memory store arrays
+      resetAllMemoryStores();
 
       return reply.status(200).send({
         success: true,

@@ -59,36 +59,98 @@ export class AnalyticsRepository {
       const endIso = bounds.endDate instanceof Date ? bounds.endDate.toISOString() : String(bounds.endDate);
       const saleDateCol = sql`COALESCE(${sales.saleDate}, ${sales.createdAt})`;
 
-      const [summary] = await db
-        .select({
-          totalAmount: sql<string>`COALESCE(SUM(${sales.totalAmount}), 0)`,
-          count: count(sales.id),
-        })
-        .from(sales)
-        .where(
-          and(
-            gte(saleDateCol, startIso),
-            lte(saleDateCol, endIso),
-            eq(sales.status, 'COMPLETED')
-          )
-        );
+      const [
+        [summary],
+        trendRaw,
+        byProduct,
+        byCustomerType,
+        byCategoryRaw,
+      ] = await Promise.all([
+        db
+          .select({
+            totalAmount: sql<string>`COALESCE(SUM(${sales.totalAmount}), 0)`,
+            count: count(sales.id),
+          })
+          .from(sales)
+          .where(
+            and(
+              gte(saleDateCol, startIso),
+              lte(saleDateCol, endIso),
+              eq(sales.status, 'COMPLETED')
+            )
+          ),
 
-      const trendRaw = await db
-        .select({
-          date: sql<string>`TO_CHAR(DATE_TRUNC('day', ${saleDateCol}), 'YYYY-MM-DD')`,
-          value: sql<string>`COALESCE(SUM(${sales.totalAmount}), 0)`,
-          secondaryValue: sql<string>`COUNT(${sales.id})`,
-        })
-        .from(sales)
-        .where(
-          and(
-            gte(saleDateCol, startIso),
-            lte(saleDateCol, endIso),
-            eq(sales.status, 'COMPLETED')
+        db
+          .select({
+            date: sql<string>`TO_CHAR(DATE_TRUNC('day', ${saleDateCol}), 'YYYY-MM-DD')`,
+            value: sql<string>`COALESCE(SUM(${sales.totalAmount}), 0)`,
+            secondaryValue: sql<string>`COUNT(${sales.id})`,
+          })
+          .from(sales)
+          .where(
+            and(
+              gte(saleDateCol, startIso),
+              lte(saleDateCol, endIso),
+              eq(sales.status, 'COMPLETED')
+            )
           )
-        )
-        .groupBy(sql`DATE_TRUNC('day', ${saleDateCol})`)
-        .orderBy(sql`DATE_TRUNC('day', ${saleDateCol}) ASC`);
+          .groupBy(sql`DATE_TRUNC('day', ${saleDateCol})`)
+          .orderBy(sql`DATE_TRUNC('day', ${saleDateCol}) ASC`),
+
+        db
+          .select({
+            productName: saleItems.productNameSnapshot,
+            count: sql<string>`COUNT(${saleItems.id})`,
+            totalAmount: sql<string>`COALESCE(SUM(${saleItems.lineTotal}), 0)`,
+          })
+          .from(saleItems)
+          .innerJoin(sales, eq(saleItems.saleId, sales.id))
+          .where(
+            and(
+              gte(saleDateCol, startIso),
+              lte(saleDateCol, endIso),
+              eq(sales.status, 'COMPLETED')
+            )
+          )
+          .groupBy(saleItems.productNameSnapshot)
+          .orderBy(sql`SUM(${saleItems.lineTotal}) DESC`, sql`${saleItems.productNameSnapshot} ASC`)
+          .limit(10),
+
+        db
+          .select({
+            type: customers.customerType,
+            count: count(sales.id),
+            totalAmount: sql<string>`COALESCE(SUM(${sales.totalAmount}), 0)`,
+          })
+          .from(sales)
+          .innerJoin(customers, eq(sales.customerId, customers.id))
+          .where(
+            and(
+              gte(saleDateCol, startIso),
+              lte(saleDateCol, endIso),
+              eq(sales.status, 'COMPLETED')
+            )
+          )
+          .groupBy(customers.customerType),
+
+        db
+          .select({
+            productType: products.productType,
+            count: count(saleItems.id),
+            totalAmount: sql<string>`COALESCE(SUM(${saleItems.lineTotal}), 0)`,
+          })
+          .from(saleItems)
+          .innerJoin(sales, eq(saleItems.saleId, sales.id))
+          .innerJoin(products, eq(saleItems.productId, products.id))
+          .where(
+            and(
+              gte(saleDateCol, startIso),
+              lte(saleDateCol, endIso),
+              eq(sales.status, 'COMPLETED')
+            )
+          )
+          .groupBy(products.productType),
+      ]);
 
       // Ensure continuous date timeline
       const dateMap = new Map<string, { value: number; secondaryValue: number }>();
@@ -105,84 +167,14 @@ export class AnalyticsRepository {
         }
       }
 
-      let totalSalesAmount = Number(summary?.totalAmount || 0);
-      let totalSalesCount = Number(summary?.count || 0);
-
-      // Merge memorySales if DB is empty or has fewer
-      for (const s of memorySales) {
-        const sDate = s.saleDate ? new Date(s.saleDate) : (s.createdAt ? new Date(s.createdAt) : null);
-        if (sDate && sDate >= bounds.startDate && sDate <= bounds.endDate && s.status === 'COMPLETED') {
-          totalSalesAmount += Number(s.totalAmount || 0);
-          totalSalesCount++;
-          const dayKey = sDate.toISOString().split('T')[0];
-          const existing = dateMap.get(dayKey);
-          if (existing) {
-            existing.value += Number(s.totalAmount || 0);
-            existing.secondaryValue += 1;
-          }
-        }
-      }
+      const totalSalesAmount = Number(summary?.totalAmount || 0);
+      const totalSalesCount = Number(summary?.count || 0);
 
       const trend = Array.from(dateMap.entries()).map(([date, val]) => ({
         date,
         value: val.value,
         secondaryValue: val.secondaryValue,
       }));
-
-      const byProduct = await db
-        .select({
-          productName: saleItems.productNameSnapshot,
-          count: sql<string>`COUNT(${saleItems.id})`,
-          totalAmount: sql<string>`COALESCE(SUM(${saleItems.lineTotal}), 0)`,
-        })
-        .from(saleItems)
-        .innerJoin(sales, eq(saleItems.saleId, sales.id))
-        .where(
-          and(
-            gte(saleDateCol, startIso),
-            lte(saleDateCol, endIso),
-            eq(sales.status, 'COMPLETED')
-          )
-        )
-        .groupBy(saleItems.productNameSnapshot)
-        .orderBy(sql`SUM(${saleItems.lineTotal}) DESC`, sql`${saleItems.productNameSnapshot} ASC`)
-        .limit(10);
-
-      const byCustomerType = await db
-        .select({
-          type: customers.customerType,
-          count: count(sales.id),
-          totalAmount: sql<string>`COALESCE(SUM(${sales.totalAmount}), 0)`,
-        })
-        .from(sales)
-        .innerJoin(customers, eq(sales.customerId, customers.id))
-        .where(
-          and(
-            gte(saleDateCol, startIso),
-            lte(saleDateCol, endIso),
-            eq(sales.status, 'COMPLETED')
-          )
-        )
-        .groupBy(customers.customerType);
-
-      // Real database breakdown by product category joining products
-      const byCategoryRaw = await db
-        .select({
-          productType: products.productType,
-          count: count(saleItems.id),
-          totalAmount: sql<string>`COALESCE(SUM(${saleItems.lineTotal}), 0)`,
-        })
-        .from(saleItems)
-        .innerJoin(sales, eq(saleItems.saleId, sales.id))
-        .innerJoin(products, eq(saleItems.productId, products.id))
-        .where(
-          and(
-            gte(saleDateCol, startIso),
-            lte(saleDateCol, endIso),
-            eq(sales.status, 'COMPLETED')
-          )
-        )
-        .groupBy(products.productType);
 
       const categoryMap: Record<string, { count: number; totalAmount: number }> = {
         'RO Machines': { count: 0, totalAmount: 0 },
@@ -256,152 +248,163 @@ export class AnalyticsRepository {
       const invoiceDateCol = sql`COALESCE(${invoices.invoiceDate}, ${invoices.createdAt})`;
       const paymentDateCol = sql`COALESCE(${payments.paymentDate}, ${payments.createdAt})`;
 
-      // Invoices issued/finalized in period (Excludes DRAFT and CANCELLED)
-      const [invoiceSummary] = await db
-        .select({
-          grossBilled: sql<string>`COALESCE(SUM(${invoices.totalAmount}), 0)`,
-          count: count(invoices.id),
-        })
-        .from(invoices)
-        .where(
-          and(
-            gte(invoiceDateCol, startIso),
-            lte(invoiceDateCol, endIso),
-            sql`${invoices.status} IN ('ISSUED', 'PAID', 'PARTIALLY_PAID', 'OVERDUE')`,
-            sql`${invoices.cancelledAt} IS NULL`
-          )
-        );
+      const [
+        [invoiceSummary],
+        [paymentSummary],
+        [billedAll],
+        [paidAll],
+        [overdueSummary],
+        [serviceInvoiceSummary],
+        invoiceStatuses,
+        billedTrend,
+        collectedTrend,
+      ] = await Promise.all([
+        // Invoices issued/finalized in period (Excludes DRAFT and CANCELLED)
+        db
+          .select({
+            grossBilled: sql<string>`COALESCE(SUM(${invoices.totalAmount}), 0)`,
+            count: count(invoices.id),
+          })
+          .from(invoices)
+          .where(
+            and(
+              gte(invoiceDateCol, startIso),
+              lte(invoiceDateCol, endIso),
+              sql`${invoices.status} IN ('ISSUED', 'PAID', 'PARTIALLY_PAID', 'OVERDUE')`,
+              sql`${invoices.cancelledAt} IS NULL`
+            )
+          ),
 
-      // Payments collected in period (Excludes CANCELLED/FAILED)
-      const [paymentSummary] = await db
-        .select({
-          amountCollected: sql<string>`COALESCE(SUM(${payments.amount}), 0)`,
-          count: count(payments.id),
-        })
-        .from(payments)
-        .where(
-          and(
-            gte(paymentDateCol, startIso),
-            lte(paymentDateCol, endIso),
-            eq(payments.status, 'COMPLETED')
-          )
-        );
+        // Payments collected in period (Excludes CANCELLED/FAILED)
+        db
+          .select({
+            amountCollected: sql<string>`COALESCE(SUM(${payments.amount}), 0)`,
+            count: count(payments.id),
+          })
+          .from(payments)
+          .where(
+            and(
+              gte(paymentDateCol, startIso),
+              lte(paymentDateCol, endIso),
+              eq(payments.status, 'COMPLETED')
+            )
+          ),
 
-      // Overall outstanding calculations: active invoices billed minus payments received
-      const [billedAll] = await db
-        .select({
-          total: sql<string>`COALESCE(SUM(${invoices.totalAmount}), 0)`,
-        })
-        .from(invoices)
-        .where(
-          and(
-            sql`${invoices.status} IN ('ISSUED', 'PARTIALLY_PAID', 'OVERDUE')`,
-            sql`${invoices.cancelledAt} IS NULL`
-          )
-        );
+        // Overall outstanding calculations: active invoices billed minus payments received
+        db
+          .select({
+            total: sql<string>`COALESCE(SUM(${invoices.totalAmount}), 0)`,
+          })
+          .from(invoices)
+          .where(
+            and(
+              sql`${invoices.status} IN ('ISSUED', 'PARTIALLY_PAID', 'OVERDUE')`,
+              sql`${invoices.cancelledAt} IS NULL`
+            )
+          ),
 
-      const [paidAll] = await db
-        .select({
-          total: sql<string>`COALESCE(SUM(${payments.amount}), 0)`,
-        })
-        .from(payments)
-        .innerJoin(invoices, eq(payments.invoiceId, invoices.id))
-        .where(
-          and(
-            eq(payments.status, 'COMPLETED'),
-            sql`${invoices.status} IN ('ISSUED', 'PARTIALLY_PAID', 'OVERDUE')`,
-            sql`${invoices.cancelledAt} IS NULL`
+        db
+          .select({
+            total: sql<string>`COALESCE(SUM(${payments.amount}), 0)`,
+          })
+          .from(payments)
+          .innerJoin(invoices, eq(payments.invoiceId, invoices.id))
+          .where(
+            and(
+              eq(payments.status, 'COMPLETED'),
+              sql`${invoices.status} IN ('ISSUED', 'PARTIALLY_PAID', 'OVERDUE')`,
+              sql`${invoices.cancelledAt} IS NULL`
+            )
+          ),
+
+        db
+          .select({
+            overdue: sql<string>`COALESCE(SUM(${invoices.totalAmount}), 0)`,
+            count: count(invoices.id),
+          })
+          .from(invoices)
+          .where(
+            and(
+              sql`(${invoices.status} = 'OVERDUE' OR (${invoices.status} IN ('ISSUED', 'PARTIALLY_PAID') AND ${invoices.dueDate} < CURRENT_DATE))`,
+              sql`${invoices.cancelledAt} IS NULL`
+            )
+          ),
+
+        // Service revenue vs Product revenue breakdown
+        db
+          .select({
+            partsRevenue: sql<string>`COALESCE(SUM(CASE WHEN ${invoiceItems.itemType} = 'SPARE_PART' THEN ${invoiceItems.lineTotal} ELSE 0 END), 0)`,
+            labourRevenue: sql<string>`COALESCE(SUM(CASE WHEN ${invoiceItems.itemType} = 'SERVICE' THEN ${invoiceItems.lineTotal} ELSE 0 END), 0)`,
+            feesRevenue: sql<string>`COALESCE(SUM(CASE WHEN ${invoiceItems.itemType} = 'CUSTOM' THEN ${invoiceItems.lineTotal} ELSE 0 END), 0)`,
+            totalServiceRevenue: sql<string>`COALESCE(SUM(${invoiceItems.lineTotal}), 0)`,
+          })
+          .from(invoiceItems)
+          .innerJoin(invoices, eq(invoiceItems.invoiceId, invoices.id))
+          .where(
+            and(
+              gte(invoiceDateCol, startIso),
+              lte(invoiceDateCol, endIso),
+              sql`${invoices.status} IN ('ISSUED', 'PAID', 'PARTIALLY_PAID', 'OVERDUE')`,
+              sql`${invoices.cancelledAt} IS NULL`,
+              sql`(${invoices.jobCardId} IS NOT NULL OR ${invoices.serviceId} IS NOT NULL)`
+            )
+          ),
+
+        // Invoice status breakdown
+        db
+          .select({
+            status: invoices.status,
+            count: count(invoices.id),
+          })
+          .from(invoices)
+          .where(
+            and(
+              gte(invoiceDateCol, startIso),
+              lte(invoiceDateCol, endIso),
+              sql`${invoices.cancelledAt} IS NULL`
+            )
           )
-        );
+          .groupBy(invoices.status),
+
+        // Daily revenue trend (Billed vs Collected)
+        db
+          .select({
+            date: sql<string>`TO_CHAR(DATE_TRUNC('day', ${invoiceDateCol}), 'YYYY-MM-DD')`,
+            billed: sql<string>`COALESCE(SUM(${invoices.totalAmount}), 0)`,
+          })
+          .from(invoices)
+          .where(
+            and(
+              gte(invoiceDateCol, startIso),
+              lte(invoiceDateCol, endIso),
+              sql`${invoices.status} IN ('ISSUED', 'PAID', 'PARTIALLY_PAID', 'OVERDUE')`,
+              sql`${invoices.cancelledAt} IS NULL`
+            )
+          )
+          .groupBy(sql`DATE_TRUNC('day', ${invoiceDateCol})`),
+
+        db
+          .select({
+            date: sql<string>`TO_CHAR(DATE_TRUNC('day', ${paymentDateCol}), 'YYYY-MM-DD')`,
+            collected: sql<string>`COALESCE(SUM(${payments.amount}), 0)`,
+          })
+          .from(payments)
+          .where(
+            and(
+              gte(paymentDateCol, startIso),
+              lte(paymentDateCol, endIso),
+              eq(payments.status, 'COMPLETED')
+            )
+          )
+          .groupBy(sql`DATE_TRUNC('day', ${paymentDateCol})`),
+      ]);
 
       const totalBilledActive = Number(billedAll?.total || 0);
       const totalPaidActive = Number(paidAll?.total || 0);
       let outstanding = Math.max(0, totalBilledActive - totalPaidActive);
-
-      const [overdueSummary] = await db
-        .select({
-          overdue: sql<string>`COALESCE(SUM(${invoices.totalAmount}), 0)`,
-          count: count(invoices.id),
-        })
-        .from(invoices)
-        .where(
-          and(
-            sql`(${invoices.status} = 'OVERDUE' OR (${invoices.status} IN ('ISSUED', 'PARTIALLY_PAID') AND ${invoices.dueDate} < CURRENT_DATE))`,
-            sql`${invoices.cancelledAt} IS NULL`
-          )
-        );
-
-      // Service revenue vs Product revenue breakdown
-      const [serviceInvoiceSummary] = await db
-        .select({
-          partsRevenue: sql<string>`COALESCE(SUM(CASE WHEN ${invoiceItems.itemType} = 'SPARE_PART' THEN ${invoiceItems.lineTotal} ELSE 0 END), 0)`,
-          labourRevenue: sql<string>`COALESCE(SUM(CASE WHEN ${invoiceItems.itemType} = 'SERVICE' THEN ${invoiceItems.lineTotal} ELSE 0 END), 0)`,
-          feesRevenue: sql<string>`COALESCE(SUM(CASE WHEN ${invoiceItems.itemType} = 'CUSTOM' THEN ${invoiceItems.lineTotal} ELSE 0 END), 0)`,
-          totalServiceRevenue: sql<string>`COALESCE(SUM(${invoiceItems.lineTotal}), 0)`,
-        })
-        .from(invoiceItems)
-        .innerJoin(invoices, eq(invoiceItems.invoiceId, invoices.id))
-        .where(
-          and(
-            gte(invoiceDateCol, startIso),
-            lte(invoiceDateCol, endIso),
-            sql`${invoices.status} IN ('ISSUED', 'PAID', 'PARTIALLY_PAID', 'OVERDUE')`,
-            sql`${invoices.cancelledAt} IS NULL`,
-            sql`(${invoices.jobCardId} IS NOT NULL OR ${invoices.serviceId} IS NOT NULL)`
-          )
-        );
-
-      // Invoice status breakdown
-      const invoiceStatuses = await db
-        .select({
-          status: invoices.status,
-          count: count(invoices.id),
-        })
-        .from(invoices)
-        .where(
-          and(
-            gte(invoiceDateCol, startIso),
-            lte(invoiceDateCol, endIso),
-            sql`${invoices.cancelledAt} IS NULL`
-          )
-        )
-        .groupBy(invoices.status);
-
       let paidCount = Number(invoiceStatuses.find((s) => s.status === 'PAID')?.count || 0);
       let partialCount = Number(invoiceStatuses.find((s) => s.status === 'PARTIALLY_PAID')?.count || 0);
       const overdueCount = Number(overdueSummary?.count || 0);
-
-      // Daily revenue trend (Billed vs Collected)
-      const billedTrend = await db
-        .select({
-          date: sql<string>`TO_CHAR(DATE_TRUNC('day', ${invoiceDateCol}), 'YYYY-MM-DD')`,
-          billed: sql<string>`COALESCE(SUM(${invoices.totalAmount}), 0)`,
-        })
-        .from(invoices)
-        .where(
-          and(
-            gte(invoiceDateCol, startIso),
-            lte(invoiceDateCol, endIso),
-            sql`${invoices.status} IN ('ISSUED', 'PAID', 'PARTIALLY_PAID', 'OVERDUE')`,
-            sql`${invoices.cancelledAt} IS NULL`
-          )
-        )
-        .groupBy(sql`DATE_TRUNC('day', ${invoiceDateCol})`);
-
-      const collectedTrend = await db
-        .select({
-          date: sql<string>`TO_CHAR(DATE_TRUNC('day', ${paymentDateCol}), 'YYYY-MM-DD')`,
-          collected: sql<string>`COALESCE(SUM(${payments.amount}), 0)`,
-        })
-        .from(payments)
-        .where(
-          and(
-            gte(paymentDateCol, startIso),
-            lte(paymentDateCol, endIso),
-            eq(payments.status, 'COMPLETED')
-          )
-        )
-        .groupBy(sql`DATE_TRUNC('day', ${paymentDateCol})`);
 
       // Continuous date series
       const dateMap = new Map<string, { billed: number; collected: number }>();
@@ -424,37 +427,14 @@ export class AnalyticsRepository {
         }
       });
 
-      let grossBilled = Number(invoiceSummary?.grossBilled || 0);
-      let amountCollected = Number(paymentSummary?.amountCollected || 0);
+      const grossBilled = Number(invoiceSummary?.grossBilled || 0);
+      const amountCollected = Number(paymentSummary?.amountCollected || 0);
       const overdue = Number(overdueSummary?.overdue || 0);
-      let totalInvoicesIssued = Number(invoiceSummary?.count || 0);
+      const totalInvoicesIssued = Number(invoiceSummary?.count || 0);
 
-      // Merge memoryInvoices
-      for (const inv of memoryInvoices) {
-        const iDate = inv.invoiceDate ? new Date(inv.invoiceDate) : (inv.createdAt ? new Date(inv.createdAt) : null);
-        if (iDate && iDate >= bounds.startDate && iDate <= bounds.endDate && !inv.cancelledAt) {
-          grossBilled += Number(inv.totalAmount || 0);
-          totalInvoicesIssued++;
-          if (inv.status === 'PAID') paidCount++;
-          if (inv.status === 'PARTIALLY_PAID') partialCount++;
-          const dayKey = iDate.toISOString().split('T')[0];
-          const existing = dateMap.get(dayKey);
-          if (existing) existing.billed += Number(inv.totalAmount || 0);
-        }
+      if (totalBilledActive === 0 && grossBilled > 0) {
+        outstanding = Math.max(0, grossBilled - amountCollected);
       }
-
-      // Merge memoryPayments
-      for (const p of memoryPayments) {
-        const pDate = p.paymentDate ? new Date(p.paymentDate) : (p.createdAt ? new Date(p.createdAt) : null);
-        if (pDate && pDate >= bounds.startDate && pDate <= bounds.endDate && p.status === 'COMPLETED') {
-          amountCollected += Number(p.amount || 0);
-          const dayKey = pDate.toISOString().split('T')[0];
-          const existing = dateMap.get(dayKey);
-          if (existing) existing.collected += Number(p.amount || 0);
-        }
-      }
-
-      outstanding = Math.max(0, grossBilled - amountCollected);
 
       const revenueTrend = Array.from(dateMap.entries())
         .map(([date, val]) => ({ date, ...val }))
@@ -528,55 +508,61 @@ export class AnalyticsRepository {
       const endIso = bounds.endDate instanceof Date ? bounds.endDate.toISOString() : String(bounds.endDate);
       const paymentDateCol = sql`COALESCE(${payments.paymentDate}, ${payments.createdAt})`;
 
-      const [summary] = await db
-        .select({
-          totalAmount: sql<string>`COALESCE(SUM(${payments.amount}), 0)`,
-          count: count(payments.id),
-        })
-        .from(payments)
-        .where(
-          and(
-            gte(paymentDateCol, startIso),
-            lte(paymentDateCol, endIso),
-            eq(payments.status, 'COMPLETED')
-          )
-        );
+      const [
+        [summary],
+        methods,
+        trendRaw,
+      ] = await Promise.all([
+        db
+          .select({
+            totalAmount: sql<string>`COALESCE(SUM(${payments.amount}), 0)`,
+            count: count(payments.id),
+          })
+          .from(payments)
+          .where(
+            and(
+              gte(paymentDateCol, startIso),
+              lte(paymentDateCol, endIso),
+              eq(payments.status, 'COMPLETED')
+            )
+          ),
 
-      let totalAmount = Number(summary?.totalAmount || 0);
-      let totalCount = Number(summary?.count || 0);
-
-      const methods = await db
-        .select({
-          method: payments.paymentMethod,
-          count: count(payments.id),
-          totalAmount: sql<string>`COALESCE(SUM(${payments.amount}), 0)`,
-        })
-        .from(payments)
-        .where(
-          and(
-            gte(paymentDateCol, startIso),
-            lte(paymentDateCol, endIso),
-            eq(payments.status, 'COMPLETED')
+        db
+          .select({
+            method: payments.paymentMethod,
+            count: count(payments.id),
+            totalAmount: sql<string>`COALESCE(SUM(${payments.amount}), 0)`,
+          })
+          .from(payments)
+          .where(
+            and(
+              gte(paymentDateCol, startIso),
+              lte(paymentDateCol, endIso),
+              eq(payments.status, 'COMPLETED')
+            )
           )
-        )
-        .groupBy(payments.paymentMethod);
+          .groupBy(payments.paymentMethod),
 
-      const trendRaw = await db
-        .select({
-          date: sql<string>`TO_CHAR(DATE_TRUNC('day', ${paymentDateCol}), 'YYYY-MM-DD')`,
-          value: sql<string>`COALESCE(SUM(${payments.amount}), 0)`,
-          secondaryValue: sql<string>`COUNT(${payments.id})`,
-        })
-        .from(payments)
-        .where(
-          and(
-            gte(paymentDateCol, startIso),
-            lte(paymentDateCol, endIso),
-            eq(payments.status, 'COMPLETED')
+        db
+          .select({
+            date: sql<string>`TO_CHAR(DATE_TRUNC('day', ${paymentDateCol}), 'YYYY-MM-DD')`,
+            value: sql<string>`COALESCE(SUM(${payments.amount}), 0)`,
+            secondaryValue: sql<string>`COUNT(${payments.id})`,
+          })
+          .from(payments)
+          .where(
+            and(
+              gte(paymentDateCol, startIso),
+              lte(paymentDateCol, endIso),
+              eq(payments.status, 'COMPLETED')
+            )
           )
-        )
-        .groupBy(sql`DATE_TRUNC('day', ${paymentDateCol})`)
-        .orderBy(sql`DATE_TRUNC('day', ${paymentDateCol}) ASC`);
+          .groupBy(sql`DATE_TRUNC('day', ${paymentDateCol})`)
+          .orderBy(sql`DATE_TRUNC('day', ${paymentDateCol}) ASC`),
+      ]);
+
+      const totalAmount = Number(summary?.totalAmount || 0);
+      const totalCount = Number(summary?.count || 0);
 
       const dateMap = new Map<string, { value: number; secondaryValue: number }>();
       const dateSeries = generateDateSeries(bounds.startDate, bounds.endDate);
@@ -591,21 +577,6 @@ export class AnalyticsRepository {
           });
         }
       });
-
-      // Merge memoryPayments
-      for (const p of memoryPayments) {
-        const pDate = p.paymentDate ? new Date(p.paymentDate) : (p.createdAt ? new Date(p.createdAt) : null);
-        if (pDate && pDate >= bounds.startDate && pDate <= bounds.endDate && p.status === 'COMPLETED') {
-          totalAmount += Number(p.amount || 0);
-          totalCount++;
-          const dayKey = pDate.toISOString().split('T')[0];
-          const existing = dateMap.get(dayKey);
-          if (existing) {
-            existing.value += Number(p.amount || 0);
-            existing.secondaryValue += 1;
-          }
-        }
-      }
 
       const collectionTrend = Array.from(dateMap.entries()).map(([date, val]) => ({
         date,
@@ -668,40 +639,73 @@ export class AnalyticsRepository {
    */
   async getCustomerMetrics(bounds: DateRangeBounds) {
     try {
-      const [totalCust] = await db
-        .select({ count: count(customers.id) })
-        .from(customers)
-        .where(eq(customers.status, 'ACTIVE'));
+      const [
+        [totalCust],
+        [newCust],
+        [activeServicesCust],
+        trendRaw,
+        typeBreakdown,
+        [activeAssetsSummary],
+        [outstandingBalanceSummary],
+      ] = await Promise.all([
+        db
+          .select({ count: count(customers.id) })
+          .from(customers)
+          .where(eq(customers.status, 'ACTIVE')),
 
-      const [newCust] = await db
-        .select({ count: count(customers.id) })
-        .from(customers)
-        .where(
-          and(
-            gte(customers.createdAt, bounds.startDate),
-            lte(customers.createdAt, bounds.endDate)
+        db
+          .select({ count: count(customers.id) })
+          .from(customers)
+          .where(
+            and(
+              gte(customers.createdAt, bounds.startDate),
+              lte(customers.createdAt, bounds.endDate)
+            )
+          ),
+
+        db
+          .select({ count: sql<string>`COUNT(DISTINCT ${services.customerId})` })
+          .from(services)
+          .where(sql`${services.status} IN ('SCHEDULED', 'ASSIGNED', 'IN_PROGRESS')`),
+
+        db
+          .select({
+            date: sql<string>`TO_CHAR(DATE_TRUNC('day', ${customers.createdAt}), 'YYYY-MM-DD')`,
+            value: sql<string>`COUNT(${customers.id})`,
+          })
+          .from(customers)
+          .where(
+            and(
+              gte(customers.createdAt, bounds.startDate),
+              lte(customers.createdAt, bounds.endDate)
+            )
           )
-        );
+          .groupBy(sql`DATE_TRUNC('day', ${customers.createdAt})`)
+          .orderBy(sql`DATE_TRUNC('day', ${customers.createdAt}) ASC`),
 
-      const [activeServicesCust] = await db
-        .select({ count: sql<string>`COUNT(DISTINCT ${services.customerId})` })
-        .from(services)
-        .where(sql`${services.status} IN ('SCHEDULED', 'ASSIGNED', 'IN_PROGRESS')`);
+        db
+          .select({
+            type: customers.customerType,
+            count: count(customers.id),
+          })
+          .from(customers)
+          .groupBy(customers.customerType),
 
-      const trendRaw = await db
-        .select({
-          date: sql<string>`TO_CHAR(DATE_TRUNC('day', ${customers.createdAt}), 'YYYY-MM-DD')`,
-          value: sql<string>`COUNT(${customers.id})`,
-        })
-        .from(customers)
-        .where(
-          and(
-            gte(customers.createdAt, bounds.startDate),
-            lte(customers.createdAt, bounds.endDate)
-          )
-        )
-        .groupBy(sql`DATE_TRUNC('day', ${customers.createdAt})`)
-        .orderBy(sql`DATE_TRUNC('day', ${customers.createdAt}) ASC`);
+        db
+          .select({ count: sql<string>`COUNT(DISTINCT ${customerAssets.customerId})` })
+          .from(customerAssets)
+          .where(eq(customerAssets.status, 'ACTIVE')),
+
+        db
+          .select({ count: sql<string>`COUNT(DISTINCT ${invoices.customerId})` })
+          .from(invoices)
+          .where(
+            and(
+              sql`${invoices.status} IN ('ISSUED', 'PARTIALLY_PAID', 'OVERDUE')`,
+              sql`${invoices.cancelledAt} IS NULL`
+            )
+          ),
+      ]);
 
       const dateMap = new Map<string, number>();
       const dateSeries = generateDateSeries(bounds.startDate, bounds.endDate);
@@ -719,35 +723,10 @@ export class AnalyticsRepository {
         value,
       }));
 
-      const typeBreakdown = await db
-        .select({
-          type: customers.customerType,
-          count: count(customers.id),
-        })
-        .from(customers)
-        .groupBy(customers.customerType);
-
       let total = Number(totalCust?.count || 0);
       if (total === 0 && memoryCustomers.length > 0) {
         total = memoryCustomers.length;
       }
-
-      // Real active assets count grouped by customer
-      const [activeAssetsSummary] = await db
-        .select({ count: sql<string>`COUNT(DISTINCT ${customerAssets.customerId})` })
-        .from(customerAssets)
-        .where(eq(customerAssets.status, 'ACTIVE'));
-
-      // Real count of distinct customers with outstanding dues
-      const [outstandingBalanceSummary] = await db
-        .select({ count: sql<string>`COUNT(DISTINCT ${invoices.customerId})` })
-        .from(invoices)
-        .where(
-          and(
-            sql`${invoices.status} IN ('ISSUED', 'PARTIALLY_PAID', 'OVERDUE')`,
-            sql`${invoices.cancelledAt} IS NULL`
-          )
-        );
 
       return {
         totalCustomers: total,
@@ -789,30 +768,32 @@ export class AnalyticsRepository {
       const endIso = bounds.endDate instanceof Date ? bounds.endDate.toISOString() : String(bounds.endDate);
       const saleDateCol = sql`COALESCE(${sales.saleDate}, ${sales.createdAt})`;
 
-      const topProductsRaw = await db
-        .select({
-          productId: saleItems.productId,
-          productName: saleItems.productNameSnapshot,
-          unitsSold: sql<string>`COALESCE(SUM(${saleItems.quantity}), 0)`,
-          revenue: sql<string>`COALESCE(SUM(${saleItems.lineTotal}), 0)`,
-        })
-        .from(saleItems)
-        .innerJoin(sales, eq(saleItems.saleId, sales.id))
-        .where(
-          and(
-            gte(saleDateCol, startIso),
-            lte(saleDateCol, endIso),
-            eq(sales.status, 'COMPLETED')
+      const [topProductsRaw, [totalProducts]] = await Promise.all([
+        db
+          .select({
+            productId: saleItems.productId,
+            productName: saleItems.productNameSnapshot,
+            unitsSold: sql<string>`COALESCE(SUM(${saleItems.quantity}), 0)`,
+            revenue: sql<string>`COALESCE(SUM(${saleItems.lineTotal}), 0)`,
+          })
+          .from(saleItems)
+          .innerJoin(sales, eq(saleItems.saleId, sales.id))
+          .where(
+            and(
+              gte(saleDateCol, startIso),
+              lte(saleDateCol, endIso),
+              eq(sales.status, 'COMPLETED')
+            )
           )
-        )
-        .groupBy(saleItems.productId, saleItems.productNameSnapshot)
-        .orderBy(sql`SUM(${saleItems.lineTotal}) DESC`, sql`${saleItems.productNameSnapshot} ASC`)
-        .limit(10);
+          .groupBy(saleItems.productId, saleItems.productNameSnapshot)
+          .orderBy(sql`SUM(${saleItems.lineTotal}) DESC`, sql`${saleItems.productNameSnapshot} ASC`)
+          .limit(10),
 
-      const [totalProducts] = await db
-        .select({ count: count(products.id) })
-        .from(products)
-        .where(eq(products.isActive, true));
+        db
+          .select({ count: count(products.id) })
+          .from(products)
+          .where(eq(products.isActive, true)),
+      ]);
 
       const totalUnitsSold = topProductsRaw.reduce((sum, p) => sum + Number(p.unitsSold || 0), 0);
       const totalProductRevenue = topProductsRaw.reduce((sum, p) => sum + Number(p.revenue || 0), 0);
@@ -827,7 +808,7 @@ export class AnalyticsRepository {
           category: 'RO Equipment',
           unitsSold: Number(p.unitsSold || 0),
           revenue: Number(p.revenue || 0),
-          trendPercentage: 12.5,
+          trendPercentage: 0,
           stockStatus: 'in_stock' as const,
         })),
       };
@@ -846,34 +827,36 @@ export class AnalyticsRepository {
    */
   async getInventoryMetrics() {
     try {
-      const [stockStats] = await db
-        .select({
-          totalUnits: sql<string>`COALESCE(SUM(${inventoryBalances.currentStock}), 0)`,
-          lowStockCount: sql<string>`COUNT(CASE WHEN ${inventoryBalances.currentStock} <= ${inventoryBalances.minimumAlertStock} AND ${inventoryBalances.currentStock} > 0 THEN 1 END)`,
-          outOfStockCount: sql<string>`COUNT(CASE WHEN ${inventoryBalances.currentStock} = 0 THEN 1 END)`,
-          healthyStockCount: sql<string>`COUNT(CASE WHEN ${inventoryBalances.currentStock} > ${inventoryBalances.minimumAlertStock} THEN 1 END)`,
-        })
-        .from(inventoryBalances);
+      const [[stockStats], [valSummary], reorderAlerts] = await Promise.all([
+        db
+          .select({
+            totalUnits: sql<string>`COALESCE(SUM(${inventoryBalances.currentStock}), 0)`,
+            lowStockCount: sql<string>`COUNT(CASE WHEN ${inventoryBalances.currentStock} <= ${inventoryBalances.minimumAlertStock} AND ${inventoryBalances.currentStock} > 0 THEN 1 END)`,
+            outOfStockCount: sql<string>`COUNT(CASE WHEN ${inventoryBalances.currentStock} = 0 THEN 1 END)`,
+            healthyStockCount: sql<string>`COUNT(CASE WHEN ${inventoryBalances.currentStock} > ${inventoryBalances.minimumAlertStock} THEN 1 END)`,
+          })
+          .from(inventoryBalances),
 
-      const [valSummary] = await db
-        .select({
-          totalValue: sql<string>`COALESCE(SUM(${inventoryBalances.currentStock} * ${products.unitPrice}), 0)`,
-        })
-        .from(inventoryBalances)
-        .innerJoin(products, eq(inventoryBalances.productId, products.id));
+        db
+          .select({
+            totalValue: sql<string>`COALESCE(SUM(${inventoryBalances.currentStock} * ${products.unitPrice}), 0)`,
+          })
+          .from(inventoryBalances)
+          .innerJoin(products, eq(inventoryBalances.productId, products.id)),
 
-      const reorderAlerts = await db
-        .select({
-          id: products.id,
-          name: products.name,
-          sku: products.sku,
-          currentStock: inventoryBalances.currentStock,
-          minStock: inventoryBalances.minimumAlertStock,
-        })
-        .from(inventoryBalances)
-        .innerJoin(products, eq(inventoryBalances.productId, products.id))
-        .where(sql`${inventoryBalances.currentStock} <= ${inventoryBalances.minimumAlertStock}`)
-        .limit(10);
+        db
+          .select({
+            id: products.id,
+            name: products.name,
+            sku: products.sku,
+            currentStock: inventoryBalances.currentStock,
+            minStock: inventoryBalances.minimumAlertStock,
+          })
+          .from(inventoryBalances)
+          .innerJoin(products, eq(inventoryBalances.productId, products.id))
+          .where(sql`${inventoryBalances.currentStock} <= ${inventoryBalances.minimumAlertStock}`)
+          .limit(10),
+      ]);
 
       return {
         totalStockUnits: Number(stockStats?.totalUnits || 0),
@@ -907,81 +890,90 @@ export class AnalyticsRepository {
    */
   async getServiceMetrics(bounds: DateRangeBounds) {
     try {
-      const [summary] = await db
-        .select({
-          total: count(services.id),
-        })
-        .from(services)
-        .where(
-          and(
-            gte(services.createdAt, bounds.startDate),
-            lte(services.createdAt, bounds.endDate)
-          )
-        );
+      const [
+        [summary],
+        [completed],
+        [overdue],
+        typeBreakdown,
+        classBreakdown,
+        trendRaw,
+      ] = await Promise.all([
+        db
+          .select({
+            total: count(services.id),
+          })
+          .from(services)
+          .where(
+            and(
+              gte(services.createdAt, bounds.startDate),
+              lte(services.createdAt, bounds.endDate)
+            )
+          ),
 
-      const [completed] = await db
-        .select({
-          count: count(services.id),
-        })
-        .from(services)
-        .where(
-          and(
-            gte(services.createdAt, bounds.startDate),
-            lte(services.createdAt, bounds.endDate),
-            eq(services.status, 'COMPLETED')
-          )
-        );
+        db
+          .select({
+            count: count(services.id),
+          })
+          .from(services)
+          .where(
+            and(
+              gte(services.createdAt, bounds.startDate),
+              lte(services.createdAt, bounds.endDate),
+              eq(services.status, 'COMPLETED')
+            )
+          ),
 
-      const [overdue] = await db
-        .select({
-          count: count(services.id),
-        })
-        .from(services)
-        .where(eq(services.status, 'OVERDUE'));
+        db
+          .select({
+            count: count(services.id),
+          })
+          .from(services)
+          .where(eq(services.status, 'OVERDUE')),
 
-      const typeBreakdown = await db
-        .select({
-          type: services.serviceType,
-          count: count(services.id),
-        })
-        .from(services)
-        .where(
-          and(
-            gte(services.createdAt, bounds.startDate),
-            lte(services.createdAt, bounds.endDate)
+        db
+          .select({
+            type: services.serviceType,
+            count: count(services.id),
+          })
+          .from(services)
+          .where(
+            and(
+              gte(services.createdAt, bounds.startDate),
+              lte(services.createdAt, bounds.endDate)
+            )
           )
-        )
-        .groupBy(services.serviceType);
+          .groupBy(services.serviceType),
 
-      const classBreakdown = await db
-        .select({
-          classification: services.serviceClassification,
-          count: count(services.id),
-        })
-        .from(services)
-        .where(
-          and(
-            gte(services.createdAt, bounds.startDate),
-            lte(services.createdAt, bounds.endDate)
+        db
+          .select({
+            classification: services.serviceClassification,
+            count: count(services.id),
+          })
+          .from(services)
+          .where(
+            and(
+              gte(services.createdAt, bounds.startDate),
+              lte(services.createdAt, bounds.endDate)
+            )
           )
-        )
-        .groupBy(services.serviceClassification);
+          .groupBy(services.serviceClassification),
 
-      const trendRaw = await db
-        .select({
-          date: sql<string>`TO_CHAR(DATE_TRUNC('day', ${services.createdAt}), 'YYYY-MM-DD')`,
-          scheduled: sql<string>`COUNT(${services.id})`,
-          completed: sql<string>`COUNT(CASE WHEN ${services.status} = 'COMPLETED' THEN 1 END)`,
-        })
-        .from(services)
-        .where(
-          and(
-            gte(services.createdAt, bounds.startDate),
-            lte(services.createdAt, bounds.endDate)
+        db
+          .select({
+            date: sql<string>`TO_CHAR(DATE_TRUNC('day', ${services.createdAt}), 'YYYY-MM-DD')`,
+            scheduled: sql<string>`COUNT(${services.id})`,
+            completed: sql<string>`COUNT(CASE WHEN ${services.status} = 'COMPLETED' THEN 1 END)`,
+          })
+          .from(services)
+          .where(
+            and(
+              gte(services.createdAt, bounds.startDate),
+              lte(services.createdAt, bounds.endDate)
+            )
           )
-        )
-        .groupBy(sql`DATE_TRUNC('day', ${services.createdAt})`)
-        .orderBy(sql`DATE_TRUNC('day', ${services.createdAt}) ASC`);
+          .groupBy(sql`DATE_TRUNC('day', ${services.createdAt})`)
+          .orderBy(sql`DATE_TRUNC('day', ${services.createdAt}) ASC`),
+      ]);
 
       const dateMap = new Map<string, { scheduled: number; completed: number }>();
       const dateSeries = generateDateSeries(bounds.startDate, bounds.endDate);
@@ -1046,46 +1038,100 @@ export class AnalyticsRepository {
    */
   async getJobCardMetrics(bounds: DateRangeBounds) {
     try {
-      const [summary] = await db
-        .select({
-          total: count(jobCards.id),
-        })
-        .from(jobCards)
-        .where(
-          and(
-            gte(jobCards.createdAt, bounds.startDate),
-            lte(jobCards.createdAt, bounds.endDate)
-          )
-        );
+      const [
+        [summary],
+        statuses,
+        priorityBreakdown,
+        typeBreakdown,
+        trendRaw,
+        [avgDuration],
+      ] = await Promise.all([
+        db
+          .select({
+            total: count(jobCards.id),
+          })
+          .from(jobCards)
+          .where(
+            and(
+              gte(jobCards.createdAt, bounds.startDate),
+              lte(jobCards.createdAt, bounds.endDate)
+            )
+          ),
 
-      const statuses = await db
-        .select({
-          status: jobCards.status,
-          count: count(jobCards.id),
-        })
-        .from(jobCards)
-        .where(
-          and(
-            gte(jobCards.createdAt, bounds.startDate),
-            lte(jobCards.createdAt, bounds.endDate)
+        db
+          .select({
+            status: jobCards.status,
+            count: count(jobCards.id),
+          })
+          .from(jobCards)
+          .where(
+            and(
+              gte(jobCards.createdAt, bounds.startDate),
+              lte(jobCards.createdAt, bounds.endDate)
+            )
           )
-        )
-        .groupBy(jobCards.status);
+          .groupBy(jobCards.status),
 
-      const priorityBreakdown = await db
-        .select({
-          priority: services.priority,
-          count: count(jobCards.id),
-        })
-        .from(jobCards)
-        .innerJoin(services, eq(jobCards.serviceId, services.id))
-        .where(
-          and(
-            gte(jobCards.createdAt, bounds.startDate),
-            lte(jobCards.createdAt, bounds.endDate)
+        db
+          .select({
+            priority: services.priority,
+            count: count(jobCards.id),
+          })
+          .from(jobCards)
+          .innerJoin(services, eq(jobCards.serviceId, services.id))
+          .where(
+            and(
+              gte(jobCards.createdAt, bounds.startDate),
+              lte(jobCards.createdAt, bounds.endDate)
+            )
           )
-        )
-        .groupBy(services.priority);
+          .groupBy(services.priority),
+
+        db
+          .select({
+            serviceType: services.serviceType,
+            count: count(jobCards.id),
+          })
+          .from(jobCards)
+          .innerJoin(services, eq(jobCards.serviceId, services.id))
+          .where(
+            and(
+              gte(jobCards.createdAt, bounds.startDate),
+              lte(jobCards.createdAt, bounds.endDate)
+            )
+          )
+          .groupBy(services.serviceType),
+
+        db
+          .select({
+            date: sql<string>`TO_CHAR(DATE_TRUNC('day', ${jobCards.createdAt}), 'YYYY-MM-DD')`,
+            value: count(jobCards.id),
+          })
+          .from(jobCards)
+          .where(
+            and(
+              gte(jobCards.createdAt, bounds.startDate),
+              lte(jobCards.createdAt, bounds.endDate)
+            )
+          )
+          .groupBy(sql`DATE_TRUNC('day', ${jobCards.createdAt})`)
+          .orderBy(sql`DATE_TRUNC('day', ${jobCards.createdAt}) ASC`),
+
+        db
+          .select({
+            avgHours: sql<string>`COALESCE(AVG(EXTRACT(EPOCH FROM (${jobCards.completedAt} - ${jobCards.startedAt})) / 3600), 0)`,
+          })
+          .from(jobCards)
+          .where(
+            and(
+              gte(jobCards.createdAt, bounds.startDate),
+              lte(jobCards.createdAt, bounds.endDate),
+              eq(jobCards.status, 'COMPLETED'),
+              sql`${jobCards.startedAt} IS NOT NULL`,
+              sql`${jobCards.completedAt} IS NOT NULL`
+            )
+          ),
+      ]);
 
       const total = Number(summary?.total || 0);
       const completedCount = Number(statuses.find((s) => s.status === 'COMPLETED' || s.status === 'CLOSED')?.count || 0);
@@ -1094,42 +1140,10 @@ export class AnalyticsRepository {
       const cancelledCount = Number(statuses.find((s) => (s.status as string) === 'CANCELLED')?.count || 0);
       const openCount = Math.max(0, total - completedCount - cancelledCount);
 
-      // Real service type distribution from database joins
-      const typeBreakdown = await db
-        .select({
-          serviceType: services.serviceType,
-          count: count(jobCards.id),
-        })
-        .from(jobCards)
-        .innerJoin(services, eq(jobCards.serviceId, services.id))
-        .where(
-          and(
-            gte(jobCards.createdAt, bounds.startDate),
-            lte(jobCards.createdAt, bounds.endDate)
-          )
-        )
-        .groupBy(services.serviceType);
-
       const jobsByType = typeBreakdown.map((t) => ({
         type: (t.serviceType || 'GENERAL_SERVICE').replace(/_/g, ' '),
         count: Number(t.count || 0),
       }));
-
-      // Real timeline daily job trends
-      const trendRaw = await db
-        .select({
-          date: sql<string>`TO_CHAR(DATE_TRUNC('day', ${jobCards.createdAt}), 'YYYY-MM-DD')`,
-          value: count(jobCards.id),
-        })
-        .from(jobCards)
-        .where(
-          and(
-            gte(jobCards.createdAt, bounds.startDate),
-            lte(jobCards.createdAt, bounds.endDate)
-          )
-        )
-        .groupBy(sql`DATE_TRUNC('day', ${jobCards.createdAt})`)
-        .orderBy(sql`DATE_TRUNC('day', ${jobCards.createdAt}) ASC`);
 
       const dateMap = new Map<string, number>();
       const dateSeries = generateDateSeries(bounds.startDate, bounds.endDate);
@@ -1147,21 +1161,6 @@ export class AnalyticsRepository {
         value,
       }));
 
-      // Real SLA average completion duration in hours from startedAt and completedAt
-      const [avgDuration] = await db
-        .select({
-          avgHours: sql<string>`COALESCE(AVG(EXTRACT(EPOCH FROM (${jobCards.completedAt} - ${jobCards.startedAt})) / 3600), 0)`,
-        })
-        .from(jobCards)
-        .where(
-          and(
-            gte(jobCards.createdAt, bounds.startDate),
-            lte(jobCards.createdAt, bounds.endDate),
-            eq(jobCards.status, 'COMPLETED'),
-            sql`${jobCards.startedAt} IS NOT NULL`,
-            sql`${jobCards.completedAt} IS NOT NULL`
-          )
-        );
       const averageCompletionHours = Math.round(Number(avgDuration?.avgHours || 0) * 10) / 10;
 
       return {
@@ -1204,60 +1203,80 @@ export class AnalyticsRepository {
    */
   async getTechnicianMetrics(bounds: DateRangeBounds) {
     try {
-      const techList = await db
-        .select({
-          id: technicians.id,
-          phone: technicians.phone,
-          status: technicians.status,
-          fullName: users.displayName,
-        })
-        .from(technicians)
-        .innerJoin(users, eq(technicians.userId, users.id))
-        .where(eq(technicians.status, 'ACTIVE'));
+      const [techList, jobStatsRows] = await Promise.all([
+        db
+          .select({
+            id: technicians.id,
+            phone: technicians.phone,
+            status: technicians.status,
+            fullName: users.displayName,
+          })
+          .from(technicians)
+          .innerJoin(users, eq(technicians.userId, users.id))
+          .where(eq(technicians.status, 'ACTIVE')),
 
-      const techBreakdown = await Promise.all(
-        techList.map(async (t) => {
-          const [jobStats] = await db
-            .select({
-              totalAssigned: count(jobCards.id),
-              completed: sql<string>`COUNT(CASE WHEN ${jobCards.status} IN ('COMPLETED', 'CLOSED') THEN 1 END)`,
-            })
-            .from(jobCards)
-            .where(
-              and(
-                eq(jobCards.technicianId, t.id),
-                gte(jobCards.createdAt, bounds.startDate),
-                lte(jobCards.createdAt, bounds.endDate)
-              )
-            );
+        db
+          .select({
+            technicianId: jobCards.technicianId,
+            totalAssigned: count(jobCards.id),
+            completed: sql<string>`COUNT(CASE WHEN ${jobCards.status} IN ('COMPLETED', 'CLOSED') THEN 1 END)`,
+            avgHours: sql<string>`COALESCE(AVG(CASE WHEN ${jobCards.status} IN ('COMPLETED', 'CLOSED') AND ${jobCards.startedAt} IS NOT NULL AND ${jobCards.completedAt} IS NOT NULL THEN EXTRACT(EPOCH FROM (${jobCards.completedAt} - ${jobCards.startedAt})) / 3600 END), 0)`,
+          })
+          .from(jobCards)
+          .where(
+            and(
+              sql`${jobCards.technicianId} IS NOT NULL`,
+              gte(jobCards.createdAt, bounds.startDate),
+              lte(jobCards.createdAt, bounds.endDate)
+            )
+          )
+          .groupBy(jobCards.technicianId),
+      ]);
 
-          const assigned = Number(jobStats?.totalAssigned || 0);
-          const completed = Number(jobStats?.completed || 0);
-          const open = Math.max(0, assigned - completed);
-          const completionRate = assigned > 0 ? Math.round((completed / assigned) * 100) : 100;
+      const statsMap = new Map<string, { totalAssigned: number; completed: number; avgHours: number }>();
+      for (const row of jobStatsRows) {
+        if (row.technicianId) {
+          statsMap.set(row.technicianId, {
+            totalAssigned: Number(row.totalAssigned || 0),
+            completed: Number(row.completed || 0),
+            avgHours: Math.round(Number(row.avgHours || 0) * 10) / 10,
+          });
+        }
+      }
 
-          return {
-            technicianId: t.id,
-            technicianName: t.fullName || 'Technician',
-            phone: t.phone || '',
-            status: t.status || 'ACTIVE',
-            assignedJobs: assigned,
-            completedJobs: completed,
-            openJobs: open,
-            completionRate,
-            averageCompletionHours: 3.8,
-          };
-        })
-      );
+      const techBreakdown = techList.map((t) => {
+        const stats = statsMap.get(t.id);
+        const assigned = stats?.totalAssigned || 0;
+        const completed = stats?.completed || 0;
+        const open = Math.max(0, assigned - completed);
+        const completionRate = assigned > 0 ? Math.round((completed / assigned) * 100) : 100;
+        const avgHours = stats?.avgHours || 0;
+
+        return {
+          technicianId: t.id,
+          technicianName: t.fullName || 'Technician',
+          phone: t.phone || '',
+          status: t.status || 'ACTIVE',
+          assignedJobs: assigned,
+          completedJobs: completed,
+          openJobs: open,
+          completionRate,
+          averageCompletionHours: avgHours,
+        };
+      });
 
       const totalAssigned = techBreakdown.reduce((sum, t) => sum + t.assignedJobs, 0);
       const totalCompleted = techBreakdown.reduce((sum, t) => sum + t.completedJobs, 0);
+      const completedTechs = techBreakdown.filter((t) => t.completedJobs > 0 && t.averageCompletionHours > 0);
+      const workforceAverageCompletionHours = completedTechs.length > 0
+        ? Math.round((completedTechs.reduce((sum, t) => sum + t.averageCompletionHours, 0) / completedTechs.length) * 10) / 10
+        : 0;
 
       return {
         activeTechniciansCount: techList.length,
         totalAssignedJobs: totalAssigned,
         totalCompletedJobs: totalCompleted,
-        workforceAverageCompletionHours: 3.9,
+        workforceAverageCompletionHours,
         technicianBreakdown: techBreakdown,
       };
     } catch (_err) {
@@ -1276,40 +1295,50 @@ export class AnalyticsRepository {
    */
   async getWarrantyMetrics(_bounds: DateRangeBounds) {
     try {
-      const [active] = await db
-        .select({ count: count(warranties.id) })
-        .from(warranties)
-        .where(and(eq(warranties.status, 'ACTIVE'), sql`${warranties.endDate} >= CURRENT_DATE`));
+      const [
+        [active],
+        [expiring7],
+        [expiring15],
+        [expiring30],
+        [expired],
+        [warrantyServices],
+        [paidServices],
+      ] = await Promise.all([
+        db
+          .select({ count: count(warranties.id) })
+          .from(warranties)
+          .where(and(eq(warranties.status, 'ACTIVE'), sql`${warranties.endDate} >= CURRENT_DATE`)),
 
-      const [expiring7] = await db
-        .select({ count: count(warranties.id) })
-        .from(warranties)
-        .where(sql`${warranties.status} IN ('ACTIVE', 'EXPIRING_SOON') AND ${warranties.endDate} BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'`);
+        db
+          .select({ count: count(warranties.id) })
+          .from(warranties)
+          .where(sql`${warranties.status} IN ('ACTIVE', 'EXPIRING_SOON') AND ${warranties.endDate} BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'`),
 
-      const [expiring15] = await db
-        .select({ count: count(warranties.id) })
-        .from(warranties)
-        .where(sql`${warranties.status} IN ('ACTIVE', 'EXPIRING_SOON') AND ${warranties.endDate} BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '15 days'`);
+        db
+          .select({ count: count(warranties.id) })
+          .from(warranties)
+          .where(sql`${warranties.status} IN ('ACTIVE', 'EXPIRING_SOON') AND ${warranties.endDate} BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '15 days'`),
 
-      const [expiring30] = await db
-        .select({ count: count(warranties.id) })
-        .from(warranties)
-        .where(sql`${warranties.status} IN ('ACTIVE', 'EXPIRING_SOON') AND ${warranties.endDate} BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'`);
+        db
+          .select({ count: count(warranties.id) })
+          .from(warranties)
+          .where(sql`${warranties.status} IN ('ACTIVE', 'EXPIRING_SOON') AND ${warranties.endDate} BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'`),
 
-      const [expired] = await db
-        .select({ count: count(warranties.id) })
-        .from(warranties)
-        .where(sql`${warranties.status} = 'EXPIRED' OR ${warranties.endDate} < CURRENT_DATE`);
+        db
+          .select({ count: count(warranties.id) })
+          .from(warranties)
+          .where(sql`${warranties.status} = 'EXPIRED' OR ${warranties.endDate} < CURRENT_DATE`),
 
-      const [warrantyServices] = await db
-        .select({ count: count(services.id) })
-        .from(services)
-        .where(eq(services.serviceClassification, 'WARRANTY'));
+        db
+          .select({ count: count(services.id) })
+          .from(services)
+          .where(eq(services.serviceClassification, 'WARRANTY')),
 
-      const [paidServices] = await db
-        .select({ count: count(services.id) })
-        .from(services)
-        .where(eq(services.serviceClassification, 'GENERAL'));
+        db
+          .select({ count: count(services.id) })
+          .from(services)
+          .where(eq(services.serviceClassification, 'GENERAL')),
+      ]);
 
       const activeCount = Number(active?.count || 0);
       const expiringCount = Number(expiring30?.count || 0);
@@ -1356,75 +1385,83 @@ export class AnalyticsRepository {
    */
   async getInquiryMetrics(bounds: DateRangeBounds) {
     try {
-      const [summary] = await db
-        .select({
-          total: count(inquiries.id),
-        })
-        .from(inquiries)
-        .where(
-          and(
-            gte(inquiries.createdAt, bounds.startDate),
-            lte(inquiries.createdAt, bounds.endDate)
-          )
-        );
+      const [
+        [summary],
+        statuses,
+        sources,
+        types,
+        trendRaw,
+      ] = await Promise.all([
+        db
+          .select({
+            total: count(inquiries.id),
+          })
+          .from(inquiries)
+          .where(
+            and(
+              gte(inquiries.createdAt, bounds.startDate),
+              lte(inquiries.createdAt, bounds.endDate)
+            )
+          ),
 
-      const statuses = await db
-        .select({
-          status: inquiries.status,
-          count: count(inquiries.id),
-        })
-        .from(inquiries)
-        .where(
-          and(
-            gte(inquiries.createdAt, bounds.startDate),
-            lte(inquiries.createdAt, bounds.endDate)
+        db
+          .select({
+            status: inquiries.status,
+            count: count(inquiries.id),
+          })
+          .from(inquiries)
+          .where(
+            and(
+              gte(inquiries.createdAt, bounds.startDate),
+              lte(inquiries.createdAt, bounds.endDate)
+            )
           )
-        )
-        .groupBy(inquiries.status);
+          .groupBy(inquiries.status),
 
-      const sources = await db
-        .select({
-          source: inquiries.source,
-          count: count(inquiries.id),
-        })
-        .from(inquiries)
-        .where(
-          and(
-            gte(inquiries.createdAt, bounds.startDate),
-            lte(inquiries.createdAt, bounds.endDate)
+        db
+          .select({
+            source: inquiries.source,
+            count: count(inquiries.id),
+          })
+          .from(inquiries)
+          .where(
+            and(
+              gte(inquiries.createdAt, bounds.startDate),
+              lte(inquiries.createdAt, bounds.endDate)
+            )
           )
-        )
-        .groupBy(inquiries.source);
+          .groupBy(inquiries.source),
 
-      const types = await db
-        .select({
-          type: inquiries.inquiryType,
-          count: count(inquiries.id),
-        })
-        .from(inquiries)
-        .where(
-          and(
-            gte(inquiries.createdAt, bounds.startDate),
-            lte(inquiries.createdAt, bounds.endDate)
+        db
+          .select({
+            type: inquiries.inquiryType,
+            count: count(inquiries.id),
+          })
+          .from(inquiries)
+          .where(
+            and(
+              gte(inquiries.createdAt, bounds.startDate),
+              lte(inquiries.createdAt, bounds.endDate)
+            )
           )
-        )
-        .groupBy(inquiries.inquiryType);
+          .groupBy(inquiries.inquiryType),
 
-      const trendRaw = await db
-        .select({
-          date: sql<string>`TO_CHAR(DATE_TRUNC('day', ${inquiries.createdAt}), 'YYYY-MM-DD')`,
-          received: sql<string>`COUNT(${inquiries.id})`,
-          converted: sql<string>`COUNT(CASE WHEN ${inquiries.status} = 'CONVERTED' THEN 1 END)`,
-        })
-        .from(inquiries)
-        .where(
-          and(
-            gte(inquiries.createdAt, bounds.startDate),
-            lte(inquiries.createdAt, bounds.endDate)
+        db
+          .select({
+            date: sql<string>`TO_CHAR(DATE_TRUNC('day', ${inquiries.createdAt}), 'YYYY-MM-DD')`,
+            received: sql<string>`COUNT(${inquiries.id})`,
+            converted: sql<string>`COUNT(CASE WHEN ${inquiries.status} = 'CONVERTED' THEN 1 END)`,
+          })
+          .from(inquiries)
+          .where(
+            and(
+              gte(inquiries.createdAt, bounds.startDate),
+              lte(inquiries.createdAt, bounds.endDate)
+            )
           )
-        )
-        .groupBy(sql`DATE_TRUNC('day', ${inquiries.createdAt})`)
-        .orderBy(sql`DATE_TRUNC('day', ${inquiries.createdAt}) ASC`);
+          .groupBy(sql`DATE_TRUNC('day', ${inquiries.createdAt})`)
+          .orderBy(sql`DATE_TRUNC('day', ${inquiries.createdAt}) ASC`),
+      ]);
 
       const dateMap = new Map<string, { received: number; converted: number }>();
       const dateSeries = generateDateSeries(bounds.startDate, bounds.endDate);

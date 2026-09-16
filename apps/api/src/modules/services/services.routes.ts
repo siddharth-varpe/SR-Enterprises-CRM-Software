@@ -147,9 +147,13 @@ export const servicesRoutes: FastifyPluginAsync = async (fastify) => {
    */
   fastify.patch('/:id', { preHandler: [requirePermission('services.update')] }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const body = UpdateServiceSchema.parse(request.body);
+    const rawBody: any = { ...(request.body as any) };
+    if (rawBody.technicianId === '') rawBody.technicianId = null;
+    if (rawBody.assetId === '') rawBody.assetId = null;
+    if (rawBody.warrantyId === '') rawBody.warrantyId = null;
+    const body = UpdateServiceSchema.parse(rawBody);
     const user = (request as any).user;
-    const updated = await servicesService.updateService(id, body, user?.id);
+    const updated = await servicesService.updateService(id, body, user?.userId || user?.id);
     return reply.send({
       success: true,
       data: updated,

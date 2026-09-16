@@ -17,7 +17,7 @@ import { RentalPaymentModal } from '../../rentals/components/RentalPaymentModal'
 import { RentalReturnModal } from '../../rentals/components/RentalReturnModal';
 import { RentalDetailModal } from '../../rentals/components/RentalDetailModal';
 import { useCustomerRentalsQuery, type RentalItem } from '../../rentals/rentals.api';
-import { formatCurrency, formatINR } from '../../../lib/formatters';
+import { formatCurrency, formatINR, formatDate } from '../../../lib/formatters';
 import { sendRentalWhatsAppReminder } from '../../rentals/rentals.whatsapp';
 import { useToast } from '../../../providers/ToastProvider';
 
@@ -135,7 +135,7 @@ export const CustomerRentalsSection: React.FC<CustomerRentalsSectionProps> = ({
                         </div>
                       </td>
                       <td className="py-3 px-4 font-mono text-slate-800 font-bold">
-                        {new Date(rental.nextDueDate).toLocaleDateString()}
+                        {formatDate(rental.nextDueDate)}
                       </td>
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">

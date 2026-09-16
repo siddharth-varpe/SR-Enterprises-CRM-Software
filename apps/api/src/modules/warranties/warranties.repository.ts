@@ -21,34 +21,7 @@ import type {
 } from '@crm/validation';
 
 // Resilient memory store for offline desktop and local development
-export const memoryWarranties: any[] = [
-  {
-    id: 'w1111111-1111-1111-1111-111111111111',
-    warrantyNumber: 'WAR-2026-0001',
-    customerId: 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',
-    customerName: 'Rajesh Sharma',
-    customerPhone: '9820098200',
-    assetId: 'ast-001',
-    productName: 'AquaGrand Plus RO System',
-    serialNumber: 'AGP-2026-09881',
-    warrantyType: 'STANDARD_1YR',
-    startDate: new Date('2026-01-01'),
-    endDate: new Date('2027-01-01'),
-    durationMonths: 12,
-    status: 'ACTIVE',
-    terms: 'Full comprehensive unit coverage including pump & SMPS',
-    createdAt: new Date('2026-01-01'),
-    updatedAt: new Date('2026-01-01'),
-    events: [
-      {
-        id: 'wev-001',
-        eventType: 'ACTIVATED',
-        eventDate: new Date('2026-01-01'),
-        notes: 'Initial standard warranty activated on purchase',
-      },
-    ],
-  },
-];
+export const memoryWarranties: any[] = [];
 
 export class WarrantiesRepository {
   /**

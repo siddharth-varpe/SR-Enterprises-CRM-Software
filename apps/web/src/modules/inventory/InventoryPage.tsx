@@ -29,7 +29,11 @@ import {
   useUpdateInventoryItemMutation,
   useDeleteInventoryItemMutation,
   useCreatePurchaseMutation,
+  useUpdatePurchaseMutation,
+  useDeletePurchaseMutation,
   useCreateSaleMutation,
+  useUpdateSaleMutation,
+  useDeleteSaleMutation,
   type InventoryItem,
   type InventoryPurchase,
   type InventorySale,
@@ -38,6 +42,10 @@ import {
 import { InventoryItemModal } from './components/InventoryItemModal';
 import { RecordPurchaseModal } from './components/RecordPurchaseModal';
 import { RecordSaleModal } from './components/RecordSaleModal';
+import { ViewPurchaseModal } from './components/ViewPurchaseModal';
+import { EditPurchaseModal } from './components/EditPurchaseModal';
+import { ViewSaleModal } from './components/ViewSaleModal';
+import { EditSaleModal } from './components/EditSaleModal';
 import { InventoryItemDetailModal } from './components/InventoryItemDetailModal';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
@@ -65,9 +73,15 @@ export const InventoryPage: React.FC = () => {
 
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
   const [purchasePreselectedItemId, setPurchasePreselectedItemId] = useState<string | undefined>();
+  const [viewingPurchase, setViewingPurchase] = useState<InventoryPurchase | null>(null);
+  const [editingPurchase, setEditingPurchase] = useState<InventoryPurchase | null>(null);
+  const [deletingPurchase, setDeletingPurchase] = useState<InventoryPurchase | null>(null);
 
   const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
   const [salePreselectedItemId, setSalePreselectedItemId] = useState<string | undefined>();
+  const [viewingSale, setViewingSale] = useState<InventorySale | null>(null);
+  const [editingSale, setEditingSale] = useState<InventorySale | null>(null);
+  const [deletingSale, setDeletingSale] = useState<InventorySale | null>(null);
 
   const [detailModalItemId, setDetailModalItemId] = useState<string | null>(null);
 
@@ -105,7 +119,11 @@ export const InventoryPage: React.FC = () => {
   const updateItemMutation = useUpdateInventoryItemMutation();
   const deleteItemMutation = useDeleteInventoryItemMutation();
   const createPurchaseMutation = useCreatePurchaseMutation();
+  const updatePurchaseMutation = useUpdatePurchaseMutation();
+  const deletePurchaseMutation = useDeletePurchaseMutation();
   const createSaleMutation = useCreateSaleMutation();
+  const updateSaleMutation = useUpdateSaleMutation();
+  const deleteSaleMutation = useDeleteSaleMutation();
 
   const allItems: InventoryItem[] = Array.isArray(itemsData)
     ? itemsData
@@ -157,6 +175,44 @@ export const InventoryPage: React.FC = () => {
         err?.message ||
         'Failed to delete inventory item. It may be used in existing transactions.';
       toast.error(msg, 'Delete Failed');
+    }
+  };
+
+  const handleConfirmDeletePurchase = async () => {
+    if (!deletingPurchase || deletePurchaseMutation.isPending) return;
+    try {
+      await deletePurchaseMutation.mutateAsync(deletingPurchase.id);
+      toast.success(
+        `Purchase record "${deletingPurchase.purchaseNumber}" deleted and stock recalculated successfully.`,
+        'Purchase Deleted'
+      );
+      setDeletingPurchase(null);
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.error?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to delete purchase. Some units may already have been sold.';
+      toast.error(msg, 'Delete Purchase Failed');
+    }
+  };
+
+  const handleConfirmDeleteSale = async () => {
+    if (!deletingSale || deleteSaleMutation.isPending) return;
+    try {
+      await deleteSaleMutation.mutateAsync(deletingSale.id);
+      toast.success(
+        `Sale record "${deletingSale.saleNumber}" deleted and stock restored successfully.`,
+        'Sale Deleted'
+      );
+      setDeletingSale(null);
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.error?.message ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to delete sale record.';
+      toast.error(msg, 'Delete Sale Failed');
     }
   };
 
@@ -764,6 +820,7 @@ export const InventoryPage: React.FC = () => {
                       <th className="p-3.5 text-right">FIFO Remaining</th>
                       <th className="p-3.5 text-right">Unit Cost (₹)</th>
                       <th className="p-3.5 text-right">Total Amount (₹)</th>
+                      <th className="p-3.5 text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 font-medium">
@@ -795,6 +852,34 @@ export const InventoryPage: React.FC = () => {
                         <td className="p-3.5 text-right">₹{Number(p.purchasePricePerUnit).toFixed(2)}</td>
                         <td className="p-3.5 text-right font-extrabold text-gray-900">
                           ₹{Number(p.totalAmount).toFixed(2)}
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setViewingPurchase(p)}
+                              title="View Purchase Details"
+                              className="p-1.5 text-gray-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingPurchase(p)}
+                              title="Edit Purchase & Recalculate"
+                              className="p-1.5 text-gray-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeletingPurchase(p)}
+                              title="Delete Purchase"
+                              className="p-1.5 text-gray-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -848,6 +933,7 @@ export const InventoryPage: React.FC = () => {
                       <th className="p-3.5 text-right">FIFO Cost (₹)</th>
                       <th className="p-3.5 text-right">Total Sale (₹)</th>
                       <th className="p-3.5 text-right">Net Profit (₹)</th>
+                      <th className="p-3.5 text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 font-medium">
@@ -879,6 +965,34 @@ export const InventoryPage: React.FC = () => {
                         </td>
                         <td className="p-3.5 text-right font-extrabold text-emerald-700">
                           +₹{Number(s.profit).toFixed(2)}
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setViewingSale(s)}
+                              title="View Sale Details"
+                              className="p-1.5 text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingSale(s)}
+                              title="Edit Sale & Recalculate"
+                              className="p-1.5 text-gray-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeletingSale(s)}
+                              title="Delete Sale"
+                              className="p-1.5 text-gray-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1101,6 +1215,179 @@ export const InventoryPage: React.FC = () => {
               </p>
               <p className="text-xs text-slate-500 pt-1">
                 This action cannot be undone. Items with historical sales or supplier purchase records cannot be deleted.
+              </p>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* View Purchase Modal */}
+      <ViewPurchaseModal
+        isOpen={Boolean(viewingPurchase)}
+        onClose={() => setViewingPurchase(null)}
+        purchase={viewingPurchase}
+        onEdit={() => {
+          const p = viewingPurchase;
+          setViewingPurchase(null);
+          setEditingPurchase(p);
+        }}
+      />
+
+      {/* Edit Purchase Modal */}
+      <EditPurchaseModal
+        isOpen={Boolean(editingPurchase)}
+        onClose={() => setEditingPurchase(null)}
+        purchase={editingPurchase}
+        onSubmit={async (data) => {
+          await updatePurchaseMutation.mutateAsync(data);
+          toast.success('Purchase updated and stock recalculated successfully.', 'Purchase Updated');
+        }}
+        isLoading={updatePurchaseMutation.isPending}
+      />
+
+      {/* Delete Purchase Confirmation Modal */}
+      <Modal
+        isOpen={Boolean(deletingPurchase)}
+        onClose={() => {
+          if (!deletePurchaseMutation.isPending) {
+            setDeletingPurchase(null);
+          }
+        }}
+        title="Delete Purchase Record?"
+        size="sm"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              onClick={() => setDeletingPurchase(null)}
+              disabled={deletePurchaseMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="md"
+              onClick={handleConfirmDeletePurchase}
+              isLoading={deletePurchaseMutation.isPending}
+              disabled={deletePurchaseMutation.isPending}
+            >
+              Delete & Deduct Stock
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3 py-1">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-200">
+              <Trash2 className="w-4 h-4" />
+            </div>
+            <div className="space-y-1.5 text-xs">
+              <p className="text-sm font-semibold text-slate-900">
+                Are you sure you want to delete purchase:
+              </p>
+              <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
+                <div className="font-bold text-blue-700 font-mono">
+                  {deletingPurchase?.purchaseNumber}
+                </div>
+                <div className="text-gray-900 font-medium">
+                  {deletingPurchase?.itemName} — <strong className="text-slate-900">{deletingPurchase?.quantity} units</strong> @ ₹{Number(deletingPurchase?.purchasePricePerUnit || 0).toFixed(2)}
+                </div>
+                <div className="text-[11px] text-gray-500">
+                  Total: ₹{Number(deletingPurchase?.totalAmount || 0).toFixed(2)}
+                </div>
+              </div>
+              <p className="text-[11px] text-rose-600 font-medium pt-1">
+                Warning: Deleting this inward purchase will deduct {deletingPurchase?.quantity} units from item stock and remove this batch from FIFO cost calculation.
+              </p>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* View Sale Modal */}
+      <ViewSaleModal
+        isOpen={Boolean(viewingSale)}
+        onClose={() => setViewingSale(null)}
+        sale={viewingSale}
+        onEdit={() => {
+          const s = viewingSale;
+          setViewingSale(null);
+          setEditingSale(s);
+        }}
+      />
+
+      {/* Edit Sale Modal */}
+      <EditSaleModal
+        isOpen={Boolean(editingSale)}
+        onClose={() => setEditingSale(null)}
+        sale={editingSale}
+        items={allItems}
+        onSubmit={async (data) => {
+          await updateSaleMutation.mutateAsync(data);
+          toast.success('Sale record updated and profit recalculated successfully.', 'Sale Updated');
+        }}
+        isLoading={updateSaleMutation.isPending}
+      />
+
+      {/* Delete Sale Confirmation Modal */}
+      <Modal
+        isOpen={Boolean(deletingSale)}
+        onClose={() => {
+          if (!deleteSaleMutation.isPending) {
+            setDeletingSale(null);
+          }
+        }}
+        title="Delete Sale Record?"
+        size="sm"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              onClick={() => setDeletingSale(null)}
+              disabled={deleteSaleMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="md"
+              onClick={handleConfirmDeleteSale}
+              isLoading={deleteSaleMutation.isPending}
+              disabled={deleteSaleMutation.isPending}
+            >
+              Delete & Restore Stock
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3 py-1">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-200">
+              <Trash2 className="w-4 h-4" />
+            </div>
+            <div className="space-y-1.5 text-xs">
+              <p className="text-sm font-semibold text-slate-900">
+                Are you sure you want to delete sale:
+              </p>
+              <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
+                <div className="font-bold text-emerald-700 font-mono">
+                  {deletingSale?.saleNumber}
+                </div>
+                <div className="text-gray-900 font-medium">
+                  {deletingSale?.itemName} — <strong className="text-slate-900">{deletingSale?.quantity} units</strong> @ ₹{Number(deletingSale?.sellingPricePerUnit || 0).toFixed(2)}
+                </div>
+                <div className="text-[11px] text-gray-500">
+                  Customer: {deletingSale?.customerName || 'Direct / Walk-in'} | Total: ₹{Number(deletingSale?.totalSaleAmount || 0).toFixed(2)}
+                </div>
+              </div>
+              <p className="text-[11px] text-emerald-700 font-medium pt-1">
+                Notice: Deleting this outward sale will restore {deletingSale?.quantity} units back into item stock and remove this sale amount and profit from analytics.
               </p>
             </div>
           </div>

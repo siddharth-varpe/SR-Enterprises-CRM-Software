@@ -144,14 +144,6 @@ export class SalesRepository {
     try {
       const whereClause = this.buildFilterConditions(filters, database);
 
-      const [totalRes] = await database
-        .select({ count: sql<number>`count(*)::int` })
-        .from(sales)
-        .leftJoin(customers, eq(sales.customerId, customers.id))
-        .where(whereClause);
-
-      const total = totalRes?.count ?? 0;
-
       let orderByClauses: any[];
       const sortOrder = filters.sortOrder === 'asc' ? asc : desc;
       switch (filters.sortBy) {
@@ -170,7 +162,19 @@ export class SalesRepository {
           break;
       }
 
-      const rows = await database
+      const needsCustomerJoinForCount = Boolean(filters.search?.trim());
+      const countQuery = needsCustomerJoinForCount
+        ? database
+            .select({ count: sql<number>`count(*)::int` })
+            .from(sales)
+            .leftJoin(customers, eq(sales.customerId, customers.id))
+            .where(whereClause)
+        : database
+            .select({ count: sql<number>`count(*)::int` })
+            .from(sales)
+            .where(whereClause);
+
+      const rowsQuery = database
         .select({
           id: sales.id,
           saleNumber: sales.saleNumber,
@@ -195,6 +199,10 @@ export class SalesRepository {
         .limit(limit)
         .offset(offset)
         .orderBy(...orderByClauses);
+
+      // Execute count and paginated selection concurrently
+      const [[totalRes], rows] = await Promise.all([countQuery, rowsQuery]);
+      const total = totalRes?.count ?? 0;
 
       // Fetch linked invoices for these sales
       const saleIds = rows.map((r) => r.id);
@@ -1031,7 +1039,7 @@ export class SalesRepository {
           const { sequenceNumber: saleNumber } = await generateBusinessNumber(tx, 'SALE', 'SALE');
           console.log('[STEP_5_COMPLETE] Generated sale number:', saleNumber);
 
-          const salesConfig = await configService.get<SalesSettings>('SALES');
+          const salesConfig = await configService.get<SalesSettings>('SALES', tx);
           const defaultStatus = salesConfig?.defaultSalesStatus || 'DRAFT';
           const saleStatus = data.status || defaultStatus;
           const isCompleted = saleStatus === 'COMPLETED';

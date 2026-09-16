@@ -42,8 +42,8 @@ export const TechnicianPerformanceSection: React.FC<TechnicianPerformanceSection
         completedJobs: completed,
         pendingJobs: t.activeJobsCount,
         completionRate: rate,
-        averageTurnaroundHours: 3.5,
-        revenueGenerated: formatCurrency(completed * 450),
+        averageTurnaroundHours: 0,
+        revenueGenerated: formatCurrency(0),
       };
     });
   }

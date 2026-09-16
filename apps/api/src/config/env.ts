@@ -23,9 +23,6 @@ for (const p of envLocations) {
 }
 dotenv.config();
 
-export const SUPABASE_PRODUCTION_DB_URL =
-  'postgresql://postgres.swdrtbdpzjcxptszskll:Shreesha2026%40%21@aws-0-ap-south-1.pooler.supabase.com:5432/postgres';
-
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z
@@ -40,11 +37,7 @@ const envSchema = z.object({
   // Database
   DATABASE_URL: z
     .string()
-    .default(
-      process.env.NODE_ENV === 'production' || process.env.RENDER
-        ? SUPABASE_PRODUCTION_DB_URL
-        : 'postgres://postgres:postgres@localhost:5432/sr_enterprises_crm'
-    ),
+    .default('postgres://postgres:postgres@localhost:5432/sr_enterprises_crm'),
   DB_MAX_CONNECTIONS: z
     .string()
     .default(process.env.NODE_ENV === 'production' ? '5' : '10')
@@ -53,6 +46,9 @@ const envSchema = z.object({
     .string()
     .default('30000')
     .transform((val) => parseInt(val, 10)),
+
+  // Secondary Archive Database (Optional isolated PostgreSQL for historical archives)
+  ARCHIVE_DATABASE_URL: z.string().optional(),
 
   // Redis
   REDIS_URL: z.string().default('redis://localhost:6379'),
@@ -86,27 +82,9 @@ const envSchema = z.object({
   S3_BUCKET: z.string().optional(),
   SENTRY_DSN: z.string().optional(),
 
-  // Supabase Database & Persistent Object Storage (Supabase Project #1 - Primary)
-  SUPABASE_URL: z.string().optional(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
-  SUPABASE_ANON_KEY: z.string().optional(),
-  SUPABASE_STORAGE_BUCKET: z.string().default('crm-documents'),
-  NEXT_PUBLIC_SUPABASE_URL: z.string().optional(),
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
-  PUBLIC_ANON_KEY: z.string().optional(),
-  SERVICE_ROLE_SECREAT: z.string().optional(),
-
-  // Supabase Database #2 (Archive Database & Full Backup Storage)
-  ARCHIVE_DATABASE_URL: z.string().optional(),
-  ARCHIVE_SUPABASE_URL: z.string().optional(),
-  ARCHIVE_SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
-  ARCHIVE_SUPABASE_ANON_KEY: z.string().optional(),
-  ARCHIVE_BACKUP_BUCKET: z.string().default('crm-backups'),
-
-  // Production CORS & Cross-Site Cookies for Vercel <-> Oracle Cloud
+  // Production CORS & Cross-Site Cookies
   CORS_ALLOWED_ORIGINS: z.string().optional(),
   COOKIE_SAME_SITE: z.enum(['lax', 'strict', 'none']).optional(),
-
 
   // WhatsApp Business Integration
   WHATSAPP_PROVIDER: z.enum(['META', 'DEV', 'MOCK']).default('META'),
@@ -138,53 +116,9 @@ export function parseEnv(customEnv?: Record<string, string | undefined>): EnvCon
   const raw = customEnv || process.env;
   const source = { ...raw };
 
-  // Normalize Supabase credentials across naming conventions
-  if (!source.SUPABASE_URL && source.NEXT_PUBLIC_SUPABASE_URL) {
-    source.SUPABASE_URL = source.NEXT_PUBLIC_SUPABASE_URL;
-  }
-  if (!source.SUPABASE_SERVICE_ROLE_KEY) {
-    source.SUPABASE_SERVICE_ROLE_KEY =
-      source.SERVICE_ROLE_SECREAT || (source as any).SERVICE_ROLE_SECRET;
-  }
-  if (!source.SUPABASE_ANON_KEY) {
-    source.SUPABASE_ANON_KEY =
-      source.PUBLIC_ANON_KEY || source.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  }
-
-  // Normalize Supabase #2 credentials across naming conventions
-  if (!source.ARCHIVE_SUPABASE_SERVICE_ROLE_KEY && (source as any).ARCHIVE_SERVICE_ROLE_KEY) {
-    source.ARCHIVE_SUPABASE_SERVICE_ROLE_KEY = (source as any).ARCHIVE_SERVICE_ROLE_KEY;
-  }
-  if (!source.ARCHIVE_SUPABASE_URL && (source as any).ARCHIVE_PROJECT_URL) {
-    source.ARCHIVE_SUPABASE_URL = (source as any).ARCHIVE_PROJECT_URL;
-  }
-
-  const isProduction =
-    source.NODE_ENV === 'production' ||
-    process.env.NODE_ENV === 'production' ||
-    Boolean(process.env.RENDER) ||
-    Boolean(source.RENDER);
-
-  // Normalize or resolve DATABASE_URL for cloud deployments
-  if (!source.DATABASE_URL) {
-    if (source.POSTGRES_URL) {
-      source.DATABASE_URL = source.POSTGRES_URL;
-    } else if (source.SUPABASE_DATABASE_URL) {
-      source.DATABASE_URL = source.SUPABASE_DATABASE_URL;
-    } else if (isProduction) {
-      source.DATABASE_URL = SUPABASE_PRODUCTION_DB_URL;
-    }
-  }
-
-  // Prevent cloud containers from attempting connection to local non-existent database
-  if (
-    isProduction &&
-    source.DATABASE_URL &&
-    (source.DATABASE_URL.includes('localhost') ||
-      source.DATABASE_URL.includes('127.0.0.1') ||
-      source.DATABASE_URL.includes('::1'))
-  ) {
-    source.DATABASE_URL = SUPABASE_PRODUCTION_DB_URL;
+  // Normalize DATABASE_URL across standard PostgreSQL variable names
+  if (!source.DATABASE_URL && source.POSTGRES_URL) {
+    source.DATABASE_URL = source.POSTGRES_URL;
   }
 
   const result = envSchema.safeParse(source);

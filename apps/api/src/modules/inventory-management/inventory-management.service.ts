@@ -4,8 +4,10 @@ import type {
   UpdateInventoryItemInput,
   InventoryItemQueryFilter,
   CreateInventoryPurchaseInput,
+  UpdateInventoryPurchaseInput,
   InventoryPurchaseQueryFilter,
   CreateInventorySaleInput,
+  UpdateInventorySaleInput,
   InventorySaleQueryFilter,
   InventoryAnalyticsFilter,
   InventoryProfitLedgerFilter,
@@ -47,6 +49,22 @@ export class InventoryManagementService {
     return inventoryManagementRepository.getPurchases(filters);
   }
 
+  async getPurchaseById(id: string) {
+    const purchase = await inventoryManagementRepository.getPurchaseById(id);
+    if (!purchase) {
+      throw new Error('Purchase record not found');
+    }
+    return purchase;
+  }
+
+  async updatePurchase(id: string, input: UpdateInventoryPurchaseInput) {
+    return inventoryManagementRepository.updatePurchase(id, input);
+  }
+
+  async deletePurchase(id: string) {
+    return inventoryManagementRepository.deletePurchase(id);
+  }
+
   async createSale(input: CreateInventorySaleInput) {
     await this.getItemById(input.itemId); // Ensure item exists
     return inventoryManagementRepository.createSale(input);
@@ -54,6 +72,22 @@ export class InventoryManagementService {
 
   async getSales(filters: InventorySaleQueryFilter) {
     return inventoryManagementRepository.getSales(filters);
+  }
+
+  async getSaleById(id: string) {
+    const sale = await inventoryManagementRepository.getSaleById(id);
+    if (!sale) {
+      throw new Error('Sale record not found');
+    }
+    return sale;
+  }
+
+  async updateSale(id: string, input: UpdateInventorySaleInput) {
+    return inventoryManagementRepository.updateSale(id, input);
+  }
+
+  async deleteSale(id: string) {
+    return inventoryManagementRepository.deleteSale(id);
   }
 
   async getAnalytics(filter: InventoryAnalyticsFilter) {

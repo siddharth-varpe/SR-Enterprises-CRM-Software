@@ -370,3 +370,89 @@ export function useCreateSaleMutation() {
     },
   });
 }
+
+export function useUpdatePurchaseMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      ...payload
+    }: {
+      id: string;
+      supplierName?: string;
+      purchaseDate?: string;
+      quantity?: number;
+      purchasePricePerUnit?: number;
+      notes?: string;
+    }) => {
+      const res = await apiClient.put<{ success: boolean; data: InventoryPurchase }>(
+        `/inventory-management/purchases/${id}`,
+        payload
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+    },
+  });
+}
+
+export function useDeletePurchaseMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiClient.delete<{ success: boolean; data: any; message?: string }>(
+        `/inventory-management/purchases/${id}`
+      );
+      return res;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+    },
+  });
+}
+
+export function useUpdateSaleMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      ...payload
+    }: {
+      id: string;
+      customerId?: string;
+      customerName?: string;
+      customerPhone?: string;
+      saleDate?: string;
+      quantity?: number;
+      sellingPricePerUnit?: number;
+      paymentStatus?: string;
+      notes?: string;
+    }) => {
+      const res = await apiClient.put<{ success: boolean; data: InventorySale }>(
+        `/inventory-management/sales/${id}`,
+        payload
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+    },
+  });
+}
+
+export function useDeleteSaleMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiClient.delete<{ success: boolean; data: any; message?: string }>(
+        `/inventory-management/sales/${id}`
+      );
+      return res;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+    },
+  });
+}
+

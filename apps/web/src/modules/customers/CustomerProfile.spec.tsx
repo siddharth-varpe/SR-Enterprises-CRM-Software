@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { CustomerProfile } from './CustomerProfile';
@@ -120,6 +120,35 @@ vi.mock('./customer.api', async (importOriginal) => {
   };
 });
 
+vi.mock('../services/services.api', async (importOriginal) => {
+  const actual: any = await importOriginal();
+  return {
+    ...actual,
+    useServicesQuery: () => ({
+      data: {
+        data: [
+          {
+            id: 'srv-101',
+            serviceNumber: 'SRV-2026-0001',
+            serviceType: 'PERIODIC_MAINTENANCE',
+            scheduledDate: '2026-02-20T10:00:00Z',
+            scheduledTimeSlot: '10:00 AM - 12:00 PM',
+            productName: 'AquaFlow Pro 15L RO+UV',
+            technicianName: 'Suresh Verma',
+            technicianPhone: '9876543210',
+            serviceClassification: 'WARRANTY',
+            status: 'SCHEDULED',
+            totalCharges: '0',
+          },
+        ],
+        pagination: { total: 1, page: 1, limit: 100, totalPages: 1 },
+      },
+      isLoading: false,
+      refetch: vi.fn(),
+    }),
+  };
+});
+
 describe('CustomerProfile Component', () => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -162,5 +191,36 @@ describe('CustomerProfile Component', () => {
     expect(screen.getByText('Payment Trend')).toBeInTheDocument();
     expect(screen.getByText('Delete Customer')).toBeInTheDocument();
     expect(screen.queryByText('Top Services by Spend')).not.toBeInTheDocument();
+  });
+
+  it('opens ScheduleServiceModal directly on the profile page with customer auto-selected when New Service is clicked', () => {
+    renderComponent();
+    const newServiceBtn = screen.getByRole('button', { name: /New Service/i });
+    expect(newServiceBtn).toBeInTheDocument();
+    fireEvent.click(newServiceBtn);
+
+    // Form modal opens on profile page
+    expect(screen.getByText('Schedule Service Visit')).toBeInTheDocument();
+    // Customer name is auto-selected in the modal dropdown
+    expect(screen.getByRole('option', { name: /Rajesh Kumar/i })).toBeInTheDocument();
+  });
+
+  it('lists customer services in the Overview tab and in the Services tab table', () => {
+    renderComponent();
+    // Overview tab recent services
+    expect(screen.getByText('Recent Services')).toBeInTheDocument();
+    expect(screen.getAllByText(/SRV-2026-0001/i).length).toBeGreaterThan(0);
+
+    // Click Services tab
+    const servicesTab = screen.getByRole('button', { name: /Services \(1\)/i });
+    expect(servicesTab).toBeInTheDocument();
+    fireEvent.click(servicesTab);
+
+    // Full Services Table is rendered
+    expect(screen.getByText('Service Visits & Maintenance History')).toBeInTheDocument();
+    expect(screen.getAllByText('SRV-2026-0001').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Periodic Maintenance/i).length).toBeGreaterThan(0);
+    expect(screen.getByText('Suresh Verma')).toBeInTheDocument();
+    expect(screen.getByText('Under Warranty')).toBeInTheDocument();
   });
 });

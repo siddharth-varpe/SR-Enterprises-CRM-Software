@@ -212,9 +212,15 @@ export function useCreateServiceMutation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['services'] });
+      queryClient.invalidateQueries({ queryKey: ['services-kpis'] });
+      queryClient.invalidateQueries({ queryKey: ['services', 'kpis'] });
+      queryClient.invalidateQueries({ queryKey: ['services', 'heatmap'] });
+      queryClient.invalidateQueries({ queryKey: ['services', 'upcoming'] });
+      queryClient.invalidateQueries({ queryKey: ['services', 'overdue'] });
       queryClient.invalidateQueries({ queryKey: ['job-cards'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['customers'] });
+      queryClient.invalidateQueries({ queryKey: ['customer'] });
       queryClient.invalidateQueries({ queryKey: ['assets'] });
     },
   });
@@ -233,6 +239,14 @@ export function useUpdateServiceMutation() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['services'] });
       queryClient.invalidateQueries({ queryKey: ['service', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['services-kpis'] });
+      queryClient.invalidateQueries({ queryKey: ['services', 'kpis'] });
+      queryClient.invalidateQueries({ queryKey: ['services', 'heatmap'] });
+      queryClient.invalidateQueries({ queryKey: ['services', 'upcoming'] });
+      queryClient.invalidateQueries({ queryKey: ['services', 'overdue'] });
+      queryClient.invalidateQueries({ queryKey: ['job-cards'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
     },
   });
 }

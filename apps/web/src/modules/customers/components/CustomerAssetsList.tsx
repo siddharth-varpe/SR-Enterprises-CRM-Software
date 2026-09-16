@@ -5,6 +5,7 @@ import { Skeleton } from '../../../components/ui/Skeleton';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { useCustomerAssetsQuery } from '../customer.api';
 import { Droplets, ShieldCheck, Calendar, Hash, Wrench } from 'lucide-react';
+import { formatDate } from '../../../lib/formatters';
 
 export interface CustomerAssetsListProps {
   customerId: string;
@@ -78,11 +79,7 @@ export const CustomerAssetsList: React.FC<CustomerAssetsListProps> = ({ customer
                     <div>
                       <span className="text-slate-400 block text-[10px] uppercase font-semibold">Purchase Date</span>
                       <span className="font-medium text-slate-800">
-                        {new Date(asset.purchaseDate).toLocaleDateString('en-IN', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
+                        {formatDate(asset.purchaseDate)}
                       </span>
                     </div>
                   </div>
@@ -94,13 +91,7 @@ export const CustomerAssetsList: React.FC<CustomerAssetsListProps> = ({ customer
                     <span className="text-slate-400 block text-[10px] uppercase font-semibold">Warranty Status</span>
                     {activeWarranty ? (
                       <span className="font-medium text-emerald-600">
-                        Active (Expires{' '}
-                        {new Date(activeWarranty.endDate).toLocaleDateString('en-IN', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
-                        )
+                        Active (Expires {formatDate(activeWarranty.endDate)})
                       </span>
                     ) : (
                       <span className="font-medium text-slate-500">No active warranty</span>

@@ -71,7 +71,7 @@ export class DocumentService {
     const mimeType = mimeMap[safeExt] || 'application/octet-stream';
     const checksum = this.storage.calculateSha256(fileBuffer);
 
-    // Save physical file and persist to Supabase cloud storage
+    // Save physical file to storage engine
     const stored = await this.storage.storeFile(fileBuffer, safeExt, mimeType);
 
     const category: DocumentCategory = payload.category || 'GENERAL';

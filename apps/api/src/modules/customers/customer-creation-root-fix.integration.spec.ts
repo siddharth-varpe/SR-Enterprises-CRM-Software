@@ -113,21 +113,16 @@ describe('Root Fix — Customer Creation & Non-Null Contract Integration Tests',
     expect(profile!.summary.outstanding).toBe(0);
   });
 
-  it('TEST F: Rejects duplicate phone with structured conflict error and rolls back cleanly', async () => {
-    let errorCaught: any = null;
-    try {
-      await customerService.createCustomer({
-        fullName: 'Duplicate Tester',
-        phone: phoneA, // existing phone
-        customerType: 'INDIVIDUAL',
-      });
-    } catch (err: any) {
-      errorCaught = err;
-    }
+  it('TEST F: Allows creating customer with duplicate phone number', async () => {
+    const duplicateCustomer = await customerService.createCustomer({
+      fullName: 'Duplicate Tester',
+      phone: phoneA, // existing phone
+      customerType: 'INDIVIDUAL',
+    });
 
-    expect(errorCaught).toBeDefined();
-    expect(errorCaught.statusCode).toBe(409);
-    expect(errorCaught.code).toBe('CONFLICT');
-    expect(errorCaught.message).toContain(phoneA);
+    expect(duplicateCustomer).toBeDefined();
+    expect(duplicateCustomer.id).toBeDefined();
+    expect(duplicateCustomer.id).not.toBe(createdCustomerAId);
+    expect(duplicateCustomer.phone).toBe(phoneA);
   });
 });

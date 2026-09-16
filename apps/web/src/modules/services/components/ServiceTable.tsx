@@ -16,6 +16,7 @@ import {
   MessageSquare,
   Send,
   Trash2,
+  Pencil,
 } from 'lucide-react';
 import {
   useNotifyServiceTechnicianWhatsAppMutation,
@@ -37,6 +38,7 @@ export interface ServiceTableProps {
   onPageChange: (page: number) => void;
   onOpenCompleteModal: (service: ServiceItem) => void;
   onOpenQuickAssign: (service: ServiceItem) => void;
+  onOpenEditModal?: (service: ServiceItem) => void;
 }
 
 function formatSystemDate(dateVal: string | Date | null | undefined): string {
@@ -87,6 +89,7 @@ export const ServiceTable: React.FC<ServiceTableProps> = ({
   onPageChange,
   onOpenCompleteModal,
   onOpenQuickAssign,
+  onOpenEditModal,
 }) => {
   const navigate = useNavigate();
   const toast = useToast();
@@ -388,6 +391,20 @@ export const ServiceTable: React.FC<ServiceTableProps> = ({
             <Eye className="w-3.5 h-3.5 mr-1" />
             Details
           </Button>
+
+          {/* Edit Service */}
+          {onOpenEditModal && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onOpenEditModal(row)}
+              className="h-8 px-2 text-xs border-slate-200 text-slate-700 hover:bg-slate-50"
+              title="Edit service details"
+            >
+              <Pencil className="w-3.5 h-3.5 mr-1 text-slate-500" />
+              Edit
+            </Button>
+          )}
 
           {/* Mark Complete Action if not already finished */}
           {row.status !== 'COMPLETED' && row.status !== 'CANCELLED' && (

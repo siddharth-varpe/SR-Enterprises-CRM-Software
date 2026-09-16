@@ -1,7 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
-import { supabaseStorage } from './supabase-storage.service.js';
 
 export interface StorageFileMeta {
   originalFilename: string;
@@ -203,13 +202,10 @@ export class StorageEngine {
   /**
    * Store file buffer to disk atomically
    */
-  /**
-   * Store file buffer to disk and persist to Supabase Storage if configured
-   */
   public async storeFile(
     buffer: Buffer,
     ext: string,
-    mimeType = 'application/octet-stream'
+    _mimeType = 'application/octet-stream'
   ): Promise<{ storedFilename: string; storagePath: string; absolutePath: string; publicUrl?: string }> {
     const loc = this.generateStorageLocation(ext);
     const targetDir = path.dirname(loc.absolutePath);
@@ -217,21 +213,11 @@ export class StorageEngine {
 
     await fs.promises.writeFile(loc.absolutePath, buffer);
 
-    let publicUrl: string | undefined;
-    if (supabaseStorage.isConfigured()) {
-      try {
-        const uploadResult = await supabaseStorage.uploadFile(loc.relativePath, buffer, mimeType);
-        publicUrl = uploadResult.publicUrl;
-      } catch (cloudErr) {
-        console.warn('[StorageEngine] Supabase cloud upload fallback notice:', cloudErr);
-      }
-    }
-
     return {
       storedFilename: loc.storedFilename,
       storagePath: loc.relativePath,
       absolutePath: loc.absolutePath,
-      publicUrl,
+      publicUrl: `/api/documents/${loc.relativePath}`,
     };
   }
 
@@ -254,27 +240,13 @@ export class StorageEngine {
   }
 
   /**
-   * Read file buffer from local disk or Supabase Storage
+   * Read file buffer from local disk
    */
   public async readFile(relativePath: string): Promise<Buffer> {
     const absPath = this.resolveAbsolutePath(relativePath);
     if (fs.existsSync(absPath)) {
       return fs.promises.readFile(absPath);
     }
-
-    if (supabaseStorage.isConfigured()) {
-      try {
-        const downloaded = await supabaseStorage.downloadFile(relativePath);
-        try {
-          this.ensureDirectoryExists(path.dirname(absPath));
-          await fs.promises.writeFile(absPath, downloaded);
-        } catch {}
-        return downloaded;
-      } catch (cloudErr) {
-        throw new Error(`File not found on local storage or Supabase cloud: ${relativePath}`);
-      }
-    }
-
     throw new Error(`File not found on storage: ${relativePath}`);
   }
 
@@ -290,60 +262,44 @@ export class StorageEngine {
   }
 
   /**
-   * Delete file from local disk and Supabase Storage
+   * Delete file from local disk
    */
   public async deleteFile(relativePath: string): Promise<boolean> {
-    let deleted = false;
     try {
       const absPath = this.resolveAbsolutePath(relativePath);
       if (fs.existsSync(absPath)) {
         await fs.promises.unlink(absPath);
-        deleted = true;
+        return true;
       }
     } catch {}
-
-    if (supabaseStorage.isConfigured()) {
-      try {
-        const cloudDeleted = await supabaseStorage.deleteFile(relativePath);
-        if (cloudDeleted) deleted = true;
-      } catch {}
-    }
-
-    return deleted;
+    return false;
   }
 
   /**
-   * Check if file exists on disk or Supabase Storage
+   * Check if file exists on disk
    */
   public fileExists(relativePath: string): boolean {
     try {
       const absPath = this.resolveAbsolutePath(relativePath);
-      if (fs.existsSync(absPath)) return true;
-      if (supabaseStorage.isConfigured()) return true;
-      return false;
+      return fs.existsSync(absPath);
     } catch {
       return false;
     }
   }
 
   /**
-   * Get public URL for persistent cloud file
+   * Get URL for file
    */
   public getPublicUrl(relativePath: string): string {
-    if (supabaseStorage.isConfigured()) {
-      return supabaseStorage.getPublicUrl(relativePath);
-    }
-    return '';
+    const cleanPath = relativePath.replace(/^\/+/, '');
+    return `/api/documents/${cleanPath}`;
   }
 
   /**
-   * Create temporary signed URL for file
+   * Create URL for file
    */
-  public async createSignedUrl(relativePath: string, expiresInSeconds = 3600): Promise<string> {
-    if (supabaseStorage.isConfigured()) {
-      return supabaseStorage.createSignedUrl(relativePath, expiresInSeconds);
-    }
-    return '';
+  public async createSignedUrl(relativePath: string, _expiresInSeconds = 3600): Promise<string> {
+    return this.getPublicUrl(relativePath);
   }
 
   /**

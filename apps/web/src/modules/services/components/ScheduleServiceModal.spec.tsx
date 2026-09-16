@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '../../../providers/ToastProvider';
-import { ScheduleServiceModal } from './ScheduleServiceModal';
+import { ScheduleServiceModal, type ScheduleServiceModalProps } from './ScheduleServiceModal';
 
 const mockMutateAsync = vi.fn();
 
@@ -75,11 +75,11 @@ describe('ScheduleServiceModal', () => {
     defaultOptions: { queries: { retry: false } },
   });
 
-  const renderModal = (props = { isOpen: true, onClose: vi.fn() }) => {
+  const renderModal = (props: Partial<ScheduleServiceModalProps> = {}) => {
     return render(
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
-          <ScheduleServiceModal {...props} />
+          <ScheduleServiceModal isOpen={true} onClose={vi.fn()} {...props} />
         </ToastProvider>
       </QueryClientProvider>
     );
@@ -150,5 +150,22 @@ describe('ScheduleServiceModal', () => {
 
     expect(await screen.findByText(/Please select a customer/i)).toBeInTheDocument();
     expect(submitBtn).not.toBeDisabled();
+  });
+
+  it('auto-selects customer when initialCustomerId and initialCustomer are provided', () => {
+    renderModal({
+      isOpen: true,
+      onClose: vi.fn(),
+      initialCustomerId: 'cust-1',
+      initialCustomer: {
+        id: 'cust-1',
+        fullName: 'Anil Kumar Sharma',
+        phone: '9123456780',
+        customerNumber: 'CUST-2026-0001',
+      },
+    });
+
+    const selects = screen.getAllByRole('combobox');
+    expect(selects[0]).toHaveValue('cust-1');
   });
 });

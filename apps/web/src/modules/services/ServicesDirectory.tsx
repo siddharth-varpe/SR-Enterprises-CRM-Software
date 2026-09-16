@@ -9,6 +9,7 @@ import { ServiceTable } from './components/ServiceTable';
 import { ScheduleServiceModal } from './components/ScheduleServiceModal';
 import { CompleteServiceModal } from './components/CompleteServiceModal';
 import { QuickAssignModal } from './components/QuickAssignModal';
+import { EditServiceModal } from './components/EditServiceModal';
 import {
   useServicesQuery,
   useServiceKPIsQuery,
@@ -39,6 +40,7 @@ export const ServicesDirectory: React.FC = () => {
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
   const [completeTargetService, setCompleteTargetService] = useState<ServiceItem | null>(null);
   const [assignTargetService, setAssignTargetService] = useState<ServiceItem | null>(null);
+  const [editTargetService, setEditTargetService] = useState<ServiceItem | null>(null);
 
   // Queries
   const { data: servicesData, isLoading: isServicesLoading } = useServicesQuery(filters);
@@ -130,6 +132,7 @@ export const ServicesDirectory: React.FC = () => {
         onPageChange={(page) => handleFilterChange({ page })}
         onOpenCompleteModal={(srv) => setCompleteTargetService(srv)}
         onOpenQuickAssign={(srv) => setAssignTargetService(srv)}
+        onOpenEditModal={(srv) => setEditTargetService(srv)}
       />
 
       {/* Modals */}
@@ -137,6 +140,12 @@ export const ServicesDirectory: React.FC = () => {
         isOpen={isScheduleOpen}
         onClose={() => setIsScheduleOpen(false)}
         initialDate={filters.targetDate}
+      />
+
+      <EditServiceModal
+        isOpen={Boolean(editTargetService)}
+        onClose={() => setEditTargetService(null)}
+        service={editTargetService}
       />
 
       <CompleteServiceModal

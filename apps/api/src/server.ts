@@ -11,6 +11,7 @@ import { seedInitialSystemData } from './database/seeds/initial.js';
 import { emailQueueWorker } from './modules/notifications/email-queue.worker.js';
 import { emailScheduler } from './modules/notifications/email-scheduler.js';
 import { backupScheduler } from './modules/backup/backup-scheduler.js';
+import { configService } from './modules/system/configuration.service.js';
 
 export async function startServer() {
   const app = buildApp();
@@ -39,6 +40,11 @@ export async function startServer() {
   try {
     // Initialize and verify database tables/migrations
     await ensureDatabaseInitialized();
+
+    // Preload system configuration into memory to guarantee zero transaction latency
+    try {
+      await configService.preloadAll();
+    } catch {}
 
     // Ensure initial roles, permissions, and super admin user exist
     try {
@@ -105,4 +111,5 @@ export async function startServer() {
 
 // Automatically start server
 startServer();
+
 

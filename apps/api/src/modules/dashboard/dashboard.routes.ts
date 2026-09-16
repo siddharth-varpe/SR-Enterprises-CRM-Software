@@ -80,11 +80,12 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
    * Aggregates real operational data for the dashboard command center
    */
   fastify.get('/overview', async (_request, reply) => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
     try {
-      const now = new Date();
-      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-      const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-      const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
       // 1. Services queries (DB + memoryServices)
       let allServices: any[] = [];
@@ -101,25 +102,24 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
         allServices = [...(dbServices || [])];
       } catch (err: any) {
         console.warn('[Dashboard.overview] Services query notice:', err?.message);
-      }
-
-      for (const ms of memoryServices) {
-        if (!allServices.some((s) => s.id === ms.id)) {
-          allServices.push(ms);
+        for (const ms of memoryServices) {
+          if (!allServices.some((s) => s.id === ms.id)) {
+            allServices.push(ms);
+          }
         }
       }
 
       const activeServices = allServices.filter(
         (s) => s.status !== 'CANCELLED' && s.status !== 'COMPLETED'
       );
-      const servicesScheduled = activeServices.length;
 
       const dueTodayServices = activeServices.filter((s) => {
         if (!s.scheduledDate) return true;
         const schedTime = new Date(s.scheduledDate).getTime();
         return schedTime <= endOfToday.getTime();
       });
-      const servicesDueToday = dueTodayServices.length || (servicesScheduled > 0 ? servicesScheduled : 0);
+      const servicesDueToday = dueTodayServices.length;
+      const servicesScheduled = dueTodayServices.length;
 
       const servicesUrgent = activeServices.filter(
         (s) => s.priority === 'URGENT' || s.priority === 'HIGH'
@@ -149,11 +149,12 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
           where: sql`${warranties.status} != 'EXPIRED'`,
         });
         allWarranties = [...(dbWarranties || [])];
-      } catch {}
-
-      for (const mw of memoryWarranties) {
-        if (!allWarranties.some((w) => w.id === mw.id)) {
-          allWarranties.push(mw);
+      } catch (err: any) {
+        console.warn('[Dashboard.overview] Warranties query notice:', err?.message);
+        for (const mw of memoryWarranties) {
+          if (!allWarranties.some((w) => w.id === mw.id)) {
+            allWarranties.push(mw);
+          }
         }
       }
 
@@ -178,11 +179,12 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
           limit: 20,
         });
         allInvoices = [...(dbInvoices || [])];
-      } catch {}
-
-      for (const mi of memoryInvoices) {
-        if (!allInvoices.some((i) => i.id === mi.id)) {
-          allInvoices.push(mi);
+      } catch (err: any) {
+        console.warn('[Dashboard.overview] Invoices query notice:', err?.message);
+        for (const mi of memoryInvoices) {
+          if (!allInvoices.some((i) => i.id === mi.id)) {
+            allInvoices.push(mi);
+          }
         }
       }
 
@@ -196,19 +198,19 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
         return false;
       }).length;
 
-      // 5. Technicians queries (DB + memoryTechnicians / INITIAL_TECHNICIANS)
+      // 5. Technicians queries (DB + memoryTechnicians)
       let allTechs: any[] = [];
       try {
         const dbTechs = await db.query.technicians.findMany({
           where: eq(technicians.status, 'ACTIVE'),
         });
         allTechs = [...(dbTechs || [])];
-      } catch {}
-
-      const sourceTechs = memoryTechnicians.length > 0 ? memoryTechnicians : INITIAL_TECHNICIANS;
-      for (const st of sourceTechs) {
-        if (!allTechs.some((t) => t.id === st.id)) {
-          allTechs.push(st);
+      } catch (err: any) {
+        console.warn('[Dashboard.overview] Technicians query notice:', err?.message);
+        for (const st of memoryTechnicians) {
+          if (!allTechs.some((t) => t.id === st.id)) {
+            allTechs.push(st);
+          }
         }
       }
 
@@ -220,9 +222,40 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
         (t) => t.status === 'ACTIVE' && !inProgressTechIds.has(t.id)
       ).length;
 
-      // 6. Schedule list (Active + Recent completed services)
+      // 6. Schedule list (Active services due today + Services completed today)
       const schedule = allServices
-        .filter((s) => s.status !== 'CANCELLED')
+        .filter((s) => {
+          if (s.status === 'CANCELLED') return false;
+
+          const schedTime = s.scheduledDate ? new Date(s.scheduledDate).getTime() : null;
+          const completedTime = s.completedAt ? new Date(s.completedAt).getTime() : null;
+          const startTime = startOfToday.getTime();
+          const endTime = endOfToday.getTime();
+
+          // Completed services: only include if completed today or scheduled for today
+          if (s.status === 'COMPLETED') {
+            if (completedTime !== null && completedTime >= startTime && completedTime <= endTime) {
+              return true;
+            }
+            if (schedTime !== null && schedTime >= startTime && schedTime <= endTime) {
+              return true;
+            }
+            return false;
+          }
+
+          // Active services (SCHEDULED, ASSIGNED, IN_PROGRESS):
+          // Belongs to today's schedule only if scheduled for today or due today / overdue (schedTime <= endTime)
+          if (schedTime !== null) {
+            return schedTime <= endTime;
+          }
+
+          // If no scheduledDate set, include only if created today
+          const createdTime = s.createdAt ? new Date(s.createdAt).getTime() : null;
+          if (createdTime !== null && createdTime >= startTime && createdTime <= endTime) {
+            return true;
+          }
+          return false;
+        })
         .slice(0, 25)
         .map((s, idx) => {
           let customerName = s.customer?.fullName || s.customerName;
@@ -409,17 +442,39 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
 
       // In case of any unhandled exception, return real data from in-memory stores
       const activeServices = memoryServices.filter((s) => s.status !== 'CANCELLED' && s.status !== 'COMPLETED');
-      const techOnDuty = (memoryTechnicians.length > 0 ? memoryTechnicians : INITIAL_TECHNICIANS).filter((t) => t.status === 'ACTIVE').length;
+      const dueTodayFallback = activeServices.filter((s) => {
+        if (!s.scheduledDate) return true;
+        const schedTime = new Date(s.scheduledDate).getTime();
+        return schedTime <= endOfToday.getTime();
+      });
+      const techOnDuty = memoryTechnicians.filter((t) => t.status === 'ACTIVE').length;
 
-      const schedule = activeServices.slice(0, 25).map((s, idx) => ({
-        id: s.serviceNumber || s.id || `SCH-${idx + 1}`,
-        time: s.scheduledTimeSlot || '10:00 AM',
-        customerName: memoryCustomers.find((c) => c.id === s.customerId)?.fullName || 'Valued Customer',
-        serviceName: s.serviceType ? s.serviceType.replace(/_/g, ' ') : 'RO Service Visit',
-        mode: (s.serviceLocation === 'IN_SHOP' ? 'In-Shop' : 'Doorstep') as any,
-        category: (s.priority === 'URGENT' ? 'Emergency' : 'General') as any,
-        status: (s.status === 'COMPLETED' ? 'Completed' : 'Scheduled') as any,
-      }));
+      const schedule = memoryServices
+        .filter((s) => {
+          if (s.status === 'CANCELLED') return false;
+          const schedTime = s.scheduledDate ? new Date(s.scheduledDate).getTime() : null;
+          const completedTime = s.completedAt ? new Date(s.completedAt).getTime() : null;
+          const startTime = startOfToday.getTime();
+          const endTime = endOfToday.getTime();
+          if (s.status === 'COMPLETED') {
+            return (
+              (completedTime !== null && completedTime >= startTime && completedTime <= endTime) ||
+              (schedTime !== null && schedTime >= startTime && schedTime <= endTime)
+            );
+          }
+          if (schedTime !== null) return schedTime <= endTime;
+          return false;
+        })
+        .slice(0, 25)
+        .map((s, idx) => ({
+          id: s.serviceNumber || s.id || `SCH-${idx + 1}`,
+          time: s.scheduledTimeSlot || '10:00 AM',
+          customerName: memoryCustomers.find((c) => c.id === s.customerId)?.fullName || 'Valued Customer',
+          serviceName: s.serviceType ? s.serviceType.replace(/_/g, ' ') : 'RO Service Visit',
+          mode: (s.serviceLocation === 'IN_SHOP' ? 'In-Shop' : 'Doorstep') as any,
+          category: (s.priority === 'URGENT' ? 'Emergency' : 'General') as any,
+          status: (s.status === 'COMPLETED' ? 'Completed' : 'Scheduled') as any,
+        }));
 
       const paymentReminders = memoryInvoices.slice(0, 5).map((inv, idx) => ({
         id: `REM-${idx + 1}`,
@@ -447,7 +502,7 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
         success: true,
         data: {
           cards: {
-            servicesDueToday: activeServices.length,
+            servicesDueToday: dueTodayFallback.length,
             servicesUrgent: activeServices.filter((s) => s.priority === 'URGENT').length,
             newInquiries: 0,
             inquiriesUnread: 0,
@@ -457,7 +512,7 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
             techniciansOnDuty: techOnDuty,
             techniciansAvailable: techOnDuty,
             history: {
-              servicesDue: genCurve(activeServices.length),
+              servicesDue: genCurve(dueTodayFallback.length),
               newInquiries: [0, 0, 0, 0, 0, 0, 0],
               warrantiesExpiring: genCurve(memoryWarranties.length),
               paymentsDue: genCurve(memoryInvoices.length),
@@ -465,7 +520,7 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify) => {
             },
           },
           overview: {
-            servicesScheduled: activeServices.length,
+            servicesScheduled: dueTodayFallback.length,
             newInquiries: 0,
             warrantiesExpiring: memoryWarranties.length,
             paymentsDue: memoryInvoices.length,

@@ -29,6 +29,8 @@ import {
   rentalEvents,
   emailNotifications,
   appSettings,
+  products,
+  technicians,
 } from '../../database/schema/index';
 import { eq, and, or, ilike, desc, asc, count, sum, sql, inArray, gt, gte, lte, ne, isNull } from 'drizzle-orm';
 import { generateBusinessNumber } from '../../database/sequences';
@@ -170,7 +172,6 @@ export class CustomerRepository {
               limit: 10,
               with: {
                 product: true,
-                warranties: true,
               },
             },
           },
@@ -213,28 +214,29 @@ export class CustomerRepository {
 
     if (customerIds.length > 0) {
       const [servicesListRes, invoicesListRes, paymentsListRes, warrantiesListRes] = await Promise.allSettled([
-        database.query.services.findMany({
-          where: inArray(services.customerId, customerIds),
-          with: {
-            asset: {
-              with: {
-                product: true,
-              },
-            },
-          },
-          orderBy: desc(services.scheduledDate),
-        }),
-        database.query.invoices.findMany({
-          where: inArray(invoices.customerId, customerIds),
-          orderBy: desc(invoices.invoiceDate),
-        }),
-        database.query.payments.findMany({
-          where: inArray(payments.customerId, customerIds),
-          orderBy: desc(payments.paymentDate),
-        }),
-        database.query.warranties.findMany({
-          where: inArray(warranties.customerId, customerIds),
-        }),
+        database.query?.services?.findMany
+          ? database.query.services.findMany({
+              where: inArray(services.customerId, customerIds),
+              orderBy: desc(services.scheduledDate),
+            })
+          : Promise.resolve([]),
+        database.query?.invoices?.findMany
+          ? database.query.invoices.findMany({
+              where: inArray(invoices.customerId, customerIds),
+              orderBy: desc(invoices.invoiceDate),
+            })
+          : Promise.resolve([]),
+        database.query?.payments?.findMany
+          ? database.query.payments.findMany({
+              where: inArray(payments.customerId, customerIds),
+              orderBy: desc(payments.paymentDate),
+            })
+          : Promise.resolve([]),
+        database.query?.warranties?.findMany
+          ? database.query.warranties.findMany({
+              where: inArray(warranties.customerId, customerIds),
+            })
+          : Promise.resolve([]),
       ]);
 
       if (servicesListRes.status === 'fulfilled') {
@@ -424,22 +426,51 @@ export class CustomerRepository {
 
     let servicesList: any[] = [];
     try {
-      servicesList = await database.query.services.findMany({
-        where: eq(services.customerId, id),
-        with: {
-          asset: {
-            with: {
-              product: true,
-            },
-          },
-        },
-        orderBy: desc(services.scheduledDate),
-      });
-    } catch {}
+      const dbServices = await database
+        .select({
+          id: services.id,
+          serviceNumber: services.serviceNumber,
+          serviceType: services.serviceType,
+          serviceLocation: services.serviceLocation,
+          serviceClassification: services.serviceClassification,
+          scheduledDate: services.scheduledDate,
+          scheduledTimeSlot: services.scheduledTimeSlot,
+          status: services.status,
+          priority: services.priority,
+          customerNotes: services.customerNotes,
+          internalNotes: services.internalNotes,
+          completedAt: services.completedAt,
+          createdAt: services.createdAt,
+          updatedAt: services.updatedAt,
+          customerId: services.customerId,
+          assetId: services.assetId,
+          productName: sql<string>`COALESCE(${customerAssets.customName}, ${products.name}, 'RO Purifier')`,
+          productBrand: products.brand,
+          serialNumber: customerAssets.serialNumber,
+          technicianId: services.technicianId,
+          technicianName: technicians.fullName,
+          technicianPhone: technicians.phone,
+          cost: sql<string>`COALESCE(${jobCards.totalCharges}, '0.00')`,
+          totalCharges: sql<string>`COALESCE(${jobCards.totalCharges}, '0.00')`,
+        })
+        .from(services)
+        .leftJoin(customerAssets, eq(services.assetId, customerAssets.id))
+        .leftJoin(products, eq(customerAssets.productId, products.id))
+        .leftJoin(technicians, eq(services.technicianId, technicians.id))
+        .leftJoin(jobCards, eq(services.id, jobCards.serviceId))
+        .where(eq(services.customerId, id))
+        .orderBy(desc(services.scheduledDate), desc(services.createdAt));
+
+      if (dbServices && dbServices.length > 0) {
+        servicesList = dbServices;
+      }
+    } catch (srvErr) {
+      console.warn('[CustomerRepository.findById] DB services join notice:', srvErr);
+    }
     if (servicesList.length === 0) {
       try {
-        const dbServices = await database.select().from(services).where(eq(services.customerId, id)).orderBy(desc(services.scheduledDate));
-        if (dbServices.length > 0) servicesList = dbServices;
+        const fallbackDb = await database.select().from(services).where(eq(services.customerId, id)).orderBy(desc(services.scheduledDate));
+        if (fallbackDb.length > 0) servicesList = fallbackDb;
       } catch {}
     }
     const memServices = memoryServices.filter((s) => s.customerId === id);
@@ -2103,77 +2134,75 @@ export class CustomerRepository {
     let dueForService = 0;
 
     try {
-      // 1. Total & Active Customers (All non-archived records)
-      const [totalCountRes] = await database
-        .select({ count: count(customers.id) })
-        .from(customers)
-        .where(sql`${customers.archivedAt} IS NULL`);
-      totalCustomers = Number(totalCountRes?.count || 0);
-    } catch (e) {
-      console.warn('[CustomerRepository] totalCustomers metric notice:', e);
-    }
+      const [totalRes, activeRes, newMonthRes, warrantyRes, dueServiceRes] = await Promise.allSettled([
+        // 1. Total Customers
+        database
+          .select({ count: count(customers.id) })
+          .from(customers)
+          .where(sql`${customers.archivedAt} IS NULL`),
 
-    try {
-      const [activeCountRes] = await database
-        .select({ count: count(customers.id) })
-        .from(customers)
-        .where(and(eq(customers.status, 'ACTIVE'), sql`${customers.archivedAt} IS NULL`));
-      activeCustomers = Number(activeCountRes?.count || 0);
-    } catch (e) {
-      console.warn('[CustomerRepository] activeCustomers metric notice:', e);
-    }
+        // 2. Active Customers
+        database
+          .select({ count: count(customers.id) })
+          .from(customers)
+          .where(and(eq(customers.status, 'ACTIVE'), sql`${customers.archivedAt} IS NULL`)),
 
-    try {
-      // 2. New This Month (Genuine customer registrations in current calendar month)
-      const [newThisMonthRes] = await database
-        .select({ count: count(customers.id) })
-        .from(customers)
-        .where(
-          and(
-            gte(customers.createdAt, startOfCurrentMonth),
-            lte(customers.createdAt, endOfCurrentMonth),
-            sql`${customers.archivedAt} IS NULL`
-          )
-        );
-      newThisMonth = Number(newThisMonthRes?.count || 0);
-    } catch (e) {
-      console.warn('[CustomerRepository] newThisMonth metric notice:', e);
-    }
+        // 3. New This Month
+        database
+          .select({ count: count(customers.id) })
+          .from(customers)
+          .where(
+            and(
+              gte(customers.createdAt, startOfCurrentMonth),
+              lte(customers.createdAt, endOfCurrentMonth),
+              sql`${customers.archivedAt} IS NULL`
+            )
+          ),
 
-    try {
-      // 3. With Active Warranty (Distinct customers possessing valid active warranty)
-      const [withWarrantyRes] = await database
-        .select({ count: sql<number>`count(distinct ${customers.id})` })
-        .from(customers)
-        .innerJoin(warranties, eq(warranties.customerId, customers.id))
-        .where(
-          and(
-            sql`${customers.archivedAt} IS NULL`,
-            inArray(warranties.status, ['ACTIVE', 'EXPIRING_SOON']),
-            gte(warranties.endDate, now)
-          )
-        );
-      withWarranty = Number(withWarrantyRes?.count || 0);
-    } catch (e) {
-      console.warn('[CustomerRepository] withWarranty metric notice:', e);
-    }
+        // 4. With Active Warranty
+        database
+          .select({ count: sql<number>`count(distinct ${customers.id})::int` })
+          .from(customers)
+          .innerJoin(warranties, eq(warranties.customerId, customers.id))
+          .where(
+            and(
+              sql`${customers.archivedAt} IS NULL`,
+              inArray(warranties.status, ['ACTIVE', 'EXPIRING_SOON']),
+              gte(warranties.endDate, now)
+            )
+          ),
 
-    try {
-      // 4. Due for Service (Distinct customers possessing scheduled or assigned upcoming service)
-      const [dueForServiceRes] = await database
-        .select({ count: sql<number>`count(distinct ${customers.id})` })
-        .from(customers)
-        .innerJoin(services, eq(services.customerId, customers.id))
-        .where(
-          and(
-            sql`${customers.archivedAt} IS NULL`,
-            inArray(services.status, ['SCHEDULED', 'ASSIGNED']),
-            gte(services.scheduledDate, startOfToday)
-          )
-        );
-      dueForService = Number(dueForServiceRes?.count || 0);
+        // 5. Due for Service
+        database
+          .select({ count: sql<number>`count(distinct ${customers.id})::int` })
+          .from(customers)
+          .innerJoin(services, eq(services.customerId, customers.id))
+          .where(
+            and(
+              sql`${customers.archivedAt} IS NULL`,
+              inArray(services.status, ['SCHEDULED', 'ASSIGNED']),
+              gte(services.scheduledDate, startOfToday)
+            )
+          ),
+      ]);
+
+      if (totalRes.status === 'fulfilled' && totalRes.value[0]) {
+        totalCustomers = Number(totalRes.value[0].count || 0);
+      }
+      if (activeRes.status === 'fulfilled' && activeRes.value[0]) {
+        activeCustomers = Number(activeRes.value[0].count || 0);
+      }
+      if (newMonthRes.status === 'fulfilled' && newMonthRes.value[0]) {
+        newThisMonth = Number(newMonthRes.value[0].count || 0);
+      }
+      if (warrantyRes.status === 'fulfilled' && warrantyRes.value[0]) {
+        withWarranty = Number(warrantyRes.value[0].count || 0);
+      }
+      if (dueServiceRes.status === 'fulfilled' && dueServiceRes.value[0]) {
+        dueForService = Number(dueServiceRes.value[0].count || 0);
+      }
     } catch (e) {
-      console.warn('[CustomerRepository] dueForService metric notice:', e);
+      console.warn('[CustomerRepository] getCustomerDashboardStats query notice:', e);
     }
 
     if (totalCustomers === 0 && memoryCustomers.length > 0) {

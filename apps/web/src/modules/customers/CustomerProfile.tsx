@@ -10,6 +10,7 @@ import { CustomerRentalsSection } from './components/CustomerRentalsSection';
 import { CustomerFormModal } from './components/CustomerFormModal';
 import { CustomerArchiveDialog } from './components/CustomerArchiveDialog';
 import { CustomerLabelModal } from './components/CustomerLabelModal';
+import { ScheduleServiceModal } from '../services/components/ScheduleServiceModal';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import {
   useCustomerDetailQuery,
@@ -22,6 +23,7 @@ import {
 import { usePayments, type PaymentItem } from '../payments/payments.api';
 import { useInvoicesQuery, type InvoiceSummaryData } from '../invoices/invoices.api';
 import { useSalesQuery, type SaleSummaryData } from '../sales/sales.api';
+import { useServicesQuery } from '../services/services.api';
 import { RecordPaymentModal } from '../payments/components/RecordPaymentModal';
 import { PaymentReceiptModal } from '../payments/components/PaymentReceiptModal';
 import { useAuth } from '../../providers/AuthBoundary';
@@ -76,6 +78,8 @@ export const CustomerProfile: React.FC = () => {
   const [isClearDataDialogOpen, setIsClearDataDialogOpen] = useState(false);
   const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
   const [isRecordPaymentModalOpen, setIsRecordPaymentModalOpen] = useState(false);
+  const [isScheduleServiceModalOpen, setIsScheduleServiceModalOpen] = useState(false);
+  const [scheduleServiceAssetId, setScheduleServiceAssetId] = useState<string | undefined>(undefined);
   const [selectedInvoiceIdForPayment, setSelectedInvoiceIdForPayment] = useState<string | undefined>(undefined);
   const [selectedReceiptPayment, setSelectedReceiptPayment] = useState<PaymentItem | null>(null);
   const [financialPeriod] = useState('This Year');
@@ -96,6 +100,10 @@ export const CustomerProfile: React.FC = () => {
     limit: 100,
     sortBy: 'createdAt',
     sortOrder: 'desc',
+  });
+  const { data: customerServicesData, refetch: refetchServices } = useServicesQuery({
+    customerId: id,
+    limit: 100,
   });
   const addNoteMutation = useAddCustomerNoteMutation(id || '');
   const deleteCustomerMutation = useDeleteCustomerMutation(id || '');
@@ -286,6 +294,96 @@ export const CustomerProfile: React.FC = () => {
     }
   };
 
+  // Real Customer Services from database & reactive services query
+  const rawServicesFromQuery: any[] = React.useMemo(() => {
+    if (!customerServicesData) return [];
+    if (Array.isArray(customerServicesData)) return customerServicesData;
+    if (Array.isArray((customerServicesData as any).data)) return (customerServicesData as any).data;
+    return [];
+  }, [customerServicesData]);
+
+  const rawCustomerServices: any[] = React.useMemo(() => {
+    const fromCustomer = (customer as any)?.services || [];
+    const map = new Map<string, any>();
+    // Add latest services from query
+    rawServicesFromQuery.forEach((s) => {
+      if (s && s.id) map.set(s.id, s);
+    });
+    // Add any services embedded on customer object
+    fromCustomer.forEach((s: any) => {
+      if (s && s.id && !map.has(s.id)) map.set(s.id, s);
+    });
+    return Array.from(map.values()).sort((a, b) => {
+      const dateA = new Date(a.scheduledDate || a.createdAt || 0).getTime();
+      const dateB = new Date(b.scheduledDate || b.createdAt || 0).getTime();
+      return dateB - dateA;
+    });
+  }, [rawServicesFromQuery, customer]);
+
+  const customerServicesList = React.useMemo(() => {
+    return rawCustomerServices.map((s: any) => {
+      const machineName =
+        s.productName ||
+        s.customName ||
+        s.asset?.customName ||
+        s.asset?.product?.name ||
+        s.productBrand ||
+        'RO Water Purifier';
+
+      const typeLabel = s.serviceType ? s.serviceType.replace(/_/g, ' ') : 'RO Water Purifier Service';
+      const statusLabel =
+        s.status === 'COMPLETED'
+          ? 'Completed'
+          : s.status === 'IN_PROGRESS'
+          ? 'In Progress'
+          : s.status === 'ASSIGNED'
+          ? 'Assigned'
+          : s.status === 'OVERDUE'
+          ? 'Overdue'
+          : s.status === 'CANCELLED'
+          ? 'Cancelled'
+          : 'Scheduled';
+
+      const statusColor =
+        s.status === 'COMPLETED'
+          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+          : s.status === 'IN_PROGRESS'
+          ? 'bg-amber-50 text-amber-700 border-amber-200'
+          : s.status === 'OVERDUE' || s.status === 'CANCELLED'
+          ? 'bg-rose-50 text-rose-700 border-rose-200'
+          : 'bg-blue-50 text-blue-700 border-blue-200';
+
+      const costValue = s.totalCharges ?? s.cost ?? s.laborCharges ?? 0;
+
+      return {
+        id: s.id,
+        raw: s,
+        serviceNumber: s.serviceNumber || 'SRV',
+        title: typeLabel,
+        machineName,
+        assetNumber: s.assetNumber || s.serialNumber || '',
+        serviceType: s.serviceType,
+        serviceClassification: s.serviceClassification || 'GENERAL',
+        serviceLocation: s.serviceLocation || 'DOORSTEP',
+        date: s.scheduledDate ? formatDate(s.scheduledDate) : 'Recently',
+        rawDate: s.scheduledDate || s.createdAt,
+        scheduledDate: s.scheduledDate,
+        createdAt: s.createdAt,
+        timeSlot: s.scheduledTimeSlot || null,
+        technicianName: s.technicianName || 'Unassigned',
+        technicianPhone: s.technicianPhone || null,
+        status: s.status,
+        statusLabel,
+        statusColor,
+        amount: costValue ? formatINR(Number(costValue)) : '₹ 0.00',
+        priority: s.priority || 'NORMAL',
+        customerNotes: s.customerNotes || null,
+        icon: <Wrench className="w-4 h-4 text-blue-600" />,
+        bgIcon: 'bg-blue-50',
+      };
+    });
+  }, [rawCustomerServices]);
+
   if (isLoading) {
     return (
       <div className="space-y-6 max-w-7xl mx-auto pb-16">
@@ -314,31 +412,9 @@ export const CustomerProfile: React.FC = () => {
     ? `${defaultAddress.addressLine1 || ''}${defaultAddress.addressLine2 ? `, ${defaultAddress.addressLine2}` : ''}, ${defaultAddress.city || ''} ${defaultAddress.postalCode ? `- ${defaultAddress.postalCode}` : ''}${defaultAddress.state ? `, ${defaultAddress.state}` : ''}`.trim()
     : 'No address registered';
 
-  const customerSinceFormatted = customer.createdAt
-    ? new Date(customer.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+  const customerSinceFormatted = customer.createdAt && !isNaN(new Date(customer.createdAt).getTime())
+    ? formatDate(customer.createdAt)
     : 'Recently';
-
-  // Real Customer Services from database
-  const customerServicesList = ((customer as any).services || []).map((s: any) => {
-    const machineName = s.productName || s.customName || s.asset?.customName || s.asset?.product?.name || '';
-    return {
-      id: s.id,
-      title: s.serviceType ? s.serviceType.replace(/_/g, ' ') : 'RO Water Purifier Service',
-      machineName,
-      serviceNumber: s.serviceNumber || 'SRV',
-      date: s.scheduledDate ? formatDate(s.scheduledDate) : 'Recently',
-      status: s.status,
-      statusLabel: s.status === 'COMPLETED' ? 'Completed' : s.status === 'IN_PROGRESS' ? 'In Progress' : 'Scheduled',
-      statusColor: s.status === 'COMPLETED'
-        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-        : s.status === 'IN_PROGRESS'
-        ? 'bg-amber-50 text-amber-700 border-amber-200'
-        : 'bg-blue-50 text-blue-700 border-blue-200',
-      amount: s.cost ? formatINR(s.cost) : '₹ 0.00',
-      icon: <Wrench className="w-4 h-4 text-blue-600" />,
-      bgIcon: 'bg-blue-50',
-    };
-  });
 
   // Real Customer Payments, Invoices & Sales Data
   const recordedPayments: PaymentItem[] = customerPaymentsData?.data || [];
@@ -420,7 +496,7 @@ export const CustomerProfile: React.FC = () => {
     { id: 'overview', label: 'Overview', icon: <UserCheck className="w-4 h-4" /> },
     { id: 'sales', label: `Purchases (${customerSalesList.length})`, icon: <ShoppingBag className="w-4 h-4" /> },
     { id: 'rentals', label: 'Rentals', icon: <Repeat className="w-4 h-4" /> },
-    { id: 'services', label: 'Services', icon: <Wrench className="w-4 h-4" /> },
+    { id: 'services', label: customerServicesList.length > 0 ? `Services (${customerServicesList.length})` : 'Services', icon: <Wrench className="w-4 h-4" /> },
     { id: 'invoices', label: 'Invoices', icon: <Receipt className="w-4 h-4" /> },
     { id: 'payments', label: `Payments (${recordedPayments.length})`, icon: <CreditCard className="w-4 h-4" /> },
     { id: 'notes', label: 'Notes', icon: <MessageSquare className="w-4 h-4" /> },
@@ -498,7 +574,10 @@ export const CustomerProfile: React.FC = () => {
           <Button
             variant="primary"
             className="rounded-xl text-xs px-4 py-2 flex items-center gap-1.5 shadow-2xs"
-            onClick={() => navigate('/services')}
+            onClick={() => {
+              setScheduleServiceAssetId(undefined);
+              setIsScheduleServiceModalOpen(true);
+            }}
             leftIcon={<Plus className="w-4 h-4" />}
           >
             <span>New Service</span>
@@ -817,7 +896,12 @@ export const CustomerProfile: React.FC = () => {
                             {s.statusLabel}
                           </span>
                           <span className="text-xs font-bold text-slate-800 font-mono">{s.amount}</span>
-                          <button type="button" className="text-slate-300 hover:text-slate-600 p-0.5">
+                          <button
+                            type="button"
+                            className="text-slate-300 hover:text-slate-600 p-0.5"
+                            onClick={() => setActiveTab('services')}
+                            title="View service details"
+                          >
                             <MoreVertical className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -1230,15 +1314,24 @@ export const CustomerProfile: React.FC = () => {
                   <div>
                     <div className="text-2xs text-slate-400 font-medium">Last Interaction</div>
                     <div className="font-bold text-slate-800">
-                      {customerActivitiesData?.data?.[0]?.timestamp
-                        ? new Date(customerActivitiesData.data[0].timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-                        : allCustomerPayments.length > 0
-                        ? new Date(allCustomerPayments[0].paymentDate || allCustomerPayments[0].createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-                        : customerServicesList.length > 0
-                        ? new Date(customerServicesList[0].scheduledDate || customerServicesList[0].createdAt || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-                        : customer?.createdAt
-                        ? new Date(customer.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-                        : 'No interactions yet'}
+                      {(() => {
+                        const actDate = customerActivitiesData?.data?.[0]?.timestamp;
+                        if (actDate && !isNaN(new Date(actDate).getTime())) {
+                          return formatDate(actDate);
+                        }
+                        const pmtDate = allCustomerPayments[0]?.paymentDate || allCustomerPayments[0]?.createdAt;
+                        if (pmtDate && !isNaN(new Date(pmtDate).getTime())) {
+                          return formatDate(pmtDate);
+                        }
+                        const srvDate = customerServicesList[0]?.scheduledDate || customerServicesList[0]?.createdAt;
+                        if (srvDate && !isNaN(new Date(srvDate).getTime())) {
+                          return formatDate(srvDate);
+                        }
+                        if (customer?.createdAt && !isNaN(new Date(customer.createdAt).getTime())) {
+                          return formatDate(customer.createdAt);
+                        }
+                        return 'No interactions yet';
+                      })()}
                     </div>
                     <div className="text-2xs text-slate-500 mt-0.5 font-medium line-clamp-1">
                       {customerActivitiesData?.data?.[0]?.description ||
@@ -1344,7 +1437,10 @@ export const CustomerProfile: React.FC = () => {
                           size="sm"
                           variant="primary"
                           className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs"
-                          onClick={() => navigate('/services')}
+                          onClick={() => {
+                            setScheduleServiceAssetId((sale as any).assetId || undefined);
+                            setIsScheduleServiceModalOpen(true);
+                          }}
                         >
                           Schedule Service
                         </Button>
@@ -1376,6 +1472,143 @@ export const CustomerProfile: React.FC = () => {
       {/* Services Tab Content */}
       {activeTab === 'services' && (
         <div className="space-y-6">
+          {/* Service Visits & Schedule Table */}
+          <Card className="p-6 rounded-2xl border border-slate-200/80 shadow-xs bg-white space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-100">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-slate-900">Service Visits &amp; Maintenance History</h3>
+                  <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 text-2xs font-bold rounded-full border border-blue-200">
+                    {customerServicesList.length} Records
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  All scheduled, in-progress, and past service visits for {customer.fullName}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                  onClick={() => {
+                    setScheduleServiceAssetId(undefined);
+                    setIsScheduleServiceModalOpen(true);
+                  }}
+                  leftIcon={<Plus className="w-4 h-4" />}
+                >
+                  Schedule Service
+                </Button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-400 uppercase tracking-wider text-2xs font-bold">
+                    <th className="pb-3 font-bold">Service #</th>
+                    <th className="pb-3 font-bold">Scheduled Date &amp; Slot</th>
+                    <th className="pb-3 font-bold">Service Type</th>
+                    <th className="pb-3 font-bold">Machine / Equipment</th>
+                    <th className="pb-3 font-bold">Technician</th>
+                    <th className="pb-3 font-bold">Classification</th>
+                    <th className="pb-3 font-bold">Status</th>
+                    <th className="pb-3 font-bold">Amount</th>
+                    <th className="pb-3 text-right font-bold">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {customerServicesList.length > 0 ? (
+                    customerServicesList.map((srv) => (
+                      <tr key={srv.id} className="hover:bg-slate-50 transition-colors">
+                        <td
+                          className="py-3.5 font-mono font-bold text-blue-600 hover:underline cursor-pointer"
+                          onClick={() => navigate('/services')}
+                        >
+                          {srv.serviceNumber}
+                        </td>
+                        <td className="py-3.5 text-slate-600 whitespace-nowrap">
+                          <div className="font-semibold text-slate-800">{srv.date}</div>
+                          {srv.timeSlot && (
+                            <div className="text-2xs text-slate-400">{srv.timeSlot}</div>
+                          )}
+                        </td>
+                        <td className="py-3.5 font-medium text-slate-800 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <Wrench className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                            <span>{srv.title}</span>
+                          </div>
+                        </td>
+                        <td className="py-3.5 font-medium text-slate-800 max-w-xs">
+                          <div className="font-medium text-slate-800 truncate">{srv.machineName}</div>
+                          {srv.assetNumber && (
+                            <div className="text-2xs text-slate-400 font-mono">SN: {srv.assetNumber}</div>
+                          )}
+                        </td>
+                        <td className="py-3.5 text-slate-700 whitespace-nowrap">
+                          <div className="font-medium">{srv.technicianName}</div>
+                          {srv.technicianPhone && (
+                            <div className="text-2xs text-slate-400">{srv.technicianPhone}</div>
+                          )}
+                        </td>
+                        <td className="py-3.5 whitespace-nowrap">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-2xs font-bold border ${
+                              srv.serviceClassification === 'WARRANTY'
+                                ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                : 'bg-slate-50 text-slate-600 border-slate-200'
+                            }`}
+                          >
+                            {srv.serviceClassification === 'WARRANTY' ? 'Under Warranty' : 'Paid / General'}
+                          </span>
+                        </td>
+                        <td className="py-3.5 whitespace-nowrap">
+                          <span className={`px-2.5 py-0.5 rounded-full text-2xs font-bold border ${srv.statusColor}`}>
+                            {srv.statusLabel}
+                          </span>
+                        </td>
+                        <td className="py-3.5 font-bold text-slate-900 font-mono whitespace-nowrap">
+                          {srv.amount}
+                        </td>
+                        <td className="py-3.5 text-right whitespace-nowrap">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs"
+                            onClick={() => navigate('/services')}
+                          >
+                            View in Services
+                          </Button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={9} className="py-8 text-center text-slate-400 text-xs">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <Wrench className="w-8 h-8 text-slate-300 stroke-1" />
+                          <p className="font-medium">No service records found for this customer.</p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="mt-1 text-xs"
+                            onClick={() => {
+                              setScheduleServiceAssetId(undefined);
+                              setIsScheduleServiceModalOpen(true);
+                            }}
+                          >
+                            Schedule First Service
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {/* Installed Customer Machines & Assets */}
           <CustomerAssetsList customerId={customer.id} />
         </div>
       )}
@@ -1769,6 +2002,28 @@ export const CustomerProfile: React.FC = () => {
         customer={customer || null}
         onSuccess={() => refetch()}
       />
+
+      {/* Schedule Service Modal for Customer */}
+      {isScheduleServiceModalOpen && customer && (
+        <ScheduleServiceModal
+          isOpen={isScheduleServiceModalOpen}
+          onClose={() => {
+            setIsScheduleServiceModalOpen(false);
+            setScheduleServiceAssetId(undefined);
+            refetch();
+            refetchServices();
+          }}
+          initialCustomerId={customer.id}
+          initialCustomer={{
+            id: customer.id,
+            fullName: customer.fullName,
+            phone: customer.phone,
+            customerNumber: customer.customerNumber,
+            companyName: customer.companyName || undefined,
+          }}
+          initialAssetId={scheduleServiceAssetId}
+        />
+      )}
     </div>
   );
 };

@@ -31,10 +31,11 @@ export function formatSequenceNumber(prefix: string, year: number, counter: numb
  */
 export async function resolveConfiguredSequenceOptions(
   sequenceName: string,
-  defaultPrefix: string
+  defaultPrefix: string,
+  dbOrTx?: any
 ): Promise<{ prefix: string; padding: number; yearReset: boolean }> {
   try {
-    const numbering = await configService.get<NumberingSettings>('NUMBERING');
+    const numbering = await configService.get<NumberingSettings>('NUMBERING', dbOrTx);
     let prefix = defaultPrefix;
     switch (sequenceName.toUpperCase()) {
       case 'CUSTOMER':
@@ -100,7 +101,7 @@ export async function generateBusinessNumber(
   prefix: string,
   options?: SequenceOptions
 ): Promise<GeneratedSequenceResult> {
-  const resolved = await resolveConfiguredSequenceOptions(sequenceName, prefix);
+  const resolved = await resolveConfiguredSequenceOptions(sequenceName, prefix, db);
   const effectivePrefix = options?.useConfiguredPrefix === false ? prefix : (resolved.prefix || prefix);
   const padding = options?.padding ?? resolved.padding ?? 4;
   const yearReset = options?.yearReset ?? resolved.yearReset ?? true;

@@ -120,6 +120,21 @@ export class ServicesRepository {
         orderExpr = isAsc ? asc(services.status as any) : desc(services.status as any);
       }
 
+      const needsJoinsForCount = Boolean(filters.search?.trim());
+      const countQuery = needsJoinsForCount
+        ? database
+            .select({ count: sql<number>`count(*)` })
+            .from(services)
+            .leftJoin(customers, eq(services.customerId, customers.id))
+            .leftJoin(customerAssets, eq(services.assetId, customerAssets.id))
+            .leftJoin(products, eq(customerAssets.productId, products.id))
+            .leftJoin(technicians, eq(services.technicianId, technicians.id))
+            .where(whereClause)
+        : database
+            .select({ count: sql<number>`count(*)` })
+            .from(services)
+            .where(whereClause);
+
       const [rows, countResult] = await Promise.all([
         database
           .select({
@@ -168,14 +183,7 @@ export class ServicesRepository {
           .orderBy(orderExpr)
           .limit(limit)
           .offset(offset),
-        database
-          .select({ count: sql<number>`count(*)` })
-          .from(services)
-          .leftJoin(customers, eq(services.customerId, customers.id))
-          .leftJoin(customerAssets, eq(services.assetId, customerAssets.id))
-          .leftJoin(products, eq(customerAssets.productId, products.id))
-          .leftJoin(technicians, eq(services.technicianId, technicians.id))
-          .where(whereClause),
+        countQuery,
       ]);
 
       const total = Number(countResult[0]?.count || 0);
@@ -1190,6 +1198,16 @@ export class ServicesRepository {
 
       console.log(`✅ [ServicesRepository] Service ${newService.serviceNumber} and Job Card ${newJobCard.jobCardNumber} created successfully in DB.`);
 
+      // Keep memory stores in sync with database records
+      memoryServices.unshift(newService);
+      memoryJobCards.unshift(newJobCard);
+      const memCust = memoryCustomers.find((c) => c.id === customerId);
+      if (memCust) {
+        memCust.nextServiceDate = parsedScheduledDate.toISOString();
+        if (!memCust.services) memCust.services = [];
+        memCust.services.unshift(newService);
+      }
+
       return {
         service: newService,
         jobCard: newJobCard,
@@ -1271,17 +1289,28 @@ export class ServicesRepository {
       updatedAt: new Date(),
     };
 
+    if (input.customerId) {
+      updateData.customerId = input.customerId;
+    }
+    if (input.assetId !== undefined) {
+      updateData.assetId = input.assetId || null;
+    }
+    if (input.warrantyId !== undefined) {
+      updateData.warrantyId = input.warrantyId || null;
+    }
     if (input.technicianId !== undefined) {
-      updateData.technicianId = input.technicianId;
+      updateData.technicianId = input.technicianId || null;
       if (input.technicianId && existing.status === 'SCHEDULED') {
         updateData.status = 'ASSIGNED';
+      } else if (!input.technicianId && existing.status === 'ASSIGNED') {
+        updateData.status = 'SCHEDULED';
       }
     }
     if (input.serviceType) updateData.serviceType = input.serviceType;
     if (input.serviceLocation) updateData.serviceLocation = input.serviceLocation;
     if (input.serviceClassification) updateData.serviceClassification = input.serviceClassification;
     if (input.scheduledDate) updateData.scheduledDate = new Date(input.scheduledDate);
-    if (input.scheduledTimeSlot) updateData.scheduledTimeSlot = input.scheduledTimeSlot;
+    if (input.scheduledTimeSlot !== undefined) updateData.scheduledTimeSlot = input.scheduledTimeSlot;
     if (input.status) updateData.status = input.status;
     if (input.priority) updateData.priority = input.priority;
     if (input.customerNotes !== undefined) updateData.customerNotes = input.customerNotes;
@@ -1308,36 +1337,51 @@ export class ServicesRepository {
     const memService = memoryServices.find((s) => s.id === id);
     if (memService) {
       Object.assign(memService, updateData);
+      if (input.customerId) {
+        const cust = memoryCustomers.find((c) => c.id === input.customerId);
+        if (cust) memService.customer = cust;
+      }
+      if (input.assetId) {
+        const ast = memoryAssets.find((a) => a.id === input.assetId);
+        if (ast) memService.asset = ast;
+      }
       if (!updated) updated = memService;
     } else if (!updated) {
       updated = { ...existing, ...updateData };
       memoryServices.unshift(updated);
     }
 
-    if (input.technicianId !== undefined || input.status !== undefined) {
-      const jcUpdate: Record<string, any> = { updatedAt: new Date() };
-      if (input.technicianId !== undefined) {
-        jcUpdate.technicianId = input.technicianId;
-      }
-      if (input.status !== undefined) {
-        jcUpdate.status = input.status;
-      }
-      try {
-        await database
-          .update(jobCards)
-          .set(jcUpdate)
-          .where(eq(jobCards.serviceId, id));
-      } catch (jcErr) {
-        console.warn('[ServicesRepository] Job card update notice:', jcErr);
-      }
+    // Job card synchronization
+    const jcUpdate: Record<string, any> = { updatedAt: new Date() };
+    if (input.customerId) jcUpdate.customerId = input.customerId;
+    if (input.assetId) jcUpdate.assetId = input.assetId;
+    if (input.technicianId !== undefined) jcUpdate.technicianId = input.technicianId || null;
+    if (input.status !== undefined || updateData.status !== undefined) {
+      jcUpdate.status = input.status || updateData.status;
+    }
+    if (input.customerNotes !== undefined) jcUpdate.problemReported = input.customerNotes;
+    if (input.diagnosis !== undefined) jcUpdate.diagnosis = input.diagnosis;
+    if (input.workPerformed !== undefined) jcUpdate.workPerformed = input.workPerformed;
+    if (input.technicianNotes !== undefined) jcUpdate.technicianNotes = input.technicianNotes;
+    if (input.customerRemarks !== undefined) jcUpdate.customerRemarks = input.customerRemarks;
+    if (input.laborCharges !== undefined) jcUpdate.laborCharges = input.laborCharges ? String(input.laborCharges) : '0.00';
+    if (input.partsCharges !== undefined) jcUpdate.partsCharges = input.partsCharges ? String(input.partsCharges) : '0.00';
+    if (input.totalCharges !== undefined) jcUpdate.totalCharges = input.totalCharges ? String(input.totalCharges) : '0.00';
+    if (input.partsReplaced !== undefined) jcUpdate.partsReplaced = input.partsReplaced;
 
-      // Also sync memoryJobCards
-      const memJob = memoryJobCards.find((j) => j.serviceId === id);
-      if (memJob) {
-        if (input.technicianId !== undefined) memJob.technicianId = input.technicianId;
-        if (input.status !== undefined) memJob.status = input.status;
-        memJob.updatedAt = new Date();
-      }
+    try {
+      await database
+        .update(jobCards)
+        .set(jcUpdate)
+        .where(eq(jobCards.serviceId, id));
+    } catch (jcErr) {
+      console.warn('[ServicesRepository] Job card update notice:', jcErr);
+    }
+
+    // Also sync memoryJobCards
+    const memJob = memoryJobCards.find((j) => j.serviceId === id);
+    if (memJob) {
+      Object.assign(memJob, jcUpdate);
     }
 
     try {
@@ -1351,7 +1395,8 @@ export class ServicesRepository {
       });
     } catch {}
 
-    return updated;
+    const richService = await this.findById(id, database);
+    return richService || updated;
   }
 
   /**

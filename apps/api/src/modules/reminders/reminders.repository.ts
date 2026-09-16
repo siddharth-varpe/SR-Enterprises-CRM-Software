@@ -189,31 +189,41 @@ export class RemindersRepository {
    * Reminder KPIs Overview
    */
   async getKPIs(database = db) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const query = sql`
-      SELECT
-        COUNT(*)::int AS total_reminders,
-        COUNT(*) FILTER (WHERE ${reminders.status} = 'PENDING')::int AS pending_count,
-        COUNT(*) FILTER (WHERE ${reminders.status} = 'PENDING' AND ${reminders.reminderDate} >= ${today} AND ${reminders.reminderDate} < ${tomorrow})::int AS due_today_count,
-        COUNT(*) FILTER (WHERE ${reminders.status} = 'PENDING' AND ${reminders.reminderDate} < ${today})::int AS overdue_count,
-        COUNT(*) FILTER (WHERE ${reminders.status} = 'COMPLETED')::int AS completed_count
-      FROM ${reminders}
-    `;
+      const query = sql`
+        SELECT
+          COUNT(*)::int AS total_reminders,
+          COUNT(*) FILTER (WHERE ${reminders.status} = 'PENDING')::int AS pending_count,
+          COUNT(*) FILTER (WHERE ${reminders.status} = 'PENDING' AND ${reminders.reminderDate} >= ${today.toISOString()} AND ${reminders.reminderDate} < ${tomorrow.toISOString()})::int AS due_today_count,
+          COUNT(*) FILTER (WHERE ${reminders.status} = 'PENDING' AND ${reminders.reminderDate} < ${today.toISOString()})::int AS overdue_count,
+          COUNT(*) FILTER (WHERE ${reminders.status} = 'COMPLETED')::int AS completed_count
+        FROM ${reminders}
+      `;
 
-    const result = await database.execute(query);
-    const row = result[0] as any;
+      const result = await database.execute(query);
+      const row = result[0] as any;
 
-    return {
-      totalReminders: row?.total_reminders || 0,
-      pendingCount: row?.pending_count || 0,
-      dueTodayCount: row?.due_today_count || 0,
-      overdueCount: row?.overdue_count || 0,
-      completedCount: row?.completed_count || 0,
-    };
+      return {
+        totalReminders: Number(row?.total_reminders || 0),
+        pendingCount: Number(row?.pending_count || 0),
+        dueTodayCount: Number(row?.due_today_count || 0),
+        overdueCount: Number(row?.overdue_count || 0),
+        completedCount: Number(row?.completed_count || 0),
+      };
+    } catch {
+      return {
+        totalReminders: memoryReminders.length,
+        pendingCount: memoryReminders.filter((r) => r.status === 'PENDING').length,
+        dueTodayCount: 0,
+        overdueCount: 0,
+        completedCount: memoryReminders.filter((r) => r.status === 'COMPLETED').length,
+      };
+    }
   }
 
   /**

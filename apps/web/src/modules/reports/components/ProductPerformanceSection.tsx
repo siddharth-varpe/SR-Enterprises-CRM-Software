@@ -36,10 +36,10 @@ export const ProductPerformanceSection: React.FC<ProductPerformanceSectionProps>
       name: prod.name,
       category: prod.productType ? prod.productType.replace(/_/g, ' ') : 'RO Machine',
       unitsSold: 0,
-      revenue: formatCurrency(Number(prod.unitPrice || 0)),
-      rawRevenue: Number(prod.unitPrice || 0),
+      revenue: formatCurrency(0),
+      rawRevenue: 0,
       growth: 0,
-      sharePercentage: Math.round(100 / catalogProducts.length),
+      sharePercentage: 0,
     }));
   }
 

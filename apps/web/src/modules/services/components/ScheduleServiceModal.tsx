@@ -15,6 +15,15 @@ export interface ScheduleServiceModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialDate?: string; // Pre-populate if clicked from Heatmap
+  initialCustomerId?: string; // Auto-select customer (e.g. from customer profile)
+  initialCustomer?: {
+    id: string;
+    fullName: string;
+    phone?: string;
+    customerNumber?: string;
+    companyName?: string;
+  };
+  initialAssetId?: string; // Auto-select asset if specified
 }
 
 function getSystemDateString(d = new Date()): string {
@@ -28,11 +37,14 @@ export const ScheduleServiceModal: React.FC<ScheduleServiceModalProps> = ({
   isOpen,
   onClose,
   initialDate,
+  initialCustomerId,
+  initialCustomer,
+  initialAssetId,
 }) => {
   const [customerSearch, setCustomerSearch] = useState('');
   const [formData, setFormData] = useState<Partial<CreateServiceInput>>({
-    customerId: '',
-    assetId: '',
+    customerId: initialCustomerId || initialCustomer?.id || '',
+    assetId: initialAssetId || '',
     serviceType: 'PERIODIC_MAINTENANCE',
     serviceLocation: 'DOORSTEP',
     serviceClassification: 'GENERAL',
@@ -55,18 +67,21 @@ export const ScheduleServiceModal: React.FC<ScheduleServiceModalProps> = ({
     return () => clearTimeout(handler);
   }, [customerSearch]);
 
-  // Sync initial date or system date whenever modal opens
+  // Sync initial date, initial customer, or system date whenever modal opens
   useEffect(() => {
     if (isOpen) {
+      const effectiveCustId = initialCustomerId || initialCustomer?.id || '';
       setFormData((prev) => ({
         ...prev,
+        customerId: effectiveCustId || prev.customerId || '',
+        assetId: initialAssetId || (effectiveCustId && effectiveCustId !== prev.customerId ? '' : prev.assetId) || '',
         scheduledDate: initialDate || getSystemDateString(),
         scheduledTimeSlot: prev.scheduledTimeSlot || '10:00 AM - 12:00 PM',
       }));
       setCustomerSearch('');
       setFormError(null);
     }
-  }, [isOpen, initialDate]);
+  }, [isOpen, initialDate, initialCustomerId, initialCustomer, initialAssetId]);
 
   // Queries for customers, assets, technicians
   const { data: customersData, isLoading: isLoadingCustomers } = useCustomersQuery({
@@ -91,13 +106,24 @@ export const ScheduleServiceModal: React.FC<ScheduleServiceModalProps> = ({
     const raw = customersData?.data || [];
     const list = [...raw];
 
+    const currentCustId = formData.customerId || initialCustomerId || initialCustomer?.id;
     // If a customer is currently selected and not present in the current search query page, preserve them
-    if (formData.customerId && customerDetail && !list.some((c) => c.id === formData.customerId)) {
-      list.unshift(customerDetail as any);
+    if (currentCustId && !list.some((c) => c.id === currentCustId)) {
+      if (customerDetail && customerDetail.id === currentCustId) {
+        list.unshift(customerDetail as any);
+      } else if (initialCustomer && initialCustomer.id === currentCustId) {
+        list.unshift({
+          id: initialCustomer.id,
+          fullName: initialCustomer.fullName,
+          phone: initialCustomer.phone || '',
+          customerNumber: initialCustomer.customerNumber || '',
+          companyName: initialCustomer.companyName || '',
+        } as any);
+      }
     }
 
     return list;
-  }, [customersData, formData.customerId, customerDetail]);
+  }, [customersData, formData.customerId, initialCustomerId, initialCustomer, customerDetail]);
 
   const filteredCustomerList = React.useMemo(() => {
     if (!customerSearch.trim()) return customerList;
@@ -152,13 +178,15 @@ export const ScheduleServiceModal: React.FC<ScheduleServiceModalProps> = ({
   // Auto-select asset when customer assets load
   useEffect(() => {
     if (formData.customerId) {
-      if (assetList.length > 0 && (!formData.assetId || formData.assetId === 'DEFAULT_RO_PURIFIER')) {
+      if (initialAssetId && assetList.some((a) => a.id === initialAssetId)) {
+        setFormData((prev) => ({ ...prev, assetId: initialAssetId }));
+      } else if (assetList.length > 0 && (!formData.assetId || formData.assetId === 'DEFAULT_RO_PURIFIER')) {
         setFormData((prev) => ({ ...prev, assetId: assetList[0].id }));
       } else if (assetList.length === 0 && !isLoadingAssets) {
         setFormData((prev) => ({ ...prev, assetId: 'DEFAULT_RO_PURIFIER' }));
       }
     }
-  }, [formData.customerId, assetList, isLoadingAssets]);
+  }, [formData.customerId, assetList, isLoadingAssets, initialAssetId]);
 
   const handleCustomerChange = (custId: string) => {
     setFormData((prev) => ({
@@ -221,6 +249,8 @@ export const ScheduleServiceModal: React.FC<ScheduleServiceModalProps> = ({
   };
 
   const isBusy = isSubmitting || createMutation.isPending;
+
+  if (!isOpen) return null;
 
   return (
     <Modal

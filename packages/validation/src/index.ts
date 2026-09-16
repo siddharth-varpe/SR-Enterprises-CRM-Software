@@ -695,9 +695,30 @@ export const CreateServiceSchema = z.object({
 });
 export type CreateServiceInput = z.infer<typeof CreateServiceSchema>;
 
-export const UpdateServiceSchema = CreateServiceSchema.partial().extend({
+export const UpdateServiceSchema = z.object({
+  customerId: z.string().uuid('Invalid customer ID').optional(),
+  assetId: z.string().optional().nullable().or(z.literal('')),
+  warrantyId: z.string().uuid('Invalid warranty ID').optional().nullable().or(z.literal('')),
+  serviceType: z.enum(['INSTALLATION', 'REPAIR', 'PERIODIC_MAINTENANCE', 'EMERGENCY', 'SPARE_REPLACEMENT']).optional(),
+  serviceLocation: z.enum(['DOORSTEP', 'IN_SHOP']).optional(),
+  serviceClassification: z.enum(['GENERAL', 'WARRANTY']).optional(),
+  scheduledDate: z.string().optional(),
+  scheduledTimeSlot: z.string().optional().nullable(),
+  priority: z.enum(['LOW', 'NORMAL', 'HIGH', 'URGENT']).optional(),
+  customerNotes: z.string().optional().nullable(),
+  internalNotes: z.string().optional().nullable(),
+  technicianId: z.string().uuid('Invalid technician ID').optional().nullable().or(z.literal('')),
   status: z.enum(['SCHEDULED', 'ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'OVERDUE']).optional(),
   cancelReason: z.string().optional().nullable(),
+  // Job card execution fields
+  diagnosis: z.string().optional().nullable(),
+  workPerformed: z.string().optional().nullable(),
+  technicianNotes: z.string().optional().nullable(),
+  customerRemarks: z.string().optional().nullable(),
+  laborCharges: z.coerce.number().optional().nullable(),
+  partsCharges: z.coerce.number().optional().nullable(),
+  totalCharges: z.coerce.number().optional().nullable(),
+  partsReplaced: z.array(z.any()).optional(),
 });
 export type UpdateServiceInput = z.infer<typeof UpdateServiceSchema>;
 
@@ -1304,6 +1325,15 @@ export const CreateInventoryPurchaseSchema = z.object({
 });
 export type CreateInventoryPurchaseInput = z.infer<typeof CreateInventoryPurchaseSchema>;
 
+export const UpdateInventoryPurchaseSchema = z.object({
+  supplierName: z.string().optional().nullable(),
+  purchaseDate: z.string().min(1, 'Purchase date is required').optional(),
+  quantity: z.coerce.number().int().min(1, 'Quantity must be at least 1').optional(),
+  purchasePricePerUnit: z.coerce.number().min(0, 'Purchase cost per unit must be >= 0').optional(),
+  notes: z.string().optional().nullable(),
+});
+export type UpdateInventoryPurchaseInput = z.infer<typeof UpdateInventoryPurchaseSchema>;
+
 export const InventoryPurchaseQueryFilterSchema = z.object({
   itemId: z.string().uuid().optional(),
   dateFrom: z.string().optional(),
@@ -1315,7 +1345,7 @@ export type InventoryPurchaseQueryFilter = z.infer<typeof InventoryPurchaseQuery
 
 export const CreateInventorySaleSchema = z.object({
   itemId: z.string().uuid('Invalid inventory item ID'),
-  customerId: z.string().uuid('Invalid customer ID').optional().nullable(),
+  customerId: z.union([z.string().uuid('Invalid customer ID'), z.literal('')]).optional().nullable(),
   customerName: z.string().optional().nullable(),
   customerPhone: z.string().optional().nullable(),
   saleDate: z.string().min(1, 'Sale date is required'),
@@ -1325,6 +1355,18 @@ export const CreateInventorySaleSchema = z.object({
   notes: z.string().optional().nullable(),
 });
 export type CreateInventorySaleInput = z.infer<typeof CreateInventorySaleSchema>;
+
+export const UpdateInventorySaleSchema = z.object({
+  customerId: z.union([z.string().uuid('Invalid customer ID'), z.literal('')]).optional().nullable(),
+  customerName: z.string().optional().nullable(),
+  customerPhone: z.string().optional().nullable(),
+  saleDate: z.string().min(1, 'Sale date is required').optional(),
+  quantity: z.coerce.number().int().min(1, 'Quantity must be at least 1').optional(),
+  sellingPricePerUnit: z.coerce.number().min(0, 'Selling price per unit must be >= 0').optional(),
+  paymentStatus: z.enum(['COMPLETED', 'PENDING']).optional(),
+  notes: z.string().optional().nullable(),
+});
+export type UpdateInventorySaleInput = z.infer<typeof UpdateInventorySaleSchema>;
 
 export const InventorySaleQueryFilterSchema = z.object({
   itemId: z.string().uuid().optional(),

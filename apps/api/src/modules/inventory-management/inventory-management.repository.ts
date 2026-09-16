@@ -14,8 +14,10 @@ import type {
   UpdateInventoryItemInput,
   InventoryItemQueryFilter,
   CreateInventoryPurchaseInput,
+  UpdateInventoryPurchaseInput,
   InventoryPurchaseQueryFilter,
   CreateInventorySaleInput,
+  UpdateInventorySaleInput,
   InventorySaleQueryFilter,
   InventoryAnalyticsFilter,
   InventoryProfitLedgerFilter,
@@ -507,6 +509,197 @@ export class InventoryManagementRepository {
     };
   }
 
+  async getPurchaseById(id: string) {
+    try {
+      const [row] = await db
+        .select({
+          id: inventoryPurchases.id,
+          purchaseNumber: inventoryPurchases.purchaseNumber,
+          itemId: inventoryPurchases.itemId,
+          itemName: inventoryItems.name,
+          category: inventoryItems.category,
+          brand: inventoryItems.brand,
+          partNumber: inventoryItems.partNumber,
+          supplierName: inventoryPurchases.supplierName,
+          purchaseDate: inventoryPurchases.purchaseDate,
+          quantity: inventoryPurchases.quantity,
+          remainingQuantity: inventoryPurchases.remainingQuantity,
+          purchasePricePerUnit: inventoryPurchases.purchasePricePerUnit,
+          totalAmount: inventoryPurchases.totalAmount,
+          notes: inventoryPurchases.notes,
+          createdAt: inventoryPurchases.createdAt,
+          updatedAt: inventoryPurchases.updatedAt,
+        })
+        .from(inventoryPurchases)
+        .innerJoin(inventoryItems, eq(inventoryPurchases.itemId, inventoryItems.id))
+        .where(eq(inventoryPurchases.id, id));
+
+      if (row) return row;
+    } catch (err) {
+      console.warn('[InventoryManagementRepository.getPurchaseById] DB query notice:', err);
+    }
+
+    const mem = memoryPurchases.find((p) => p.id === id);
+    if (mem) {
+      const item = memoryInventoryItems.find((i) => i.id === mem.itemId);
+      return {
+        ...mem,
+        itemName: item?.name || 'Inventory Item',
+        category: item?.category || 'Spare Part',
+        brand: item?.brand || null,
+        partNumber: item?.partNumber || null,
+      };
+    }
+
+    return null;
+  }
+
+  async updatePurchase(id: string, input: UpdateInventoryPurchaseInput) {
+    const existing = await this.getPurchaseById(id);
+    if (!existing) {
+      throw new Error('Purchase record not found');
+    }
+
+    const oldQty = Number(existing.quantity);
+    const newQty = input.quantity !== undefined ? Number(input.quantity) : oldQty;
+    const deltaQty = newQty - oldQty;
+
+    const unitCost =
+      input.purchasePricePerUnit !== undefined
+        ? Number(input.purchasePricePerUnit)
+        : Number(existing.purchasePricePerUnit);
+    const totalAmount = this.round(newQty * unitCost);
+    const now = new Date();
+    const purchaseDate = input.purchaseDate ? new Date(input.purchaseDate) : new Date(existing.purchaseDate);
+
+    // Stock check if decreasing purchase quantity
+    if (deltaQty < 0) {
+      const item = await this.getItemById(existing.itemId);
+      const currentStock = Number(item?.currentStock || 0);
+      if (currentStock + deltaQty < 0) {
+        throw new Error(
+          `Cannot reduce purchase quantity by ${Math.abs(deltaQty)}. Available item stock is only ${currentStock}.`
+        );
+      }
+    }
+
+    const updateFields: any = {
+      quantity: newQty,
+      purchasePricePerUnit: unitCost.toFixed(2),
+      totalAmount: totalAmount.toFixed(2),
+      purchaseDate,
+      updatedAt: now,
+    };
+
+    if (input.supplierName !== undefined) {
+      updateFields.supplierName = input.supplierName?.trim() || null;
+    }
+    if (input.notes !== undefined) {
+      updateFields.notes = input.notes?.trim() || null;
+    }
+
+    let updatedPurchase: any = null;
+
+    try {
+      await db.transaction(async (tx) => {
+        const [updated] = await tx
+          .update(inventoryPurchases)
+          .set({
+            ...updateFields,
+            remainingQuantity: sql`GREATEST(0, LEAST(${newQty}, ${inventoryPurchases.remainingQuantity} + ${deltaQty}))`,
+          })
+          .where(eq(inventoryPurchases.id, id))
+          .returning();
+
+        updatedPurchase = updated;
+
+        await tx
+          .update(inventoryItems)
+          .set({
+            currentStock: sql`${inventoryItems.currentStock} + ${deltaQty}`,
+            purchasePrice: unitCost.toFixed(2),
+            updatedAt: now,
+          })
+          .where(eq(inventoryItems.id, existing.itemId));
+      });
+    } catch (err: any) {
+      if (err.message && err.message.includes('Cannot reduce purchase quantity')) {
+        throw err;
+      }
+      console.warn('[InventoryManagementRepository.updatePurchase] DB notice, using memory fallback:', err);
+    }
+
+    const memIndex = memoryPurchases.findIndex((p) => p.id === id);
+    if (memIndex !== -1) {
+      memoryPurchases[memIndex] = {
+        ...memoryPurchases[memIndex],
+        ...updateFields,
+        remainingQuantity: Math.max(0, Math.min(newQty, (memoryPurchases[memIndex].remainingQuantity || 0) + deltaQty)),
+      };
+      if (!updatedPurchase) updatedPurchase = memoryPurchases[memIndex];
+    }
+
+    const memItem = memoryInventoryItems.find((i) => i.id === existing.itemId);
+    if (memItem) {
+      memItem.currentStock = Math.max(0, (memItem.currentStock || 0) + deltaQty);
+      memItem.purchasePrice = unitCost.toFixed(2);
+      memItem.updatedAt = now;
+    }
+
+    return await this.getPurchaseById(id);
+  }
+
+  async deletePurchase(id: string) {
+    const existing = await this.getPurchaseById(id);
+    if (!existing) {
+      throw new Error('Purchase record not found');
+    }
+
+    const qty = Number(existing.quantity);
+    const item = await this.getItemById(existing.itemId);
+    const currentStock = Number(item?.currentStock || 0);
+
+    if (currentStock < qty) {
+      throw new Error(
+        `Cannot delete purchase: Available stock (${currentStock}) is less than purchase quantity (${qty}). Some units have already been sold.`
+      );
+    }
+
+    const now = new Date();
+
+    try {
+      await db.transaction(async (tx) => {
+        await tx
+          .update(inventoryItems)
+          .set({
+            currentStock: sql`GREATEST(0, ${inventoryItems.currentStock} - ${qty})`,
+            updatedAt: now,
+          })
+          .where(eq(inventoryItems.id, existing.itemId));
+
+        await tx.delete(inventoryPurchases).where(eq(inventoryPurchases.id, id));
+      });
+    } catch (err: any) {
+      if (err.message && err.message.includes('Cannot delete purchase')) {
+        throw err;
+      }
+      console.warn('[InventoryManagementRepository.deletePurchase] DB notice, using memory fallback:', err);
+    }
+
+    const memIndex = memoryPurchases.findIndex((p) => p.id === id);
+    if (memIndex !== -1) {
+      memoryPurchases.splice(memIndex, 1);
+    }
+
+    const memItem = memoryInventoryItems.find((i) => i.id === existing.itemId);
+    if (memItem) {
+      memItem.currentStock = Math.max(0, (memItem.currentStock || 0) - qty);
+      memItem.updatedAt = now;
+    }
+
+    return { success: true, message: 'Purchase record deleted and stock updated successfully' };
+  }
+
   // =========================================================================
   // SALES (OUTWARD STOCK WITH STRICT FIFO COST ALLOCATION)
   // =========================================================================
@@ -530,6 +723,10 @@ export class InventoryManagementRepository {
 
     const itemBasePrice = Number(currentItem.purchasePrice || 0);
     let saleRecord: any = null;
+
+    const cleanCustomerId = input.customerId && typeof input.customerId === 'string' && input.customerId.trim() !== '' ? input.customerId.trim() : null;
+    const cleanCustomerName = input.customerName && typeof input.customerName === 'string' && input.customerName.trim() !== '' ? input.customerName.trim() : null;
+    const cleanCustomerPhone = input.customerPhone && typeof input.customerPhone === 'string' && input.customerPhone.trim() !== '' ? input.customerPhone.trim() : null;
 
     try {
       saleRecord = await db.transaction(async (tx) => {
@@ -582,9 +779,9 @@ export class InventoryManagementRepository {
             id: saleId,
             saleNumber,
             itemId: input.itemId,
-            customerId: input.customerId || null,
-            customerName: input.customerName?.trim() || null,
-            customerPhone: input.customerPhone?.trim() || null,
+            customerId: cleanCustomerId,
+            customerName: cleanCustomerName,
+            customerPhone: cleanCustomerPhone,
             saleDate,
             quantity: qty,
             sellingPricePerUnit: sellingPrice.toFixed(2),
@@ -625,9 +822,9 @@ export class InventoryManagementRepository {
         id: saleId,
         saleNumber,
         itemId: input.itemId,
-        customerId: input.customerId || null,
-        customerName: input.customerName?.trim() || null,
-        customerPhone: input.customerPhone?.trim() || null,
+        customerId: cleanCustomerId,
+        customerName: cleanCustomerName,
+        customerPhone: cleanCustomerPhone,
         saleDate,
         quantity: qty,
         sellingPricePerUnit: sellingPrice.toFixed(2),
@@ -743,6 +940,205 @@ export class InventoryManagementRepository {
         totalPages: Math.ceil(total / limit) || 1,
       },
     };
+  }
+
+  async getSaleById(id: string) {
+    try {
+      const [row] = await db
+        .select({
+          id: inventorySales.id,
+          saleNumber: inventorySales.saleNumber,
+          itemId: inventorySales.itemId,
+          itemName: inventoryItems.name,
+          category: inventoryItems.category,
+          brand: inventoryItems.brand,
+          partNumber: inventoryItems.partNumber,
+          customerId: inventorySales.customerId,
+          customerName: inventorySales.customerName,
+          customerPhone: inventorySales.customerPhone,
+          saleDate: inventorySales.saleDate,
+          quantity: inventorySales.quantity,
+          sellingPricePerUnit: inventorySales.sellingPricePerUnit,
+          purchaseCostPerUnit: inventorySales.purchaseCostPerUnit,
+          totalSaleAmount: inventorySales.totalSaleAmount,
+          totalCostAmount: inventorySales.totalCostAmount,
+          profit: inventorySales.profit,
+          paymentStatus: inventorySales.paymentStatus,
+          notes: inventorySales.notes,
+          createdAt: inventorySales.createdAt,
+          updatedAt: inventorySales.updatedAt,
+        })
+        .from(inventorySales)
+        .innerJoin(inventoryItems, eq(inventorySales.itemId, inventoryItems.id))
+        .where(eq(inventorySales.id, id));
+
+      if (row) return row;
+    } catch (err) {
+      console.warn('[InventoryManagementRepository.getSaleById] DB query notice:', err);
+    }
+
+    const mem = memorySales.find((s) => s.id === id);
+    if (mem) {
+      const item = memoryInventoryItems.find((i) => i.id === mem.itemId);
+      return {
+        ...mem,
+        itemName: item?.name || 'Inventory Item',
+        category: item?.category || 'Spare Part',
+        brand: item?.brand || null,
+        partNumber: item?.partNumber || null,
+      };
+    }
+
+    return null;
+  }
+
+  async updateSale(id: string, input: UpdateInventorySaleInput) {
+    const existing = await this.getSaleById(id);
+    if (!existing) {
+      throw new Error('Sale record not found');
+    }
+
+    const oldQty = Number(existing.quantity);
+    const newQty = input.quantity !== undefined ? Number(input.quantity) : oldQty;
+    const deltaQty = newQty - oldQty;
+
+    // Stock check if increasing sale quantity
+    if (deltaQty > 0) {
+      const item = await this.getItemById(existing.itemId);
+      const currentStock = Number(item?.currentStock || 0);
+      if (currentStock < deltaQty) {
+        throw new Error(
+          `Insufficient stock. Need additional ${deltaQty} units, but only ${currentStock} available.`
+        );
+      }
+    }
+
+    const sellingPrice =
+      input.sellingPricePerUnit !== undefined
+        ? Number(input.sellingPricePerUnit)
+        : Number(existing.sellingPricePerUnit);
+
+    const existingUnitCost = Number(existing.purchaseCostPerUnit || 0);
+    const unitCost = existingUnitCost > 0 ? existingUnitCost : Number((await this.getItemById(existing.itemId))?.purchasePrice || 0);
+    const totalSaleAmount = this.round(newQty * sellingPrice);
+    const totalCostAmount = this.round(newQty * unitCost);
+    const profit = this.round(totalSaleAmount - totalCostAmount);
+    const now = new Date();
+    const saleDate = input.saleDate ? new Date(input.saleDate) : new Date(existing.saleDate);
+
+    const updateFields: any = {
+      quantity: newQty,
+      sellingPricePerUnit: sellingPrice.toFixed(2),
+      purchaseCostPerUnit: unitCost.toFixed(2),
+      totalSaleAmount: totalSaleAmount.toFixed(2),
+      totalCostAmount: totalCostAmount.toFixed(2),
+      profit: profit.toFixed(2),
+      saleDate,
+      updatedAt: now,
+    };
+
+    if (input.customerId !== undefined) {
+      updateFields.customerId = input.customerId && input.customerId.trim() !== '' ? input.customerId.trim() : null;
+    }
+    if (input.customerName !== undefined) {
+      updateFields.customerName = input.customerName && input.customerName.trim() !== '' ? input.customerName.trim() : null;
+    }
+    if (input.customerPhone !== undefined) {
+      updateFields.customerPhone = input.customerPhone && input.customerPhone.trim() !== '' ? input.customerPhone.trim() : null;
+    }
+    if (input.paymentStatus !== undefined) {
+      updateFields.paymentStatus = input.paymentStatus;
+    }
+    if (input.notes !== undefined) {
+      updateFields.notes = input.notes?.trim() || null;
+    }
+
+    let updatedSale: any = null;
+
+    try {
+      await db.transaction(async (tx) => {
+        const [updated] = await tx
+          .update(inventorySales)
+          .set(updateFields)
+          .where(eq(inventorySales.id, id))
+          .returning();
+
+        updatedSale = updated;
+
+        if (deltaQty !== 0) {
+          await tx
+            .update(inventoryItems)
+            .set({
+              currentStock: sql`${inventoryItems.currentStock} - ${deltaQty}`,
+              updatedAt: now,
+            })
+            .where(eq(inventoryItems.id, existing.itemId));
+        }
+      });
+    } catch (err: any) {
+      if (err.message && err.message.includes('Insufficient stock')) {
+        throw err;
+      }
+      console.warn('[InventoryManagementRepository.updateSale] DB notice, using memory fallback:', err);
+    }
+
+    const memIndex = memorySales.findIndex((s) => s.id === id);
+    if (memIndex !== -1) {
+      memorySales[memIndex] = {
+        ...memorySales[memIndex],
+        ...updateFields,
+      };
+      if (!updatedSale) updatedSale = memorySales[memIndex];
+    }
+
+    if (deltaQty !== 0) {
+      const memItem = memoryInventoryItems.find((i) => i.id === existing.itemId);
+      if (memItem) {
+        memItem.currentStock = Math.max(0, (memItem.currentStock || 0) - deltaQty);
+        memItem.updatedAt = now;
+      }
+    }
+
+    return await this.getSaleById(id);
+  }
+
+  async deleteSale(id: string) {
+    const existing = await this.getSaleById(id);
+    if (!existing) {
+      throw new Error('Sale record not found');
+    }
+
+    const qtyToRestore = Number(existing.quantity);
+    const now = new Date();
+
+    try {
+      await db.transaction(async (tx) => {
+        await tx
+          .update(inventoryItems)
+          .set({
+            currentStock: sql`${inventoryItems.currentStock} + ${qtyToRestore}`,
+            updatedAt: now,
+          })
+          .where(eq(inventoryItems.id, existing.itemId));
+
+        await tx.delete(inventorySales).where(eq(inventorySales.id, id));
+      });
+    } catch (err) {
+      console.warn('[InventoryManagementRepository.deleteSale] DB notice, using memory fallback:', err);
+    }
+
+    const memIndex = memorySales.findIndex((s) => s.id === id);
+    if (memIndex !== -1) {
+      memorySales.splice(memIndex, 1);
+    }
+
+    const memItem = memoryInventoryItems.find((i) => i.id === existing.itemId);
+    if (memItem) {
+      memItem.currentStock = (memItem.currentStock || 0) + qtyToRestore;
+      memItem.updatedAt = now;
+    }
+
+    return { success: true, message: 'Sale record deleted and stock restored successfully' };
   }
 
   // =========================================================================

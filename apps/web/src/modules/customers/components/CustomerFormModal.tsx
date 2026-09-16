@@ -110,27 +110,6 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
   const emailValue = watch('email');
   const customerTypeValue = watch('customerType');
 
-  // Real-time duplicate phone checking on blur
-  const handleCheckDuplicatePhone = async () => {
-    if (phoneValue && phoneValue.length >= 10) {
-      try {
-        const result = await checkCustomerDuplicateApi({
-          phone: phoneValue,
-          excludeCustomerId: customer?.id,
-        });
-        if (result.isDuplicate && result.existingCustomer) {
-          setDuplicateWarning(
-            `A customer with phone ${phoneValue} already exists: ${result.existingCustomer.fullName} (${result.existingCustomer.customerNumber})`
-          );
-        } else {
-          setDuplicateWarning(null);
-        }
-      } catch {
-        // ignore network error on duplicate hint
-      }
-    }
-  };
-
   // Real-time duplicate email checking on blur
   const handleCheckDuplicateEmail = async () => {
     if (emailValue && emailValue.includes('@')) {
@@ -274,7 +253,6 @@ export const CustomerFormModal: React.FC<CustomerFormModalProps> = ({
               leftIcon={<Phone className="w-4 h-4" />}
               error={errors.phone?.message}
               {...register('phone')}
-              onBlur={handleCheckDuplicatePhone}
             />
 
             <Input

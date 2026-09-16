@@ -12,6 +12,7 @@ import {
   Receipt,
 } from 'lucide-react';
 import type { CustomerRecord } from './CustomerTable';
+import { formatDate } from '../../../lib/formatters';
 
 export interface CustomerDetailsPanelProps {
   customer: CustomerRecord;
@@ -298,7 +299,7 @@ export const CustomerDetailsPanel: React.FC<CustomerDetailsPanelProps> = ({
                   )}
                   {asset.purchaseDate && (
                     <span className="text-[11px] text-slate-500 block mt-0.5 font-mono">
-                      Installed: {new Date(asset.purchaseDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      Installed: {formatDate(asset.purchaseDate)}
                     </span>
                   )}
                 </div>
@@ -325,7 +326,7 @@ export const CustomerDetailsPanel: React.FC<CustomerDetailsPanelProps> = ({
                   <span className="text-[10px] font-bold text-emerald-700 font-mono">{srv.status}</span>
                 </div>
                 <span className="text-[11px] text-slate-500 block mt-0.5 font-mono">
-                  {new Date(srv.scheduledDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  {formatDate(srv.scheduledDate)}
                   {srv.technician ? ` • Tech: ${srv.technician.displayName || srv.technician.username}` : ''}
                 </span>
               </div>
@@ -349,7 +350,7 @@ export const CustomerDetailsPanel: React.FC<CustomerDetailsPanelProps> = ({
                 <div>
                   <span className="font-bold text-slate-900 font-mono block">{inv.invoiceNumber}</span>
                   <span className="text-[11px] text-slate-500 font-mono">
-                    {new Date(inv.invoiceDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    {formatDate(inv.invoiceDate)}
                   </span>
                 </div>
                 <div className="text-right">
@@ -381,7 +382,7 @@ export const CustomerDetailsPanel: React.FC<CustomerDetailsPanelProps> = ({
                 <div>
                   <span className="font-bold text-slate-900 font-mono block">{pmt.paymentNumber || 'Receipt'}</span>
                   <span className="text-[11px] text-slate-500 font-mono">
-                    {new Date(pmt.paymentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} • {pmt.paymentMethod}
+                    {formatDate(pmt.paymentDate)} • {pmt.paymentMethod}
                   </span>
                 </div>
                 <span className="font-bold text-emerald-700 font-mono">
