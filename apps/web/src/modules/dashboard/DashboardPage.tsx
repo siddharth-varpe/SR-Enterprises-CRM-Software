@@ -76,14 +76,24 @@ export const DashboardPage: React.FC = () => {
         });
     };
 
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'crm_dashboard_refresh_tick') {
+        fetchOverview();
+      }
+    };
+
     fetchOverview();
     const interval = setInterval(fetchOverview, 15000);
     window.addEventListener('focus', fetchOverview);
+    window.addEventListener('crm_dashboard_refresh', fetchOverview);
+    window.addEventListener('storage', handleStorage);
 
     return () => {
       isMounted = false;
       clearInterval(interval);
       window.removeEventListener('focus', fetchOverview);
+      window.removeEventListener('crm_dashboard_refresh', fetchOverview);
+      window.removeEventListener('storage', handleStorage);
     };
   }, []);
 

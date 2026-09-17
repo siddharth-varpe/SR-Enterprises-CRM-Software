@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api-client';
+import { resetDashboardCache } from '../dashboard/DashboardPage';
 import type {
   TechnicianQueryFilter,
   CreateTechnicianInput,
@@ -104,6 +105,22 @@ export function useTechnicianKPIsQuery() {
 }
 
 /**
+ * Helper to synchronize technician counts across Technician roster and Dashboard
+ */
+function notifyTechnicianChanged(queryClient: ReturnType<typeof useQueryClient>) {
+  resetDashboardCache();
+  try {
+    localStorage.setItem('crm_dashboard_refresh_tick', String(Date.now()));
+  } catch {}
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('crm_dashboard_refresh'));
+  }
+  queryClient.invalidateQueries({ queryKey: ['technicians'] });
+  queryClient.invalidateQueries({ queryKey: ['services', 'technicians'] });
+  queryClient.refetchQueries({ queryKey: ['technicians', 'kpis'] });
+}
+
+/**
  * Mutation to create a technician
  */
 export function useCreateTechnicianMutation() {
@@ -114,8 +131,7 @@ export function useCreateTechnicianMutation() {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['technicians'] });
-      queryClient.invalidateQueries({ queryKey: ['services', 'technicians'] });
+      notifyTechnicianChanged(queryClient);
     },
   });
 }
@@ -131,8 +147,7 @@ export function useUpdateTechnicianMutation() {
       return response.data;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['technicians'] });
-      queryClient.invalidateQueries({ queryKey: ['services', 'technicians'] });
+      notifyTechnicianChanged(queryClient);
       queryClient.invalidateQueries({ queryKey: ['technician', variables.id] });
     },
   });
@@ -149,8 +164,7 @@ export function useDeleteTechnicianMutation() {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['technicians'] });
-      queryClient.invalidateQueries({ queryKey: ['services', 'technicians'] });
+      notifyTechnicianChanged(queryClient);
     },
   });
 }
